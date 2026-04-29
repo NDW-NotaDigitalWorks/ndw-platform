@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getMyCoreAccessState } from "@/modules/core/server/core-access";
 import { getMyActiveModuleKeys } from "@/modules/core/server/module-entitlements";
 import { getEnabledModules } from "@/modules/registry/registry.queries";
-import { redirect } from "next/navigation";
+import { theme } from "@/styles/theme";
+import { ui } from "@/styles/ui";
 
 function isOwnerRole(role: string | null | undefined): boolean {
   return role?.trim().toLowerCase() === "owner";
@@ -38,95 +40,88 @@ export default async function AppLayout({
       style={{
         display: "flex",
         minHeight: "100vh",
-        background: "#f8fafc",
-        color: "#0f172a",
+        background: theme.colors.background,
+        color: theme.colors.text,
       }}
     >
       <aside
         style={{
-          width: 260,
+          width: 280,
           padding: 24,
-          background: "#ffffff",
-          borderRight: "1px solid #e5e7eb",
+          background: theme.colors.card,
+          borderRight: `1px solid ${theme.colors.border}`,
         }}
       >
-        <div>
-          <strong style={{ fontSize: 20 }}>NDW Core</strong>
-          <p style={{ marginTop: 4, fontSize: 13, color: "#64748b" }}>
+        <Link href="/app" style={{ textDecoration: "none", color: "inherit" }}>
+          <strong style={{ fontSize: 22 }}>NDW Core</strong>
+          <p style={{ marginTop: 4, fontSize: 13, color: theme.colors.textMuted }}>
             Nota Digital Works
           </p>
-        </div>
+        </Link>
 
-        <nav style={{ marginTop: 32 }}>
-          <p
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: "#64748b",
-              textTransform: "uppercase",
-              marginBottom: 12,
-            }}
-          >
-            Workspace
-          </p>
+        <nav style={{ marginTop: 34 }}>
+          <p style={ui.page.eyebrow}>Workspace</p>
 
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+          <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 0" }}>
             <li>
-              <Link href="/app">Dashboard</Link>
+              <Link href="/app" style={ui.button.secondary}>
+                Dashboard
+              </Link>
             </li>
 
             {visibleModules.map((module) => (
-              <li key={module.key} style={{ marginTop: 12 }}>
-                <Link href={module.href}>{module.navLabel}</Link>
+              <li key={module.key} style={{ marginTop: 10 }}>
+                <Link href={module.href} style={ui.button.secondary}>
+                  {module.navLabel}
+                </Link>
               </li>
             ))}
           </ul>
 
           {isOwner ? (
-            <div style={{ marginTop: 32 }}>
-              <p
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                  marginBottom: 12,
-                }}
-              >
-                Admin
-              </p>
+            <div style={{ marginTop: 34 }}>
+              <p style={ui.page.eyebrow}>Admin</p>
 
-              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 0" }}>
                 <li>
-                  <Link href="/app/admin/entitlements">Entitlements</Link>
+                  <Link href="/app/admin/entitlements" style={ui.button.secondary}>
+                    Entitlements
+                  </Link>
                 </li>
               </ul>
             </div>
           ) : null}
         </nav>
 
-        <div
-          style={{
-            marginTop: 40,
-            paddingTop: 20,
-            borderTop: "1px solid #e5e7eb",
-          }}
-        >
-          <p style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>
+        <div style={{ marginTop: 40, ...ui.card.base, padding: 18 }}>
+          <p style={{ margin: 0, fontSize: 12, color: theme.colors.textMuted }}>
             Account
           </p>
-          <p style={{ fontSize: 13, margin: 0 }}>{access.user?.email}</p>
-          <p style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+
+          <p
+            style={{
+              margin: "6px 0 0",
+              fontSize: 13,
+              fontWeight: 700,
+              wordBreak: "break-word",
+            }}
+          >
+            {access.user?.email}
+          </p>
+
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: theme.colors.textMuted }}>
             Ruolo: {access.profile?.role}
           </p>
 
           <form action="/auth/logout" method="post" style={{ marginTop: 16 }}>
-            <button type="submit">Logout</button>
+            <button type="submit" style={ui.button.secondary}>
+              Logout
+            </button>
           </form>
         </div>
       </aside>
 
-      <main style={{ flex: 1, padding: 32 }}>{children}</main>
+      <main style={{ flex: 1, padding: 36 }}>{children}</main>
     </div>
   );
 }

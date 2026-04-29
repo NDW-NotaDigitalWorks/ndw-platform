@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { getCoreWorkspaceData } from "@/modules/core/workspace/workspace.queries";
+import { theme } from "@/styles/theme";
+import { ui } from "@/styles/ui";
 
 type AppPageProps = {
   searchParams: Promise<{
@@ -16,11 +18,10 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     params.accessDenied === "1" || params["access-denied"] === "1";
 
   return (
-    <section>
-      <div>
-        <h1 style={{ fontSize: 32, marginBottom: 8 }}>{workspace.title}</h1>
-        <p style={{ color: "#64748b", marginTop: 0 }}>{workspace.subtitle}</p>
-      </div>
+    <section style={ui.page.section}>
+      <p style={ui.page.eyebrow}>Workspace</p>
+      <h1 style={ui.page.title}>{workspace.title}</h1>
+      <p style={ui.page.subtitle}>{workspace.subtitle}</p>
 
       {showAccessDenied ? (
         <div
@@ -37,15 +38,14 @@ export default async function AppPage({ searchParams }: AppPageProps) {
         </div>
       ) : null}
 
-      <div style={{ marginTop: 32 }}>
-        <h2 style={{ fontSize: 20 }}>Moduli NDW</h2>
+      <div style={{ marginTop: 36 }}>
+        <h2 style={ui.page.sectionTitle}>Moduli NDW</h2>
 
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
             gap: 16,
-            marginTop: 16,
           }}
         >
           {workspace.modules.map((module) => {
@@ -58,14 +58,11 @@ export default async function AppPage({ searchParams }: AppPageProps) {
                 key={module.key}
                 href={targetHref}
                 style={{
+                  ...ui.card.base,
                   display: "block",
-                  padding: 20,
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 16,
-                  background: "#ffffff",
                   textDecoration: "none",
                   color: "inherit",
-                  opacity: module.hasAccess ? 1 : 0.78,
+                  opacity: module.hasAccess ? 1 : 0.82,
                 }}
               >
                 <div
@@ -76,7 +73,7 @@ export default async function AppPage({ searchParams }: AppPageProps) {
                     alignItems: "center",
                   }}
                 >
-                  <strong>{module.name}</strong>
+                  <strong style={{ fontSize: 18 }}>{module.name}</strong>
 
                   <span
                     style={{
@@ -85,26 +82,42 @@ export default async function AppPage({ searchParams }: AppPageProps) {
                       borderRadius: 999,
                       background: module.hasAccess ? "#ecfdf5" : "#fef3c7",
                       color: module.hasAccess ? "#047857" : "#92400e",
+                      fontWeight: 800,
                     }}
                   >
                     {module.hasAccess ? "Attivo" : "Upgrade"}
                   </span>
                 </div>
 
-                <p style={{ marginTop: 8, color: "#64748b" }}>
+                <p
+                  style={{
+                    marginTop: 10,
+                    color: theme.colors.textMuted,
+                    lineHeight: 1.6,
+                  }}
+                >
                   {module.description}
-                </p>
-
-                <p style={{ marginTop: 12, fontSize: 13, color: "#64748b" }}>
-                  Piano: {module.requiredPlan}
                 </p>
 
                 <p
                   style={{
-                    marginTop: 16,
+                    marginTop: 14,
+                    fontSize: 13,
+                    color: theme.colors.textMuted,
+                  }}
+                >
+                  Piano richiesto:{" "}
+                  <strong style={{ color: theme.colors.textSecondary }}>
+                    {module.requiredPlan}
+                  </strong>
+                </p>
+
+                <p
+                  style={{
+                    marginTop: 18,
                     fontSize: 14,
-                    fontWeight: 700,
-                    color: "#0f172a",
+                    fontWeight: 800,
+                    color: theme.colors.primary,
                   }}
                 >
                   {module.hasAccess ? "Apri modulo →" : "Sblocca modulo →"}

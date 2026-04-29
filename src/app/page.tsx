@@ -1,45 +1,109 @@
 import Link from "next/link";
+import { theme } from "@/styles/theme";
+
+const pageStyle: React.CSSProperties = {
+  minHeight: "100vh",
+  background: theme.colors.background,
+  color: theme.colors.text,
+  padding: "72px 24px",
+};
+
+const containerStyle: React.CSSProperties = {
+  maxWidth: 1040,
+  margin: "0 auto",
+};
+
+const eyebrowStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 13,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: 1.2,
+  color: theme.colors.primary,
+};
+
+const titleStyle: React.CSSProperties = {
+  margin: "16px 0 0",
+  maxWidth: 760,
+  fontSize: 56,
+  lineHeight: 1.02,
+  letterSpacing: "-0.04em",
+  color: theme.colors.text,
+};
+
+const subtitleStyle: React.CSSProperties = {
+  margin: "22px 0 0",
+  maxWidth: 640,
+  fontSize: 18,
+  lineHeight: 1.7,
+  color: theme.colors.textMuted,
+};
+
+const primaryLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "12px 18px",
+  borderRadius: 12,
+  background: theme.colors.primary,
+  color: "#ffffff",
+  fontSize: 14,
+  fontWeight: 800,
+  textDecoration: "none",
+};
+
+const secondaryLinkStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: "12px 18px",
+  borderRadius: 12,
+  background: theme.colors.card,
+  color: theme.colors.text,
+  border: `1px solid ${theme.colors.border}`,
+  fontSize: 14,
+  fontWeight: 700,
+  textDecoration: "none",
+};
+
+const cardStyle: React.CSSProperties = {
+  marginTop: 56,
+  padding: 28,
+  border: `1px solid ${theme.colors.border}`,
+  borderRadius: 24,
+  background: theme.colors.card,
+  boxShadow: "0 18px 50px rgba(15, 23, 42, 0.06)",
+};
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-slate-950 px-6 py-12 text-white">
-      <div className="mx-auto flex max-w-3xl flex-col gap-8">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-[0.2em] text-cyan-300">
-            NDW Core
-          </p>
+    <main style={pageStyle}>
+      <div style={containerStyle}>
+        <p style={eyebrowStyle}>NDW Core</p>
 
-          <h1 className="mt-4 text-4xl font-bold tracking-tight">
-            Modular SaaS platform
-          </h1>
+        <h1 style={titleStyle}>One workspace for business modules.</h1>
 
-          <p className="mt-4 max-w-xl text-slate-300">
-            NDW Core is the central workspace for modules, access management and
-            business tools.
-          </p>
+        <p style={subtitleStyle}>
+          NDW Core è la piattaforma centrale di Nota Digital Works: moduli,
+          accessi, strumenti operativi e workspace per micro-business,
+          freelance e operatori digitali.
+        </p>
+
+        <div style={{ marginTop: 32, display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <Link href="/login" style={primaryLinkStyle}>
+            Accedi
+          </Link>
+
+          <Link href="/app" style={secondaryLinkStyle}>
+            Apri workspace
+          </Link>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/login"
-            className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-slate-950"
-          >
-            Login
-          </Link>
-
-          <Link
-            href="/app"
-            className="rounded-xl border border-white/20 px-5 py-3 text-sm font-semibold text-white"
-          >
-            Open workspace
-          </Link>
-
-          <Link
-            href="/app/routepro"
-            className="rounded-xl border border-cyan-400/40 px-5 py-3 text-sm font-semibold text-cyan-200"
-          >
-            Test RoutePro
-          </Link>
+        <div style={cardStyle}>
+          <p style={{ margin: 0, color: theme.colors.textMuted, lineHeight: 1.7 }}>
+            Piattaforma modulare in fase di lancio. I moduli disponibili saranno
+            accessibili in base al piano e agli entitlement attivi sul tuo account.
+          </p>
         </div>
       </div>
     </main>

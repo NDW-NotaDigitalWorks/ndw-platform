@@ -94,3 +94,60 @@ export async function addManualRouteProStop(formData: FormData) {
   revalidatePath(`/app/routepro/${routeId}`);
   redirect(`/app/routepro/${routeId}`);
 }
+export async function addBulkRouteProStops(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const rawText = String(formData.get("bulk_addresses") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  if (!rawText) {
+    redirect(`/app/routepro/${routeId}?error=missing-address`);
+  }
+
+  const lines = rawText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) {
+    redirect(`/app/routepro/${routeId}?error=missing-address`);
+  }
+
+  const { count } = await supabase
+    .from("routepro_stops")
+    .select("id", { count: "exact", head: true })
+    .eq("route_id", routeId);
+
+  let nextPosition = (count ?? 0) + 1;
+
+  const rows = lines.map((address) => {
+    const row = {
+      route_id: routeId,
+      position: nextPosition,
+      original_position: nextPosition,
+      raw_text: address,
+      address,
+      status: "raw",
+      source: "paste",
+    };
+
+    nextPosition += 1;
+    return row;
+  });
+
+  const { error } = await supabase
+    .from("routepro_stops")
+    .insert(rows);
+
+  if (error) {
+    console.error("Bulk stop insert error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=add-stop-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}`);
+}

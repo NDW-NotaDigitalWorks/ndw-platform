@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { addManualRouteProStop } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { ui } from "@/styles/ui";
+import { addBulkRouteProStops } from "@/modules/routepro/server/routepro.actions";
 
 type Props = {
   params: Promise<{ routeId: string }>;
@@ -123,6 +124,35 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
           </div>
         </form>
       </div>
+
+      <div style={{ ...ui.card.base, marginTop: 24 }}>
+  <h2 style={ui.page.sectionTitle}>Incolla lista indirizzi</h2>
+
+  <form action={addBulkRouteProStops} style={formStyle}>
+    <input type="hidden" name="route_id" value={route.id} />
+
+    <label style={ui.form.label}>
+      Indirizzi (uno per riga)
+      <textarea
+        name="bulk_addresses"
+        rows={6}
+        placeholder={`Via Roma 10, Milano
+Via Torino 5, Milano
+Corso Buenos Aires 22, Milano`}
+        style={{
+          ...ui.form.input,
+          resize: "vertical",
+        }}
+      />
+    </label>
+
+    <div style={actionsStyle}>
+      <button type="submit" style={ui.button.primary}>
+        Importa lista
+      </button>
+    </div>
+  </form>
+</div>
 
       <div style={{ marginTop: 28 }}>
         <h2 style={ui.page.sectionTitle}>Stop importati</h2>

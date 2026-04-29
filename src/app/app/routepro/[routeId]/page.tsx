@@ -1,14 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { addManualRouteProStop } from "@/modules/routepro/server/routepro.actions";
+import {
+  addBulkRouteProStops,
+  addManualRouteProStop,
+  geocodeRouteProStops,
+} from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { ui } from "@/styles/ui";
-import { addBulkRouteProStops } from "@/modules/routepro/server/routepro.actions";
 
 type Props = {
   params: Promise<{ routeId: string }>;
   searchParams?: Promise<{
     error?: string;
+    geocoded?: string;
   }>;
 };
 
@@ -62,6 +66,15 @@ const errorStyle: React.CSSProperties = {
   fontWeight: 600,
 };
 
+const successStyle: React.CSSProperties = {
+  marginTop: 16,
+  padding: 12,
+  borderRadius: 12,
+  background: "#ecfdf5",
+  color: "#047857",
+  fontWeight: 600,
+};
+
 function getErrorMessage(error?: string): string | null {
   if (error === "missing-address") {
     return "Inserisci un indirizzo prima di aggiungere lo stop.";
@@ -71,6 +84,10 @@ function getErrorMessage(error?: string): string | null {
     return "Non siamo riusciti ad aggiungere lo stop. Riprova.";
   }
 
+  if (error === "geocode-failed") {
+    return "Non siamo riusciti a geocodificare gli stop. Riprova.";
+  }
+
   return null;
 }
 
@@ -78,6 +95,7 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
   const { routeId } = await params;
   const resolvedSearchParams = await searchParams;
   const errorMessage = getErrorMessage(resolvedSearchParams?.error);
+  const geocoded = resolvedSearchParams?.geocoded;
 
   const route = await getMyRouteProRouteDetail(routeId);
 
@@ -100,6 +118,12 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
       </div>
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
+
+      {geocoded === "1" ? (
+        <div style={successStyle}>
+          Geocoding completato. Controlla eventuali stop da rivedere.
+        </div>
+      ) : null}
 
       <div style={{ ...ui.card.base, marginTop: 24 }}>
         <h2 style={ui.page.sectionTitle}>Aggiungi stop manuale</h2>
@@ -126,33 +150,49 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
       </div>
 
       <div style={{ ...ui.card.base, marginTop: 24 }}>
-  <h2 style={ui.page.sectionTitle}>Incolla lista indirizzi</h2>
+        <h2 style={ui.page.sectionTitle}>Incolla lista indirizzi</h2>
 
-  <form action={addBulkRouteProStops} style={formStyle}>
-    <input type="hidden" name="route_id" value={route.id} />
+        <form action={addBulkRouteProStops} style={formStyle}>
+          <input type="hidden" name="route_id" value={route.id} />
 
-    <label style={ui.form.label}>
-      Indirizzi (uno per riga)
-      <textarea
-        name="bulk_addresses"
-        rows={6}
-        placeholder={`Via Roma 10, Milano
+          <label style={ui.form.label}>
+            Indirizzi uno per riga
+            <textarea
+              name="bulk_addresses"
+              rows={6}
+              placeholder={`Via Roma 10, Milano
 Via Torino 5, Milano
 Corso Buenos Aires 22, Milano`}
-        style={{
-          ...ui.form.input,
-          resize: "vertical",
-        }}
-      />
-    </label>
+              style={{
+                ...ui.form.input,
+                resize: "vertical",
+              }}
+            />
+          </label>
 
-    <div style={actionsStyle}>
-      <button type="submit" style={ui.button.primary}>
-        Importa lista
-      </button>
-    </div>
-  </form>
-</div>
+          <div style={actionsStyle}>
+            <button type="submit" style={ui.button.primary}>
+              Importa lista
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div style={{ ...ui.card.base, marginTop: 24 }}>
+        <h2 style={ui.page.sectionTitle}>Geocoding</h2>
+        <p style={mutedTextStyle}>
+          Trasforma gli indirizzi importati in coordinate. Gli stop riconosciuti
+          diventeranno validi, quelli non trovati passeranno in revisione.
+        </p>
+
+        <form action={geocodeRouteProStops} style={{ marginTop: 16 }}>
+          <input type="hidden" name="route_id" value={route.id} />
+
+          <button type="submit" style={ui.button.primary}>
+            Geocodifica stop
+          </button>
+        </form>
+      </div>
 
       <div style={{ marginTop: 28 }}>
         <h2 style={ui.page.sectionTitle}>Stop importati</h2>
@@ -167,7 +207,13 @@ Corso Buenos Aires 22, Milano`}
           <div style={stopListStyle}>
             {route.stops.map((stop) => (
               <article key={stop.id} style={stopRowStyle}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
                   <strong>
                     #{stop.position} · {stop.address}
                   </strong>
@@ -175,6 +221,12 @@ Corso Buenos Aires 22, Milano`}
                 </div>
 
                 <p style={mutedTextStyle}>Fonte: {stop.source}</p>
+
+                {stop.lat && stop.lng ? (
+                  <p style={mutedTextStyle}>
+                    Coordinate: {stop.lat}, {stop.lng}
+                  </p>
+                ) : null}
               </article>
             ))}
           </div>

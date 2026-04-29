@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/routepro.geocoding";
 
 function getDefaultRouteName(routeDate: string): string {
   return `Route ${routeDate}`;
@@ -150,4 +151,104 @@ export async function addBulkRouteProStops(formData: FormData) {
 
   revalidatePath(`/app/routepro/${routeId}`);
   redirect(`/app/routepro/${routeId}`);
+}
+
+export async function saveRouteProOpenRouteServiceKey(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect("/login");
+  }
+
+  const apiKey = String(formData.get("openrouteservice_key") ?? "").trim();
+
+  if (!apiKey) {
+    redirect("/app/routepro/settings?error=missing-key");
+  }
+
+  const { error } = await supabase.from("routepro_api_keys").upsert(
+    {
+      user_id: user.id,
+      provider: "openrouteservice",
+      encrypted_key: apiKey,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "user_id,provider",
+    },
+  );
+
+  if (error) {
+    console.error("RoutePro API key save error:", error.message);
+    redirect("/app/routepro/settings?error=save-failed");
+  }
+
+  redirect("/app/routepro/settings?saved=1");
+}
+
+export async function geocodeRouteProStops(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  const { data: stops, error: stopsError } = await supabase
+    .from("routepro_stops")
+    .select("id, address")
+    .eq("route_id", routeId)
+    .in("status", ["raw", "needs_review"])
+    .order("position", { ascending: true });
+
+  if (stopsError) {
+    console.error("RoutePro stops geocode fetch error:", stopsError.message);
+    redirect(`/app/routepro/${routeId}?error=geocode-failed`);
+  }
+
+  if (!stops || stops.length === 0) {
+    redirect(`/app/routepro/${routeId}?geocoded=0`);
+  }
+
+  for (const stop of stops) {
+    const result = await geocodeAddressWithOpenRouteService(stop.address);
+
+    if (result.ok) {
+      await supabase
+        .from("routepro_stops")
+        .update({
+          lat: result.lat,
+          lng: result.lng,
+          status: "valid",
+          geocoding_provider: result.provider,
+          geocoding_status: "success",
+          geocoding_confidence: result.confidence,
+          geocoding_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", stop.id);
+    } else {
+      await supabase
+        .from("routepro_stops")
+        .update({
+          status: "needs_review",
+          geocoding_provider: result.provider,
+          geocoding_status:
+            result.reason === "missing_key" ? "missing_key" : "failed",
+          geocoding_error: result.message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", stop.id);
+    }
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?geocoded=1`);
 }

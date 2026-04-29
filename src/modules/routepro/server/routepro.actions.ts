@@ -292,3 +292,31 @@ export async function updateRouteProStopAddress(formData: FormData) {
   revalidatePath(`/app/routepro/${routeId}`);
   redirect(`/app/routepro/${routeId}?updated=1`);
 }
+
+export async function deleteRouteProStop(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const stopId = String(formData.get("stop_id") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  if (!stopId) {
+    redirect(`/app/routepro/${routeId}?error=delete-stop-failed`);
+  }
+
+  const { error } = await supabase
+    .from("routepro_stops")
+    .delete()
+    .eq("id", stopId);
+
+  if (error) {
+    console.error("RoutePro delete stop error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=delete-stop-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?deleted=1`);
+}

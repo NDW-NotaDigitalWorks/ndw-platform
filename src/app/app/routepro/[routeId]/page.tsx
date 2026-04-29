@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   addBulkRouteProStops,
   addManualRouteProStop,
+  deleteRouteProStop,
   geocodeRouteProStops,
   updateRouteProStopAddress,
 } from "@/modules/routepro/server/routepro.actions";
@@ -15,6 +16,7 @@ type Props = {
     error?: string;
     geocoded?: string;
     updated?: string;
+    deleted?: string;
   }>;
 };
 
@@ -94,6 +96,10 @@ function getErrorMessage(error?: string): string | null {
     return "Non siamo riusciti ad aggiornare lo stop. Riprova.";
   }
 
+  if (error === "delete-stop-failed") {
+    return "Non siamo riusciti a eliminare lo stop. Riprova.";
+  }
+
   return null;
 }
 
@@ -103,6 +109,7 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
   const errorMessage = getErrorMessage(resolvedSearchParams?.error);
   const geocoded = resolvedSearchParams?.geocoded;
   const updated = resolvedSearchParams?.updated;
+  const deleted = resolvedSearchParams?.deleted;
 
   const route = await getMyRouteProRouteDetail(routeId);
 
@@ -140,6 +147,10 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
         <div style={successStyle}>
           Stop aggiornato. Rilancia il geocoding per validarlo.
         </div>
+      ) : null}
+
+      {deleted === "1" ? (
+        <div style={successStyle}>Stop eliminato correttamente.</div>
       ) : null}
 
       {needsReviewCount > 0 ? (
@@ -270,6 +281,15 @@ Corso Buenos Aires 22, Milano`}
                       Aggiorna stop
                     </button>
                   </div>
+                </form>
+
+                <form action={deleteRouteProStop} style={{ marginTop: 12 }}>
+                  <input type="hidden" name="route_id" value={route.id} />
+                  <input type="hidden" name="stop_id" value={stop.id} />
+
+                  <button type="submit" style={ui.button.danger}>
+                    Elimina stop
+                  </button>
                 </form>
               </article>
             ))}

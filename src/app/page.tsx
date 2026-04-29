@@ -1,5 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { theme } from "@/styles/theme";
+
+type HomePageProps = {
+  searchParams: Promise<{
+    code?: string;
+  }>;
+};
 
 const pageStyle: React.CSSProperties = {
   minHeight: "100vh",
@@ -75,7 +82,13 @@ const cardStyle: React.CSSProperties = {
   boxShadow: "0 18px 50px rgba(15, 23, 42, 0.06)",
 };
 
-export default function HomePage() {
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams;
+
+  if (params.code) {
+    redirect(`/auth/callback?code=${params.code}&next=/app`);
+  }
+
   return (
     <main style={pageStyle}>
       <div style={containerStyle}>

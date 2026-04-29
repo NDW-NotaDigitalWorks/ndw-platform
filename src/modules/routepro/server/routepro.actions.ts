@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 function getDefaultRouteName(routeDate: string): string {
@@ -47,4 +48,49 @@ export async function createRouteProRoute(formData: FormData) {
   }
 
   redirect("/app/routepro");
+}
+
+export async function addManualRouteProStop(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const address = String(formData.get("address") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  if (!address) {
+    redirect(`/app/routepro/${routeId}?error=missing-address`);
+  }
+
+  const { count, error: countError } = await supabase
+    .from("routepro_stops")
+    .select("id", { count: "exact", head: true })
+    .eq("route_id", routeId);
+
+  if (countError) {
+    console.error("RoutePro stop count error:", countError.message);
+    redirect(`/app/routepro/${routeId}?error=add-stop-failed`);
+  }
+
+  const nextPosition = (count ?? 0) + 1;
+
+  const { error } = await supabase.from("routepro_stops").insert({
+    route_id: routeId,
+    position: nextPosition,
+    original_position: nextPosition,
+    raw_text: address,
+    address,
+    status: "raw",
+    source: "manual",
+  });
+
+  if (error) {
+    console.error("RoutePro add manual stop error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=add-stop-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}`);
 }

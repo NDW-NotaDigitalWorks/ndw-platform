@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getRouteProDictionary } from "@/modules/routepro/i18n";
+import { getMyRouteProRoutes } from "@/modules/routepro/server/routepro.routes";
 import { ui } from "@/styles/ui";
 
 const gridStyle: React.CSSProperties = {
@@ -22,8 +23,14 @@ const mutedTextStyle: React.CSSProperties = {
   lineHeight: 1.6,
 };
 
-export default function RouteProModulePage() {
+const emptyStateStyle: React.CSSProperties = {
+  ...ui.card.base,
+  marginTop: 28,
+};
+
+export default async function RouteProModulePage() {
   const t = getRouteProDictionary("it");
+  const routes = await getMyRouteProRoutes();
 
   return (
     <section style={ui.page.section}>
@@ -44,6 +51,28 @@ export default function RouteProModulePage() {
       <div style={{ ...ui.card.base, marginTop: 28 }}>
         <h2 style={ui.page.sectionTitle}>{t.statusTitle}</h2>
         <p style={mutedTextStyle}>{t.statusBody}</p>
+      </div>
+
+      <div style={{ marginTop: 28 }}>
+        <h2 style={ui.page.sectionTitle}>Le tue rotte</h2>
+
+        {routes.length === 0 ? (
+          <div style={emptyStateStyle}>
+            <p style={mutedTextStyle}>
+              Nessuna rotta creata. Nel prossimo blocco aggiungeremo la creazione rotta reale.
+            </p>
+          </div>
+        ) : (
+          <div style={gridStyle}>
+            {routes.map((route) => (
+              <article key={route.id} style={ui.card.base}>
+                <h3 style={{ margin: 0 }}>{route.name}</h3>
+                <p style={mutedTextStyle}>Data: {route.route_date}</p>
+                <p style={mutedTextStyle}>Stato: {route.status}</p>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: 28 }}>

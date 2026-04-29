@@ -4,6 +4,7 @@ import {
   addBulkRouteProStops,
   addManualRouteProStop,
   geocodeRouteProStops,
+  updateRouteProStopAddress,
 } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { ui } from "@/styles/ui";
@@ -13,6 +14,7 @@ type Props = {
   searchParams?: Promise<{
     error?: string;
     geocoded?: string;
+    updated?: string;
   }>;
 };
 
@@ -88,6 +90,10 @@ function getErrorMessage(error?: string): string | null {
     return "Non siamo riusciti a geocodificare gli stop. Riprova.";
   }
 
+  if (error === "update-stop-failed") {
+    return "Non siamo riusciti ad aggiornare lo stop. Riprova.";
+  }
+
   return null;
 }
 
@@ -96,12 +102,17 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
   const resolvedSearchParams = await searchParams;
   const errorMessage = getErrorMessage(resolvedSearchParams?.error);
   const geocoded = resolvedSearchParams?.geocoded;
+  const updated = resolvedSearchParams?.updated;
 
   const route = await getMyRouteProRouteDetail(routeId);
 
   if (!route) {
     notFound();
   }
+
+  const needsReviewCount = route.stops.filter(
+    (stop) => stop.status === "needs_review",
+  ).length;
 
   return (
     <section style={ui.page.section}>
@@ -122,6 +133,18 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
       {geocoded === "1" ? (
         <div style={successStyle}>
           Geocoding completato. Controlla eventuali stop da rivedere.
+        </div>
+      ) : null}
+
+      {updated === "1" ? (
+        <div style={successStyle}>
+          Stop aggiornato. Rilancia il geocoding per validarlo.
+        </div>
+      ) : null}
+
+      {needsReviewCount > 0 ? (
+        <div style={errorStyle}>
+          {needsReviewCount} stop da rivedere prima di ottimizzare o partire.
         </div>
       ) : null}
 
@@ -227,6 +250,27 @@ Corso Buenos Aires 22, Milano`}
                     Coordinate: {stop.lat}, {stop.lng}
                   </p>
                 ) : null}
+
+                <form action={updateRouteProStopAddress} style={formStyle}>
+                  <input type="hidden" name="route_id" value={route.id} />
+                  <input type="hidden" name="stop_id" value={stop.id} />
+
+                  <label style={ui.form.label}>
+                    Modifica indirizzo
+                    <input
+                      name="address"
+                      type="text"
+                      defaultValue={stop.address}
+                      style={ui.form.input}
+                    />
+                  </label>
+
+                  <div style={actionsStyle}>
+                    <button type="submit" style={ui.button.secondary}>
+                      Aggiorna stop
+                    </button>
+                  </div>
+                </form>
               </article>
             ))}
           </div>

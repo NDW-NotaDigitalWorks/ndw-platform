@@ -252,3 +252,43 @@ export async function geocodeRouteProStops(formData: FormData) {
   revalidatePath(`/app/routepro/${routeId}`);
   redirect(`/app/routepro/${routeId}?geocoded=1`);
 }
+
+export async function updateRouteProStopAddress(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const stopId = String(formData.get("stop_id") ?? "").trim();
+  const address = String(formData.get("address") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  if (!stopId || !address) {
+    redirect(`/app/routepro/${routeId}?error=update-stop-failed`);
+  }
+
+  const { error } = await supabase
+    .from("routepro_stops")
+    .update({
+      address,
+      raw_text: address,
+      lat: null,
+      lng: null,
+      status: "raw",
+      geocoding_provider: null,
+      geocoding_status: null,
+      geocoding_confidence: null,
+      geocoding_error: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", stopId);
+
+  if (error) {
+    console.error("RoutePro update stop error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=update-stop-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?updated=1`);
+}

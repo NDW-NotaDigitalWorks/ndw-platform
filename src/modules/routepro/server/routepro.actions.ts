@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/routepro.geocoding";
+import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
 
 function getDefaultRouteName(routeDate: string): string {
   return `Route ${routeDate}`;
@@ -319,4 +320,117 @@ export async function deleteRouteProStop(formData: FormData) {
 
   revalidatePath(`/app/routepro/${routeId}`);
   redirect(`/app/routepro/${routeId}?deleted=1`);
+}
+
+export async function optimizeRouteProRoute(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  const { data: route, error: routeError } = await supabase
+    .from("routepro_routes")
+    .select("id, start_lat, start_lng")
+    .eq("id", routeId)
+    .maybeSingle();
+
+  if (routeError || !route) {
+    console.error("RoutePro optimize route fetch error:", routeError?.message);
+    redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+  }
+
+  const { data: invalidStops, error: invalidStopsError } = await supabase
+    .from("routepro_stops")
+    .select("id")
+    .eq("route_id", routeId)
+    .in("status", ["raw", "needs_review"]);
+
+  if (invalidStopsError) {
+    console.error(
+      "RoutePro optimize invalid stops fetch error:",
+      invalidStopsError.message,
+    );
+    redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+  }
+
+  if (invalidStops && invalidStops.length > 0) {
+    redirect(`/app/routepro/${routeId}?error=optimize-needs-review`);
+  }
+
+  const { data: stops, error: stopsError } = await supabase
+    .from("routepro_stops")
+    .select("id, position, lat, lng")
+    .eq("route_id", routeId)
+    .eq("status", "valid")
+    .not("lat", "is", null)
+    .not("lng", "is", null)
+    .order("position", { ascending: true });
+
+  if (stopsError) {
+    console.error("RoutePro optimize stops fetch error:", stopsError.message);
+    redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+  }
+
+  if (!stops || stops.length < 2) {
+    redirect(`/app/routepro/${routeId}?error=optimize-not-enough-stops`);
+  }
+
+  const startPoint =
+    route.start_lat !== null && route.start_lng !== null
+      ? {
+          lat: Number(route.start_lat),
+          lng: Number(route.start_lng),
+        }
+      : null;
+
+  const optimizedStops = optimizeStopsNearestNeighbor(
+    stops.map((stop) => ({
+      id: stop.id,
+      position: Number(stop.position),
+      lat: Number(stop.lat),
+      lng: Number(stop.lng),
+    })),
+    startPoint,
+  );
+
+  for (let index = 0; index < optimizedStops.length; index += 1) {
+    const stop = optimizedStops[index];
+
+    const { error } = await supabase
+      .from("routepro_stops")
+      .update({
+        position: index + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", stop.id);
+
+    if (error) {
+      console.error("RoutePro optimize stop update error:", error.message);
+      redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+    }
+  }
+
+  const { error: routeUpdateError } = await supabase
+    .from("routepro_routes")
+    .update({
+      is_optimized: true,
+      optimized_at: new Date().toISOString(),
+      optimization_method: "nearest_neighbor_v1",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", routeId);
+
+  if (routeUpdateError) {
+    console.error(
+      "RoutePro optimize route update error:",
+      routeUpdateError.message,
+    );
+    redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?optimized=1`);
 }

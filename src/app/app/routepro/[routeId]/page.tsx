@@ -5,6 +5,7 @@ import {
   addManualRouteProStop,
   deleteRouteProStop,
   geocodeRouteProStops,
+  optimizeRouteProRoute,
   updateRouteProStopAddress,
 } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
@@ -13,11 +14,12 @@ import { ui } from "@/styles/ui";
 type Props = {
   params: Promise<{ routeId: string }>;
   searchParams?: Promise<{
-    error?: string;
-    geocoded?: string;
-    updated?: string;
-    deleted?: string;
-  }>;
+  error?: string;
+  geocoded?: string;
+  updated?: string;
+  deleted?: string;
+  optimized?: string;
+}>;
 };
 
 const formStyle: React.CSSProperties = {
@@ -100,6 +102,18 @@ function getErrorMessage(error?: string): string | null {
     return "Non siamo riusciti a eliminare lo stop. Riprova.";
   }
 
+  if (error === "optimize-failed") {
+  return "Non siamo riusciti a ottimizzare la rotta. Riprova.";
+}
+
+if (error === "optimize-needs-review") {
+  return "Prima di ottimizzare devi correggere tutti gli stop da rivedere.";
+}
+
+if (error === "optimize-not-enough-stops") {
+  return "Servono almeno 2 stop validi per ottimizzare la rotta.";
+}
+
   return null;
 }
 
@@ -110,6 +124,7 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
   const geocoded = resolvedSearchParams?.geocoded;
   const updated = resolvedSearchParams?.updated;
   const deleted = resolvedSearchParams?.deleted;
+  const optimized = resolvedSearchParams?.optimized;
 
   const route = await getMyRouteProRouteDetail(routeId);
 
@@ -151,6 +166,12 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
 
       {deleted === "1" ? (
         <div style={successStyle}>Stop eliminato correttamente.</div>
+      ) : null}
+
+      {optimized === "1" ? (
+        <div style={successStyle}>
+        Rotta ottimizzata. L’ordine degli stop è stato aggiornato.
+        </div>
       ) : null}
 
       {needsReviewCount > 0 ? (
@@ -228,6 +249,28 @@ Corso Buenos Aires 22, Milano`}
         </form>
       </div>
 
+      <div style={{ ...ui.card.base, marginTop: 24 }}>
+  <h2 style={ui.page.sectionTitle}>Ottimizzazione</h2>
+  <p style={mutedTextStyle}>
+    Riordina gli stop validi usando un algoritmo base per ridurre zig-zag
+    evidenti. L’ordine originale resta salvato.
+  </p>
+
+  <form action={optimizeRouteProRoute} style={{ marginTop: 16 }}>
+    <input type="hidden" name="route_id" value={route.id} />
+
+    <button type="submit" style={ui.button.primary}>
+      Ottimizza rotta
+    </button>
+  </form>
+
+  {route.is_optimized ? (
+    <p style={mutedTextStyle}>
+      Ultima ottimizzazione: {route.optimized_at ?? "completata"}
+    </p>
+  ) : null}
+</div>
+
       <div style={{ marginTop: 28 }}>
         <h2 style={ui.page.sectionTitle}>Stop importati</h2>
 
@@ -249,7 +292,7 @@ Corso Buenos Aires 22, Milano`}
                   }}
                 >
                   <strong>
-                    #{stop.position} · {stop.address}
+                    #{stop.position} (orig: {stop.original_position}) · {stop.address}
                   </strong>
                   <span style={badgeStyle}>{stop.status}</span>
                 </div>

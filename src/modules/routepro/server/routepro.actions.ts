@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/routepro.geocoding";
 import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
+import { extractTextFromImageWithGoogleVision } from "@/modules/routepro/server/routepro.ocr";
 
 function getDefaultRouteName(routeDate: string): string {
   return `Route ${routeDate}`;
@@ -540,4 +541,211 @@ export async function completeRouteProRoute(formData: FormData) {
   revalidatePath("/app/routepro");
 
   redirect(`/app/routepro/${routeId}/execute?routeCompleted=1`);
+}
+
+export async function addCsvRouteProStops(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const file = formData.get("csv_file");
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`/app/routepro/${routeId}?error=csv-missing`);
+  }
+
+  const text = await file.text();
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length < 2) {
+    redirect(`/app/routepro/${routeId}?error=csv-invalid`);
+  }
+
+  const headers = lines[0].split(",").map((header) => header.trim().toLowerCase());
+  const addressIndex = headers.indexOf("address");
+
+  if (addressIndex === -1) {
+    redirect(`/app/routepro/${routeId}?error=csv-missing-address-column`);
+  }
+
+  const addresses = lines
+    .slice(1)
+    .map((line) => line.split(",")[addressIndex]?.trim() ?? "")
+    .filter((address) => address.length > 0);
+
+  if (addresses.length === 0) {
+    redirect(`/app/routepro/${routeId}?error=csv-invalid`);
+  }
+
+  const { count, error: countError } = await supabase
+    .from("routepro_stops")
+    .select("id", { count: "exact", head: true })
+    .eq("route_id", routeId);
+
+  if (countError) {
+    console.error("RoutePro CSV stop count error:", countError.message);
+    redirect(`/app/routepro/${routeId}?error=csv-failed`);
+  }
+
+  let nextPosition = (count ?? 0) + 1;
+
+  const rows = addresses.map((address) => {
+    const row = {
+      route_id: routeId,
+      position: nextPosition,
+      original_position: nextPosition,
+      raw_text: address,
+      address,
+      status: "raw",
+      source: "csv",
+    };
+
+    nextPosition += 1;
+    return row;
+  });
+
+  const { error } = await supabase.from("routepro_stops").insert(rows);
+
+  if (error) {
+    console.error("RoutePro CSV import error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=csv-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?csvImported=1`);
+}
+
+export async function saveRouteProGoogleVisionKey(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    redirect("/login");
+  }
+
+  const apiKey = String(formData.get("google_vision_key") ?? "").trim();
+
+  if (!apiKey) {
+    redirect("/app/routepro/settings?error=missing-vision-key");
+  }
+
+  const { error } = await supabase.from("routepro_api_keys").upsert(
+    {
+      user_id: user.id,
+      provider: "google_vision",
+      encrypted_key: apiKey,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "user_id,provider",
+    },
+  );
+
+  if (error) {
+    console.error("RoutePro Google Vision key save error:", error.message);
+    redirect("/app/routepro/settings?error=vision-save-failed");
+  }
+
+  redirect("/app/routepro/settings?visionSaved=1");
+}
+
+export async function previewRouteProScreenshotOcr(formData: FormData) {
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const file = formData.get("screenshot_file");
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`/app/routepro/${routeId}?error=screenshot-missing`);
+  }
+
+  const result = await extractTextFromImageWithGoogleVision(file);
+
+  if (!result.ok) {
+    console.error("RoutePro OCR preview error:", result.message);
+
+    if (result.reason === "missing_key") {
+      redirect(`/app/routepro/${routeId}?error=ocr-missing-key`);
+    }
+
+    redirect(`/app/routepro/${routeId}?error=ocr-failed`);
+  }
+
+  const encodedText = encodeURIComponent(result.text);
+
+  redirect(`/app/routepro/${routeId}?ocrPreview=${encodedText}`);
+}
+
+export async function addScreenshotOcrRouteProStops(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const rawText = String(formData.get("ocr_addresses") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  if (!rawText) {
+    redirect(`/app/routepro/${routeId}?error=ocr-import-empty`);
+  }
+
+  const addresses = rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (addresses.length === 0) {
+    redirect(`/app/routepro/${routeId}?error=ocr-import-empty`);
+  }
+
+  const { count, error: countError } = await supabase
+    .from("routepro_stops")
+    .select("id", { count: "exact", head: true })
+    .eq("route_id", routeId);
+
+  if (countError) {
+    console.error("RoutePro OCR stop count error:", countError.message);
+    redirect(`/app/routepro/${routeId}?error=ocr-import-failed`);
+  }
+
+  let nextPosition = (count ?? 0) + 1;
+
+  const rows = addresses.map((address) => {
+    const row = {
+      route_id: routeId,
+      position: nextPosition,
+      original_position: nextPosition,
+      raw_text: address,
+      address,
+      status: "raw",
+      source: "screenshot",
+    };
+
+    nextPosition += 1;
+    return row;
+  });
+
+  const { error } = await supabase.from("routepro_stops").insert(rows);
+
+  if (error) {
+    console.error("RoutePro OCR import error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=ocr-import-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?screenshotImported=1`);
 }

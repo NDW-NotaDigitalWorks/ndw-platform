@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { saveRouteProOpenRouteServiceKey } from "@/modules/routepro/server/routepro.actions";
+import {
+  saveRouteProGoogleVisionKey,
+  saveRouteProOpenRouteServiceKey,
+} from "@/modules/routepro/server/routepro.actions";
 import { ui } from "@/styles/ui";
 
 type Props = {
   searchParams?: Promise<{
     error?: string;
     saved?: string;
+    visionSaved?: string;
   }>;
 };
 
@@ -55,6 +59,14 @@ function getErrorMessage(error?: string): string | null {
     return "Non siamo riusciti a salvare la chiave. Riprova.";
   }
 
+  if (error === "missing-vision-key") {
+    return "Inserisci una API key Google Vision.";
+  }
+
+  if (error === "vision-save-failed") {
+    return "Non siamo riusciti a salvare la chiave OCR.";
+  }
+
   return null;
 }
 
@@ -62,6 +74,7 @@ export default async function RouteProSettingsPage({ searchParams }: Props) {
   const resolvedSearchParams = await searchParams;
   const errorMessage = getErrorMessage(resolvedSearchParams?.error);
   const saved = resolvedSearchParams?.saved === "1";
+  const visionSaved = resolvedSearchParams?.visionSaved === "1";
 
   return (
     <section style={ui.page.section}>
@@ -72,7 +85,18 @@ export default async function RouteProSettingsPage({ searchParams }: Props) {
       </p>
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
-      {saved ? <div style={successStyle}>Chiave salvata correttamente.</div> : null}
+
+      {saved ? (
+        <div style={successStyle}>
+          Chiave OpenRouteService salvata correttamente.
+        </div>
+      ) : null}
+
+      {visionSaved ? (
+        <div style={successStyle}>
+          Chiave Google Vision salvata correttamente.
+        </div>
+      ) : null}
 
       <div style={{ ...ui.card.base, marginTop: 24 }}>
         <h2 style={ui.page.sectionTitle}>OpenRouteService</h2>
@@ -94,7 +118,7 @@ export default async function RouteProSettingsPage({ searchParams }: Props) {
 
           <div style={actionsStyle}>
             <button type="submit" style={ui.button.primary}>
-              Salva chiave
+              Salva chiave geocoding
             </button>
 
             <Link href="/app/routepro" style={ui.button.secondary}>
@@ -105,11 +129,30 @@ export default async function RouteProSettingsPage({ searchParams }: Props) {
       </div>
 
       <div style={{ ...ui.card.base, marginTop: 24 }}>
-        <h2 style={ui.page.sectionTitle}>OCR screenshot</h2>
+        <h2 style={ui.page.sectionTitle}>Google Vision OCR</h2>
+
         <p style={mutedTextStyle}>
-          La chiave OCR verrà aggiunta in un blocco successivo. Per ora
-          prepariamo prima il geocoding.
+          Questa chiave permette di estrarre automaticamente testo e possibili
+          indirizzi dagli screenshot.
         </p>
+
+        <form action={saveRouteProGoogleVisionKey} style={formStyle}>
+          <label style={ui.form.label}>
+            API Key Google Vision
+            <input
+              name="google_vision_key"
+              type="password"
+              placeholder="Incolla qui la tua API key"
+              style={ui.form.input}
+            />
+          </label>
+
+          <div style={actionsStyle}>
+            <button type="submit" style={ui.button.primary}>
+              Salva chiave OCR
+            </button>
+          </div>
+        </form>
       </div>
     </section>
   );

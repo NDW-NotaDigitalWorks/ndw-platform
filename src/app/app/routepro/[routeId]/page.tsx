@@ -2,10 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   addBulkRouteProStops,
+  addCsvRouteProStops,
   addManualRouteProStop,
+  addScreenshotOcrRouteProStops,
   deleteRouteProStop,
   geocodeRouteProStops,
   optimizeRouteProRoute,
+  previewRouteProScreenshotOcr,
   updateRouteProStopAddress,
 } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
@@ -14,12 +17,15 @@ import { ui } from "@/styles/ui";
 type Props = {
   params: Promise<{ routeId: string }>;
   searchParams?: Promise<{
-  error?: string;
-  geocoded?: string;
-  updated?: string;
-  deleted?: string;
-  optimized?: string;
-}>;
+    error?: string;
+    geocoded?: string;
+    updated?: string;
+    deleted?: string;
+    optimized?: string;
+    csvImported?: string;
+    ocrPreview?: string;
+    screenshotImported?: string;
+  }>;
 };
 
 const formStyle: React.CSSProperties = {
@@ -103,16 +109,52 @@ function getErrorMessage(error?: string): string | null {
   }
 
   if (error === "optimize-failed") {
-  return "Non siamo riusciti a ottimizzare la rotta. Riprova.";
-}
+    return "Non siamo riusciti a ottimizzare la rotta. Riprova.";
+  }
 
-if (error === "optimize-needs-review") {
-  return "Prima di ottimizzare devi correggere tutti gli stop da rivedere.";
-}
+  if (error === "optimize-needs-review") {
+    return "Prima di ottimizzare devi correggere tutti gli stop da rivedere.";
+  }
 
-if (error === "optimize-not-enough-stops") {
-  return "Servono almeno 2 stop validi per ottimizzare la rotta.";
-}
+  if (error === "optimize-not-enough-stops") {
+    return "Servono almeno 2 stop validi per ottimizzare la rotta.";
+  }
+
+  if (error === "csv-missing") {
+    return "Carica un file CSV prima di importare.";
+  }
+
+  if (error === "csv-invalid") {
+    return "Il CSV non è valido. Usa una riga header e almeno un indirizzo.";
+  }
+
+  if (error === "csv-missing-address-column") {
+    return "Il CSV deve contenere una colonna chiamata address.";
+  }
+
+  if (error === "csv-failed") {
+    return "Non siamo riusciti a importare il CSV. Riprova.";
+  }
+
+  if (error === "screenshot-missing") {
+    return "Carica uno screenshot prima di avviare OCR.";
+  }
+
+  if (error === "ocr-missing-key") {
+    return "Per usare OCR devi salvare una API key Google Vision nelle impostazioni.";
+  }
+
+  if (error === "ocr-failed") {
+    return "Non siamo riusciti a leggere lo screenshot. Prova con un'immagine più chiara.";
+  }
+
+  if (error === "ocr-import-empty") {
+    return "Non ci sono righe OCR da importare.";
+  }
+
+  if (error === "ocr-import-failed") {
+    return "Non siamo riusciti a importare gli stop dallo screenshot.";
+  }
 
   return null;
 }
@@ -125,6 +167,11 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
   const updated = resolvedSearchParams?.updated;
   const deleted = resolvedSearchParams?.deleted;
   const optimized = resolvedSearchParams?.optimized;
+  const csvImported = resolvedSearchParams?.csvImported;
+  const screenshotImported = resolvedSearchParams?.screenshotImported;
+  const ocrPreview = resolvedSearchParams?.ocrPreview
+    ? decodeURIComponent(resolvedSearchParams.ocrPreview)
+    : null;
 
   const route = await getMyRouteProRouteDetail(routeId);
 
@@ -148,6 +195,10 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
         <Link href="/app/routepro" style={ui.button.secondary}>
           Torna alle rotte
         </Link>
+
+        <Link href={`/app/routepro/${route.id}/execute`} style={ui.button.primary}>
+          Execution mode
+        </Link>
       </div>
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
@@ -170,7 +221,17 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
 
       {optimized === "1" ? (
         <div style={successStyle}>
-        Rotta ottimizzata. L’ordine degli stop è stato aggiornato.
+          Rotta ottimizzata. L’ordine degli stop è stato aggiornato.
+        </div>
+      ) : null}
+
+      {csvImported === "1" ? (
+        <div style={successStyle}>CSV importato correttamente.</div>
+      ) : null}
+
+      {screenshotImported === "1" ? (
+        <div style={successStyle}>
+          Stop importati dallo screenshot. Ora puoi controllarli e geocodificarli.
         </div>
       ) : null}
 
@@ -234,6 +295,97 @@ Corso Buenos Aires 22, Milano`}
       </div>
 
       <div style={{ ...ui.card.base, marginTop: 24 }}>
+        <h2 style={ui.page.sectionTitle}>Import CSV</h2>
+        <p style={mutedTextStyle}>
+          Carica un CSV base con una colonna obbligatoria chiamata{" "}
+          <strong>address</strong>.
+        </p>
+
+        <form action={addCsvRouteProStops} style={formStyle}>
+          <input type="hidden" name="route_id" value={route.id} />
+
+          <label style={ui.form.label}>
+            File CSV
+            <input
+              name="csv_file"
+              type="file"
+              accept=".csv,text/csv"
+              style={ui.form.input}
+            />
+          </label>
+
+          <div style={actionsStyle}>
+            <button type="submit" style={ui.button.primary}>
+              Importa CSV
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div style={{ ...ui.card.base, marginTop: 24 }}>
+        <h2 style={ui.page.sectionTitle}>Import screenshot OCR</h2>
+        <p style={mutedTextStyle}>
+          Carica uno screenshot. RoutePro estrarrà il testo con Google Vision.
+          Poi potrai controllare le righe e importarle come stop.
+        </p>
+
+        <form action={previewRouteProScreenshotOcr} style={formStyle}>
+          <input type="hidden" name="route_id" value={route.id} />
+
+          <label style={ui.form.label}>
+            Screenshot
+            <input
+              name="screenshot_file"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              style={ui.form.input}
+            />
+          </label>
+
+          <div style={actionsStyle}>
+            <button type="submit" style={ui.button.primary}>
+              Leggi screenshot
+            </button>
+          </div>
+        </form>
+
+        {ocrPreview ? (
+          <div style={{ ...ui.card.base, marginTop: 18 }}>
+            <h3 style={{ marginTop: 0 }}>Testo estratto</h3>
+
+            <p style={mutedTextStyle}>
+              Controlla il testo estratto. Lascia una consegna per riga, elimina
+              righe inutili e poi conferma l’import.
+            </p>
+
+            <form action={addScreenshotOcrRouteProStops} style={formStyle}>
+              <input type="hidden" name="route_id" value={route.id} />
+
+              <label style={ui.form.label}>
+                Righe da importare come stop
+                <textarea
+                  name="ocr_addresses"
+                  rows={10}
+                  defaultValue={ocrPreview}
+                  style={{
+                    ...ui.form.input,
+                    resize: "vertical",
+                    fontFamily: "monospace",
+                  }}
+                />
+              </label>
+
+              <div style={actionsStyle}>
+                <button type="submit" style={ui.button.primary}>
+                  Importa stop da screenshot
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : null}
+      </div>
+
+      <div style={{ ...ui.card.base, marginTop: 24 }}>
         <h2 style={ui.page.sectionTitle}>Geocoding</h2>
         <p style={mutedTextStyle}>
           Trasforma gli indirizzi importati in coordinate. Gli stop riconosciuti
@@ -250,26 +402,26 @@ Corso Buenos Aires 22, Milano`}
       </div>
 
       <div style={{ ...ui.card.base, marginTop: 24 }}>
-  <h2 style={ui.page.sectionTitle}>Ottimizzazione</h2>
-  <p style={mutedTextStyle}>
-    Riordina gli stop validi usando un algoritmo base per ridurre zig-zag
-    evidenti. L’ordine originale resta salvato.
-  </p>
+        <h2 style={ui.page.sectionTitle}>Ottimizzazione</h2>
+        <p style={mutedTextStyle}>
+          Riordina gli stop validi usando un algoritmo base per ridurre zig-zag
+          evidenti. L’ordine originale resta salvato.
+        </p>
 
-  <form action={optimizeRouteProRoute} style={{ marginTop: 16 }}>
-    <input type="hidden" name="route_id" value={route.id} />
+        <form action={optimizeRouteProRoute} style={{ marginTop: 16 }}>
+          <input type="hidden" name="route_id" value={route.id} />
 
-    <button type="submit" style={ui.button.primary}>
-      Ottimizza rotta
-    </button>
-  </form>
+          <button type="submit" style={ui.button.primary}>
+            Ottimizza rotta
+          </button>
+        </form>
 
-  {route.is_optimized ? (
-    <p style={mutedTextStyle}>
-      Ultima ottimizzazione: {route.optimized_at ?? "completata"}
-    </p>
-  ) : null}
-</div>
+        {route.is_optimized ? (
+          <p style={mutedTextStyle}>
+            Ultima ottimizzazione: {route.optimized_at ?? "completata"}
+          </p>
+        ) : null}
+      </div>
 
       <div style={{ marginTop: 28 }}>
         <h2 style={ui.page.sectionTitle}>Stop importati</h2>
@@ -292,7 +444,8 @@ Corso Buenos Aires 22, Milano`}
                   }}
                 >
                   <strong>
-                    #{stop.position} (orig: {stop.original_position}) · {stop.address}
+                    #{stop.position} (orig: {stop.original_position}) ·{" "}
+                    {stop.address}
                   </strong>
                   <span style={badgeStyle}>{stop.status}</span>
                 </div>

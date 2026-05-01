@@ -15,49 +15,50 @@ const ADDRESS_STARTERS = [
   "vicolo",
   "largo",
   "piazzale",
-  "traversa",
-  "contrada",
 ];
 
 const NOISE_PATTERNS = [
   /^n\.\s*/i,
+  /^c\d+/i,
+  /^consegna$/i,
   /^consegna\s+\d+/i,
   /^posizioni$/i,
   /^fermata corrente$/i,
   /^elenco delle tappe/i,
   /^\d{1,2}:\d{2}/,
+  /^continua/i,
+  /^scansiona/i,
+  /^problema/i,
 ];
 
 function cleanLine(line: string): string {
-  return line
-    .replace(/[•]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return line.replace(/[•|]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function isStopNumber(line: string): boolean {
-  return /^\d{1,3}$/.test(line.trim());
+function getStopNumberFromLine(line: string): number | null {
+  const cleaned = cleanLine(line);
+  const match = cleaned.match(/^(\d{1,3})(\s|$)/);
+  return match?.[1] ? Number(match[1]) : null;
+}
+
+function removeLeadingStopNumber(line: string): string {
+  return cleanLine(line).replace(/^\d{1,3}\s+/, "").trim();
 }
 
 function isNoiseLine(line: string): boolean {
   const cleaned = cleanLine(line);
-
   return NOISE_PATTERNS.some((pattern) => pattern.test(cleaned));
 }
 
 function looksLikeAddress(line: string): boolean {
   const lower = cleanLine(line).toLowerCase();
-
   return ADDRESS_STARTERS.some((starter) => lower.startsWith(`${starter} `));
 }
 
 function extractParcels(lines: string[]): number | null {
   for (const line of lines) {
     const match = cleanLine(line).match(/consegna\s+(\d+)/i);
-
-    if (match?.[1]) {
-      return Number(match[1]);
-    }
+    if (match?.[1]) return Number(match[1]);
   }
 
   return null;
@@ -72,7 +73,7 @@ function normalizeAddress(value: string): string {
 }
 
 function normalizeCity(value: string): string {
-  return cleanLine(value).trim();
+  return cleanLine(value);
 }
 
 function splitIntoStopBlocks(text: string): Array<{
@@ -84,40 +85,34 @@ function splitIntoStopBlocks(text: string): Array<{
     .map(cleanLine)
     .filter((line) => line.length > 0);
 
-  const blocks: Array<{
-    originalPosition: number;
-    lines: string[];
-  }> = [];
+  const blocks: Array<{ originalPosition: number; lines: string[] }> = [];
+  let currentBlock: { originalPosition: number; lines: string[] } | null = null;
 
-  let currentBlock:
-    | {
-        originalPosition: number;
-        lines: string[];
-      }
-    | null = null;
+  for (const rawLine of lines) {
+    const stopNumber = getStopNumberFromLine(rawLine);
 
-  for (const line of lines) {
-    if (isStopNumber(line)) {
-      if (currentBlock) {
-        blocks.push(currentBlock);
-      }
+    if (stopNumber !== null) {
+      if (currentBlock) blocks.push(currentBlock);
 
       currentBlock = {
-        originalPosition: Number(line),
+        originalPosition: stopNumber,
         lines: [],
       };
+
+      const remainingText = removeLeadingStopNumber(rawLine);
+      if (remainingText.length > 0) {
+        currentBlock.lines.push(remainingText);
+      }
 
       continue;
     }
 
     if (currentBlock) {
-      currentBlock.lines.push(line);
+      currentBlock.lines.push(rawLine);
     }
   }
 
-  if (currentBlock) {
-    blocks.push(currentBlock);
-  }
+  if (currentBlock) blocks.push(currentBlock);
 
   return blocks;
 }
@@ -133,9 +128,7 @@ function parseBlock(block: {
 
   const addressIndex = usefulLines.findIndex(looksLikeAddress);
 
-  if (addressIndex === -1) {
-    return null;
-  }
+  if (addressIndex === -1) return null;
 
   const addressParts: string[] = [];
   let city: string | null = null;
@@ -143,23 +136,16 @@ function parseBlock(block: {
   for (let index = addressIndex; index < usefulLines.length; index += 1) {
     const line = usefulLines[index];
 
-    if (/^consegna\s+\d+/i.test(line)) {
-      break;
-    }
+    if (/^consegna\s+\d+/i.test(line)) break;
+    if (/^posizioni$/i.test(line)) break;
 
-    if (/^posizioni$/i.test(line)) {
-      break;
-    }
-
-    if (index > addressIndex) {
-      const previousLine = usefulLines[index - 1];
-
-      if (
-        !looksLikeAddress(line) &&
+    if (index > addressIndex && !looksLikeAddress(line)) {
+      const looksLikeCity =
         !line.match(/\d/) &&
-        previousLine &&
-        addressParts.length > 0
-      ) {
+        line.length >= 3 &&
+        !line.toLowerCase().includes("pacco");
+
+      if (looksLikeCity) {
         city = normalizeCity(line);
         break;
       }
@@ -168,13 +154,10 @@ function parseBlock(block: {
     addressParts.push(line);
   }
 
+  const address = normalizeAddress(addressParts.join(" "));
   const parcels = extractParcels(block.lines);
 
-  const address = normalizeAddress(addressParts.join(" "));
-
-  if (!address || address.length < 5) {
-    return null;
-  }
+  if (!address || address.length < 5) return null;
 
   return {
     originalPosition: block.originalPosition,
@@ -194,15 +177,15 @@ export function parseAmazonFlexStopsFromOcr(
     .map(parseBlock)
     .filter((stop): stop is RouteProParsedFlexStop => Boolean(stop));
 
-  const uniqueByOriginalPosition = new Map<number, RouteProParsedFlexStop>();
+  const unique = new Map<number, RouteProParsedFlexStop>();
 
   for (const stop of parsedStops) {
-    if (!uniqueByOriginalPosition.has(stop.originalPosition)) {
-      uniqueByOriginalPosition.set(stop.originalPosition, stop);
+    if (!unique.has(stop.originalPosition)) {
+      unique.set(stop.originalPosition, stop);
     }
   }
 
-  return Array.from(uniqueByOriginalPosition.values()).sort(
+  return Array.from(unique.values()).sort(
     (a, b) => a.originalPosition - b.originalPosition,
   );
 }

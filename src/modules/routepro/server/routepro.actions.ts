@@ -434,3 +434,110 @@ export async function optimizeRouteProRoute(formData: FormData) {
   revalidatePath(`/app/routepro/${routeId}`);
   redirect(`/app/routepro/${routeId}?optimized=1`);
 }
+
+export async function completeRouteProStop(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const stopId = String(formData.get("stop_id") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  if (!stopId) {
+    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  }
+
+  const { error } = await supabase
+    .from("routepro_stops")
+    .update({
+      status: "completed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", stopId);
+
+  if (error) {
+    console.error("RoutePro complete stop error:", error.message);
+    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  }
+
+  await supabase
+    .from("routepro_routes")
+    .update({
+      status: "in_progress",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", routeId);
+
+  revalidatePath(`/app/routepro/${routeId}/execute`);
+  redirect(`/app/routepro/${routeId}/execute?completed=1`);
+}
+
+export async function skipRouteProStop(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const stopId = String(formData.get("stop_id") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  if (!stopId) {
+    redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
+  }
+
+  const { error } = await supabase
+    .from("routepro_stops")
+    .update({
+      status: "skipped",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", stopId);
+
+  if (error) {
+    console.error("RoutePro skip stop error:", error.message);
+    redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
+  }
+
+  await supabase
+    .from("routepro_routes")
+    .update({
+      status: "in_progress",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", routeId);
+
+  revalidatePath(`/app/routepro/${routeId}/execute`);
+  redirect(`/app/routepro/${routeId}/execute?skipped=1`);
+}
+
+export async function completeRouteProRoute(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  const { error } = await supabase
+    .from("routepro_routes")
+    .update({
+      status: "completed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", routeId);
+
+  if (error) {
+    console.error("RoutePro complete route error:", error.message);
+    redirect(`/app/routepro/${routeId}/execute?error=route-complete-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  revalidatePath(`/app/routepro/${routeId}/execute`);
+  revalidatePath("/app/routepro");
+
+  redirect(`/app/routepro/${routeId}/execute?routeCompleted=1`);
+}

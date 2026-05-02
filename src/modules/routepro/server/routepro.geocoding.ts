@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { decryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
 
 type OrsFeature = {
   geometry?: {
@@ -45,7 +46,7 @@ async function getMyOpenRouteServiceKey(): Promise<string | null> {
     return null;
   }
 
-  return data?.encrypted_key ?? null;
+  return data?.encrypted_key ? decryptRouteProSecret(data.encrypted_key) : null;
 }
 
 export async function geocodeAddressWithOpenRouteService(

@@ -1,7 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
+import { decryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
+
+type GoogleVisionVertex = {
+  x?: number;
+  y?: number;
+};
+
+type GoogleVisionBoundingPoly = {
+  vertices?: GoogleVisionVertex[];
+};
 
 type GoogleVisionTextAnnotation = {
   description?: string;
+  boundingPoly?: GoogleVisionBoundingPoly;
 };
 
 type GoogleVisionResponse = {
@@ -13,10 +24,21 @@ type GoogleVisionResponse = {
   }>;
 };
 
+export type RouteProOcrWord = {
+  text: string;
+  xMin: number;
+  xMax: number;
+  yMin: number;
+  yMax: number;
+  xCenter: number;
+  yCenter: number;
+};
+
 export type RouteProOcrResult =
   | {
       ok: true;
       text: string;
+      words: RouteProOcrWord[];
       provider: "google_vision";
     }
   | {
@@ -41,7 +63,36 @@ async function getMyGoogleVisionKey(): Promise<string | null> {
     return null;
   }
 
-  return data?.encrypted_key ?? null;
+  return data?.encrypted_key ? decryptRouteProSecret(data.encrypted_key) : null;
+}
+
+function getWordFromAnnotation(
+  annotation: GoogleVisionTextAnnotation,
+): RouteProOcrWord | null {
+  const text = annotation.description?.trim();
+  const vertices = annotation.boundingPoly?.vertices ?? [];
+
+  if (!text || vertices.length === 0) {
+    return null;
+  }
+
+  const xs = vertices.map((vertex) => vertex.x ?? 0);
+  const ys = vertices.map((vertex) => vertex.y ?? 0);
+
+  const xMin = Math.min(...xs);
+  const xMax = Math.max(...xs);
+  const yMin = Math.min(...ys);
+  const yMax = Math.max(...ys);
+
+  return {
+    text,
+    xMin,
+    xMax,
+    yMin,
+    yMax,
+    xCenter: (xMin + xMax) / 2,
+    yCenter: (yMin + yMax) / 2,
+  };
 }
 
 export async function extractTextFromImageWithGoogleVision(
@@ -108,9 +159,10 @@ export async function extractTextFromImageWithGoogleVision(
       };
     }
 
-    const text = firstResponse?.textAnnotations?.[0]?.description?.trim();
+    const annotations = firstResponse?.textAnnotations ?? [];
+    const fullText = annotations[0]?.description?.trim();
 
-    if (!text) {
+    if (!fullText) {
       return {
         ok: false,
         reason: "no_text",
@@ -119,9 +171,15 @@ export async function extractTextFromImageWithGoogleVision(
       };
     }
 
+    const words = annotations
+      .slice(1)
+      .map(getWordFromAnnotation)
+      .filter((word): word is RouteProOcrWord => Boolean(word));
+
     return {
       ok: true,
-      text,
+      text: fullText,
+      words,
       provider: "google_vision",
     };
   } catch (error) {

@@ -18,31 +18,28 @@ const ADDRESS_STARTERS = [
 ];
 
 const NOISE_PATTERNS = [
-  /^n\.\s*/i,
-  /^c\d+/i,
-  /^consegna$/i,
-  /^consegna\s+\d+/i,
-  /^posizioni$/i,
-  /^fermata corrente$/i,
+  /^=$/,
+  /^\?$/,
+  /^o$/i,
+  /^く$/,
+  /^\|\|\|$/,
   /^elenco delle tappe/i,
+  /^fermata corrente$/i,
+  /^consegna$/i,
+  /^locker$/i,
   /^\d{1,2}:\d{2}/,
-  /^continua/i,
-  /^scansiona/i,
-  /^problema/i,
 ];
 
+type RawBlock = {
+  originalPosition: number | null;
+  lines: string[];
+};
+
 function cleanLine(line: string): string {
-  return line.replace(/[•|]/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function getStopNumberFromLine(line: string): number | null {
-  const cleaned = cleanLine(line);
-  const match = cleaned.match(/^(\d{1,3})(\s|$)/);
-  return match?.[1] ? Number(match[1]) : null;
-}
-
-function removeLeadingStopNumber(line: string): string {
-  return cleanLine(line).replace(/^\d{1,3}\s+/, "").trim();
+  return line
+    .replace(/[•]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isNoiseLine(line: string): boolean {
@@ -50,15 +47,152 @@ function isNoiseLine(line: string): boolean {
   return NOISE_PATTERNS.some((pattern) => pattern.test(cleaned));
 }
 
-function looksLikeAddress(line: string): boolean {
+function isStandaloneStopNumber(line: string): boolean {
+  return /^\d{1,3}$/.test(cleanLine(line));
+}
+
+function getStandaloneStopNumber(line: string): number | null {
+  if (!isStandaloneStopNumber(line)) {
+    return null;
+  }
+
+  const value = Number(cleanLine(line));
+
+  if (value < 1 || value > 200) {
+    return null;
+  }
+
+  return value;
+}
+
+function startsDeliveryBlock(line: string): boolean {
+  const cleaned = cleanLine(line);
+  return /^[o0]?\s*n\.\s*c\d+/i.test(cleaned);
+}
+
+function isParcelLine(line: string): boolean {
+  return /^consegna\s+\d+\s+pacc/i.test(cleanLine(line));
+}
+
+function findAddressStarterIndex(line: string): number {
   const lower = cleanLine(line).toLowerCase();
-  return ADDRESS_STARTERS.some((starter) => lower.startsWith(`${starter} `));
+
+  for (const starter of ADDRESS_STARTERS) {
+    const indexWithSpace = lower.indexOf(`${starter} `);
+    if (indexWithSpace >= 0) {
+      return indexWithSpace;
+    }
+
+    const indexWithComma = lower.indexOf(`${starter},`);
+    if (indexWithComma >= 0) {
+      return indexWithComma;
+    }
+  }
+
+  return -1;
+}
+
+function looksLikeAddress(line: string): boolean {
+  const cleaned = cleanLine(line);
+  const lower = cleaned.toLowerCase();
+
+  if (lower.includes("elenco delle tappe")) {
+    return false;
+  }
+
+  const addressIndex = findAddressStarterIndex(cleaned);
+  const hasNumber = /\d/.test(cleaned);
+
+  return addressIndex >= 0 && hasNumber && cleaned.length >= 6;
+}
+
+function extractLeadingStopAndText(line: string): {
+  stopNumber: number | null;
+  rest: string;
+} {
+  const cleaned = cleanLine(line);
+  const match = cleaned.match(/^(\d{1,3})\s+(.+)$/);
+
+  if (!match?.[1] || !match?.[2]) {
+    return {
+      stopNumber: null,
+      rest: cleaned,
+    };
+  }
+
+  const stopNumber = Number(match[1]);
+
+  if (stopNumber < 1 || stopNumber > 200) {
+    return {
+      stopNumber: null,
+      rest: cleaned,
+    };
+  }
+
+  return {
+    stopNumber,
+    rest: match[2].trim(),
+  };
+}
+
+function extractAddressFromLine(line: string): string {
+  const cleaned = cleanLine(line);
+  const addressIndex = findAddressStarterIndex(cleaned);
+
+  if (addressIndex === -1) {
+    return cleaned;
+  }
+
+  return cleaned.slice(addressIndex).trim();
+}
+
+function looksLikeCity(line: string): boolean {
+  const cleaned = cleanLine(line);
+
+  if (!cleaned || cleaned.length < 3) {
+    return false;
+  }
+
+  if (/\d/.test(cleaned)) {
+    return false;
+  }
+
+  if (isNoiseLine(cleaned)) {
+    return false;
+  }
+
+  if (startsDeliveryBlock(cleaned)) {
+    return false;
+  }
+
+  if (looksLikeAddress(cleaned)) {
+    return false;
+  }
+
+  const lower = cleaned.toLowerCase();
+
+  if (lower.includes("consegna")) {
+    return false;
+  }
+
+  if (lower.includes("pacco")) {
+    return false;
+  }
+
+  if (lower.includes("locker")) {
+    return false;
+  }
+
+  return true;
 }
 
 function extractParcels(lines: string[]): number | null {
   for (const line of lines) {
     const match = cleanLine(line).match(/consegna\s+(\d+)/i);
-    if (match?.[1]) return Number(match[1]);
+
+    if (match?.[1]) {
+      return Number(match[1]);
+    }
   }
 
   return null;
@@ -73,91 +207,151 @@ function normalizeAddress(value: string): string {
 }
 
 function normalizeCity(value: string): string {
-  return cleanLine(value);
+  return cleanLine(value).trim();
 }
 
-function splitIntoStopBlocks(text: string): Array<{
-  originalPosition: number;
-  lines: string[];
-}> {
+function blockHasAddress(block: RawBlock | null): boolean {
+  if (!block) {
+    return false;
+  }
+
+  return block.lines.some((line) => {
+    const { rest } = extractLeadingStopAndText(line);
+    return looksLikeAddress(rest);
+  });
+}
+
+function splitIntoStopBlocks(text: string): RawBlock[] {
   const lines = text
     .split(/\r?\n/)
     .map(cleanLine)
-    .filter((line) => line.length > 0);
+    .filter((line) => line.length > 0)
+    .filter((line) => !isNoiseLine(line));
 
-  const blocks: Array<{ originalPosition: number; lines: string[] }> = [];
-  let currentBlock: { originalPosition: number; lines: string[] } | null = null;
+  const blocks: RawBlock[] = [];
+  const pendingStopNumbers: number[] = [];
 
-  for (const rawLine of lines) {
-    const stopNumber = getStopNumberFromLine(rawLine);
+  let currentBlock: RawBlock | null = null;
 
-    if (stopNumber !== null) {
-      if (currentBlock) blocks.push(currentBlock);
+  for (const line of lines) {
+    const standaloneNumber = getStandaloneStopNumber(line);
+
+    if (standaloneNumber !== null) {
+      if (currentBlock && !blockHasAddress(currentBlock)) {
+        currentBlock.originalPosition = standaloneNumber;
+        continue;
+      }
+
+      if (currentBlock && blockHasAddress(currentBlock)) {
+        pendingStopNumbers.push(standaloneNumber);
+        continue;
+      }
+
+      pendingStopNumbers.push(standaloneNumber);
+      continue;
+    }
+
+    if (startsDeliveryBlock(line)) {
+      if (currentBlock && blockHasAddress(currentBlock)) {
+        blocks.push(currentBlock);
+      }
 
       currentBlock = {
-        originalPosition: stopNumber,
-        lines: [],
+        originalPosition: pendingStopNumbers.shift() ?? null,
+        lines: [line],
       };
-
-      const remainingText = removeLeadingStopNumber(rawLine);
-      if (remainingText.length > 0) {
-        currentBlock.lines.push(remainingText);
-      }
 
       continue;
     }
 
-    if (currentBlock) {
-      currentBlock.lines.push(rawLine);
+    const leading = extractLeadingStopAndText(line);
+
+    if (leading.stopNumber !== null && looksLikeAddress(leading.rest)) {
+      if (currentBlock && blockHasAddress(currentBlock)) {
+        blocks.push(currentBlock);
+      }
+
+      currentBlock = {
+        originalPosition: leading.stopNumber,
+        lines: [leading.rest],
+      };
+
+      pendingStopNumbers.length = 0;
+      continue;
     }
+
+    if (!currentBlock) {
+      continue;
+    }
+
+    currentBlock.lines.push(line);
   }
 
-  if (currentBlock) blocks.push(currentBlock);
+  if (currentBlock && blockHasAddress(currentBlock)) {
+    blocks.push(currentBlock);
+  }
 
-  return blocks;
+  return blocks.filter((block) => block.originalPosition !== null);
 }
 
-function parseBlock(block: {
-  originalPosition: number;
-  lines: string[];
-}): RouteProParsedFlexStop | null {
+function parseBlock(block: RawBlock): RouteProParsedFlexStop | null {
+  if (block.originalPosition === null) {
+    return null;
+  }
+
   const usefulLines = block.lines
     .map(cleanLine)
     .filter((line) => line.length > 0)
     .filter((line) => !isNoiseLine(line));
 
-  const addressIndex = usefulLines.findIndex(looksLikeAddress);
+  const normalizedLines = usefulLines.map((line) => {
+    const leading = extractLeadingStopAndText(line);
+    return leading.stopNumber !== null ? leading.rest : line;
+  });
 
-  if (addressIndex === -1) return null;
+  const addressIndex = normalizedLines.findIndex(looksLikeAddress);
 
-  const addressParts: string[] = [];
+  if (addressIndex === -1) {
+    return null;
+  }
+
+  const addressParts: string[] = [
+    extractAddressFromLine(normalizedLines[addressIndex]),
+  ];
+
   let city: string | null = null;
 
-  for (let index = addressIndex; index < usefulLines.length; index += 1) {
-    const line = usefulLines[index];
+  for (let index = addressIndex + 1; index < normalizedLines.length; index += 1) {
+    const line = normalizedLines[index];
 
-    if (/^consegna\s+\d+/i.test(line)) break;
-    if (/^posizioni$/i.test(line)) break;
-
-    if (index > addressIndex && !looksLikeAddress(line)) {
-      const looksLikeCity =
-        !line.match(/\d/) &&
-        line.length >= 3 &&
-        !line.toLowerCase().includes("pacco");
-
-      if (looksLikeCity) {
-        city = normalizeCity(line);
-        break;
-      }
+    if (startsDeliveryBlock(line)) {
+      break;
     }
 
-    addressParts.push(line);
+    if (isParcelLine(line)) {
+      break;
+    }
+
+    if (getStandaloneStopNumber(line) !== null) {
+      continue;
+    }
+
+    if (looksLikeCity(line)) {
+      city = normalizeCity(line);
+      break;
+    }
+
+    if (looksLikeAddress(line)) {
+      addressParts.push(extractAddressFromLine(line));
+    }
   }
 
   const address = normalizeAddress(addressParts.join(" "));
   const parcels = extractParcels(block.lines);
 
-  if (!address || address.length < 5) return null;
+  if (!address || address.length < 5) {
+    return null;
+  }
 
   return {
     originalPosition: block.originalPosition,

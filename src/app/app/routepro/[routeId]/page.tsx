@@ -335,11 +335,12 @@ Corso Buenos Aires 22, Milano`}
           <label style={ui.form.label}>
             Screenshot
             <input
-              name="screenshot_file"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              style={ui.form.input}
-            />
+  name="screenshot_file"
+  type="file"
+  accept="image/png,image/jpeg,image/webp"
+  multiple
+  style={ui.form.input}
+/>
           </label>
 
           <div style={actionsStyle}>

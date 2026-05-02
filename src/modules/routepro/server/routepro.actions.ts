@@ -6,6 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/routepro.geocoding";
 import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
 import { extractTextFromImageWithGoogleVision } from "@/modules/routepro/server/routepro.ocr";
+import { encryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
+
+import {
+  formatLayoutParsedStopsForTextarea,
+  parseAmazonFlexStopsFromVisionLayout,
+} from "@/modules/routepro/server/routepro.flex-layout-parser";
 
 function getDefaultRouteName(routeDate: string): string {
   return `Route ${routeDate}`;
@@ -177,7 +183,7 @@ export async function saveRouteProOpenRouteServiceKey(formData: FormData) {
     {
       user_id: user.id,
       provider: "openrouteservice",
-      encrypted_key: apiKey,
+      encrypted_key: encryptRouteProSecret(apiKey),
       is_active: true,
       updated_at: new Date().toISOString(),
     },
@@ -643,7 +649,7 @@ export async function saveRouteProGoogleVisionKey(formData: FormData) {
     {
       user_id: user.id,
       provider: "google_vision",
-      encrypted_key: apiKey,
+      encrypted_key: encryptRouteProSecret(apiKey),
       is_active: true,
       updated_at: new Date().toISOString(),
     },
@@ -662,29 +668,86 @@ export async function saveRouteProGoogleVisionKey(formData: FormData) {
 
 export async function previewRouteProScreenshotOcr(formData: FormData) {
   const routeId = String(formData.get("route_id") ?? "").trim();
-  const file = formData.get("screenshot_file");
+  const files = formData.getAll("screenshot_file");
 
   if (!routeId) {
     redirect("/app/routepro");
   }
 
-  if (!(file instanceof File) || file.size === 0) {
+  const imageFiles = files.filter(
+    (file): file is File => file instanceof File && file.size > 0,
+  );
+
+  if (imageFiles.length === 0) {
     redirect(`/app/routepro/${routeId}?error=screenshot-missing`);
   }
 
-  const result = await extractTextFromImageWithGoogleVision(file);
+  const allParsedStops: {
+    originalPosition: number;
+    address: string;
+    city: string | null;
+  }[] = [];
 
-  if (!result.ok) {
-    console.error("RoutePro OCR preview error:", result.message);
+  const fallbackTexts: string[] = [];
 
-    if (result.reason === "missing_key") {
-      redirect(`/app/routepro/${routeId}?error=ocr-missing-key`);
+  for (const file of imageFiles) {
+    const result = await extractTextFromImageWithGoogleVision(file);
+
+    if (!result.ok) {
+      console.error("RoutePro OCR preview error:", result.message);
+
+      if (result.reason === "missing_key") {
+        redirect(`/app/routepro/${routeId}?error=ocr-missing-key`);
+      }
+
+      redirect(`/app/routepro/${routeId}?error=ocr-failed`);
     }
 
-    redirect(`/app/routepro/${routeId}?error=ocr-failed`);
+    const parsedStops = parseAmazonFlexStopsFromVisionLayout(result.words);
+
+    if (parsedStops.length > 0) {
+      allParsedStops.push(
+        ...parsedStops.map((stop) => ({
+          originalPosition: stop.originalPosition,
+          address: stop.address,
+          city: stop.city,
+        })),
+      );
+    } else {
+      fallbackTexts.push(result.text);
+    }
   }
 
-  const encodedText = encodeURIComponent(result.text);
+  const uniqueStops = new Map<
+    number,
+    {
+      originalPosition: number;
+      address: string;
+      city: string | null;
+    }
+  >();
+
+  for (const stop of allParsedStops) {
+    if (!uniqueStops.has(stop.originalPosition)) {
+      uniqueStops.set(stop.originalPosition, stop);
+    }
+  }
+
+  const orderedStops = Array.from(uniqueStops.values()).sort(
+    (a, b) => a.originalPosition - b.originalPosition,
+  );
+
+  const previewText =
+    orderedStops.length > 0
+      ? orderedStops
+          .map((stop) => {
+            const cityPart = stop.city ? `, ${stop.city}` : "";
+            return `${stop.originalPosition} | ${stop.address}${cityPart}`;
+          })
+          .join("\n")
+      : fallbackTexts.join("\n\n--- screenshot ---\n\n");
+
+  const encodedText = encodeURIComponent(previewText);
 
   redirect(`/app/routepro/${routeId}?ocrPreview=${encodedText}`);
 }
@@ -703,14 +766,41 @@ export async function addScreenshotOcrRouteProStops(formData: FormData) {
     redirect(`/app/routepro/${routeId}?error=ocr-import-empty`);
   }
 
-  const addresses = rawText
+  const parsedStops = rawText
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const match = line.match(/^(\d{1,3})\s*\|\s*(.+)$/);
 
-  if (addresses.length === 0) {
+      if (!match?.[1] || !match?.[2]) {
+        return null;
+      }
+
+      return {
+        originalPosition: Number(match[1]),
+        address: match[2].trim(),
+      };
+    })
+    .filter((item): item is { originalPosition: number; address: string } =>
+      Boolean(item),
+    )
+    .filter((item) => item.originalPosition >= 1 && item.originalPosition <= 200)
+    .sort((a, b) => a.originalPosition - b.originalPosition);
+
+  if (parsedStops.length === 0) {
     redirect(`/app/routepro/${routeId}?error=ocr-import-empty`);
   }
+
+  const uniqueStops = new Map<number, { originalPosition: number; address: string }>();
+
+  for (const stop of parsedStops) {
+    if (!uniqueStops.has(stop.originalPosition)) {
+      uniqueStops.set(stop.originalPosition, stop);
+    }
+  }
+
+  const orderedStops = Array.from(uniqueStops.values());
 
   const { count, error: countError } = await supabase
     .from("routepro_stops")
@@ -724,13 +814,13 @@ export async function addScreenshotOcrRouteProStops(formData: FormData) {
 
   let nextPosition = (count ?? 0) + 1;
 
-  const rows = addresses.map((address) => {
+  const rows = orderedStops.map((stop) => {
     const row = {
       route_id: routeId,
       position: nextPosition,
-      original_position: nextPosition,
-      raw_text: address,
-      address,
+      original_position: stop.originalPosition,
+      raw_text: stop.address,
+      address: stop.address,
       status: "raw",
       source: "screenshot",
     };

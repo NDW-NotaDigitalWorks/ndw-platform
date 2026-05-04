@@ -839,3 +839,26 @@ export async function addScreenshotOcrRouteProStops(formData: FormData) {
   revalidatePath(`/app/routepro/${routeId}`);
   redirect(`/app/routepro/${routeId}?screenshotImported=1`);
 }
+
+export async function deleteRouteProRoute(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
+
+  const { error } = await supabase
+    .from("routepro_routes")
+    .delete()
+    .eq("id", routeId);
+
+  if (error) {
+    console.error("RoutePro delete route error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=delete-route-failed`);
+  }
+
+  revalidatePath("/app/routepro");
+  redirect("/app/routepro?routeDeleted=1");
+}

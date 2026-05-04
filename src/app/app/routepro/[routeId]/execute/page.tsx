@@ -31,6 +31,34 @@ const actionsStyle: React.CSSProperties = {
   marginTop: 18,
 };
 
+const mobileActionsStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 12,
+  marginTop: 18,
+};
+
+const statGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+  gap: 12,
+  marginTop: 20,
+};
+
+const bigStopNumberStyle: React.CSSProperties = {
+  margin: "12px 0 0",
+  fontSize: 42,
+  lineHeight: 1,
+  fontWeight: 900,
+};
+
+const addressStyle: React.CSSProperties = {
+  margin: "16px 0 0",
+  fontSize: 22,
+  lineHeight: 1.25,
+  fontWeight: 800,
+};
+
 const successStyle: React.CSSProperties = {
   marginTop: 16,
   padding: 12,
@@ -91,9 +119,7 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
   const completedStops = route.stops.filter(
     (stop) => stop.status === "completed",
   );
-
   const skippedStops = route.stops.filter((stop) => stop.status === "skipped");
-
   const executableStops = route.stops.filter(
     (stop) => stop.status === "valid" && stop.lat !== null && stop.lng !== null,
   );
@@ -112,13 +138,40 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
       <p style={ui.page.eyebrow}>RoutePro Execution</p>
       <h1 style={ui.page.title}>{route.name}</h1>
       <p style={ui.page.subtitle}>
-        Progresso: {doneCount} / {totalStops} stop gestiti · {remainingCount} rimanenti
+        Modalità lavoro mobile-first per seguire la rotta stop dopo stop.
       </p>
 
       <div style={actionsStyle}>
         <Link href={`/app/routepro/${route.id}`} style={ui.button.secondary}>
           Torna alla rotta
         </Link>
+
+        <Link href="/app/routepro" style={ui.button.secondary}>
+          Storico rotte
+        </Link>
+      </div>
+
+      <div style={statGridStyle}>
+        <article style={{ ...ui.card.base, padding: 16 }}>
+          <p style={ui.page.eyebrow}>Gestiti</p>
+          <h2 style={{ margin: "6px 0 0", fontSize: 28 }}>
+            {doneCount}/{totalStops}
+          </h2>
+        </article>
+
+        <article style={{ ...ui.card.base, padding: 16 }}>
+          <p style={ui.page.eyebrow}>Rimanenti</p>
+          <h2 style={{ margin: "6px 0 0", fontSize: 28 }}>
+            {remainingCount}
+          </h2>
+        </article>
+
+        <article style={{ ...ui.card.base, padding: 16 }}>
+          <p style={ui.page.eyebrow}>Saltati</p>
+          <h2 style={{ margin: "6px 0 0", fontSize: 28 }}>
+            {skippedStops.length}
+          </h2>
+        </article>
       </div>
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
@@ -137,15 +190,16 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
 
       {isRouteCompleted ? (
         <div style={{ ...ui.card.base, marginTop: 24 }}>
+          <p style={ui.page.eyebrow}>Riepilogo</p>
           <h2 style={ui.page.sectionTitle}>Rotta completata</h2>
           <p style={mutedTextStyle}>
             Hai gestito {doneCount} stop su {totalStops}. Stop completati:{" "}
             {completedStops.length}. Stop saltati: {skippedStops.length}.
           </p>
 
-          <div style={actionsStyle}>
+          <div style={mobileActionsStyle}>
             <Link href="/app/routepro" style={ui.button.primary}>
-              Torna allo storico rotte
+              Storico rotte
             </Link>
 
             <Link href={`/app/routepro/${route.id}`} style={ui.button.secondary}>
@@ -155,18 +209,19 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
         </div>
       ) : !currentStop || currentStopLat === null || currentStopLng === null ? (
         <div style={{ ...ui.card.base, marginTop: 24 }}>
-          <h2 style={ui.page.sectionTitle}>Rotta quasi completata</h2>
+          <p style={ui.page.eyebrow}>Fine esecuzione</p>
+          <h2 style={ui.page.sectionTitle}>Nessuno stop valido rimanente</h2>
           <p style={mutedTextStyle}>
             Non ci sono altri stop validi con coordinate da eseguire. Puoi
             terminare la rotta oppure tornare al dettaglio per controllare stop
             saltati o da rivedere.
           </p>
 
-          <div style={actionsStyle}>
+          <div style={mobileActionsStyle}>
             <form action={completeRouteProRoute}>
               <input type="hidden" name="route_id" value={route.id} />
 
-              <button type="submit" style={ui.button.primary}>
+              <button type="submit" style={{ ...ui.button.primary, width: "100%" }}>
                 Termina rotta
               </button>
             </form>
@@ -179,25 +234,30 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
       ) : (
         <div style={{ ...ui.card.base, marginTop: 24 }}>
           <p style={ui.page.eyebrow}>Stop corrente</p>
-          <h2 style={{ ...ui.page.title, fontSize: 28 }}>
-            #{currentStop.position} (orig: {currentStop.original_position})
-          </h2>
-          <p style={{ ...ui.page.subtitle, fontSize: 18 }}>
-            {currentStop.address}
+
+          <div style={bigStopNumberStyle}>
+            #{currentStop.position}
+          </div>
+
+          <p style={mutedTextStyle}>
+            Stop originale Amazon/Flex:{" "}
+            <strong>{currentStop.original_position}</strong>
           </p>
+
+          <div style={addressStyle}>{currentStop.address}</div>
 
           <p style={mutedTextStyle}>
             Coordinate: {currentStopLat}, {currentStopLng}
           </p>
 
-          <div style={actionsStyle}>
+          <div style={mobileActionsStyle}>
             <a
               href={getGoogleMapsUrl(currentStopLat, currentStopLng)}
               target="_blank"
               rel="noreferrer"
               style={ui.button.primary}
             >
-              Apri Google Maps
+              Google Maps
             </a>
 
             <a
@@ -206,16 +266,16 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               rel="noreferrer"
               style={ui.button.secondary}
             >
-              Apri Waze
+              Waze
             </a>
           </div>
 
-          <div style={actionsStyle}>
+          <div style={mobileActionsStyle}>
             <form action={completeRouteProStop}>
               <input type="hidden" name="route_id" value={route.id} />
               <input type="hidden" name="stop_id" value={currentStop.id} />
 
-              <button type="submit" style={ui.button.primary}>
+              <button type="submit" style={{ ...ui.button.primary, width: "100%" }}>
                 Completa stop
               </button>
             </form>
@@ -224,7 +284,7 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               <input type="hidden" name="route_id" value={route.id} />
               <input type="hidden" name="stop_id" value={currentStop.id} />
 
-              <button type="submit" style={ui.button.secondary}>
+              <button type="submit" style={{ ...ui.button.secondary, width: "100%" }}>
                 Salta stop
               </button>
             </form>

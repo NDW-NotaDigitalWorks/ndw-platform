@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getRouteProDictionary } from "@/modules/routepro/i18n";
 import { getMyRouteProRoutes } from "@/modules/routepro/server/routepro.routes";
+import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 
 const gridStyle: React.CSSProperties = {
@@ -50,19 +51,33 @@ export default async function RouteProModulePage() {
   const activeRoutes = routes.filter((route) => route.status !== "completed").length;
 
   return (
-    <section style={ui.page.section}>
-      <p style={ui.page.eyebrow}>{t.eyebrow}</p>
-      <h1 style={ui.page.title}>{t.title}</h1>
-      <p style={ui.page.subtitle}>{t.subtitle}</p>
+    <section style={routeProUi.shell}>
+      <div style={routeProUi.hero}>
+        <div style={routeProUi.brandRow}>
+          <div style={routeProUi.logoMark}>RP</div>
+          <div>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "#86efac" }}>
+              NDW MODULE
+            </p>
+            <strong style={{ color: "#f9fafb" }}>RoutePro</strong>
+          </div>
+        </div>
 
-      <div style={actionsStyle}>
-        <Link href="/app/routepro/new" style={ui.button.primary}>
-          Nuova rotta
-        </Link>
+        <h1 style={routeProUi.heroTitle}>{t.title}</h1>
+        <p style={routeProUi.heroSubtitle}>
+          Importa screenshot, liste o CSV. Geocodifica, ottimizza e completa la
+          rotta con una modalità execution pensata per driver reali.
+        </p>
 
-        <Link href="/app/routepro/settings" style={ui.button.secondary}>
-          Impostazioni API
-        </Link>
+        <div style={actionsStyle}>
+          <Link href="/app/routepro/new" style={ui.button.primary}>
+            Nuova rotta
+          </Link>
+
+          <Link href="/app/routepro/settings" style={ui.button.secondary}>
+            Impostazioni API
+          </Link>
+        </div>
       </div>
 
       <div style={gridStyle}>

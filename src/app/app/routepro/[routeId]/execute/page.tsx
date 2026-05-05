@@ -47,15 +47,16 @@ const statGridStyle: React.CSSProperties = {
 
 const bigStopNumberStyle: React.CSSProperties = {
   margin: "12px 0 0",
-  fontSize: 42,
+  fontSize: 56,
   lineHeight: 1,
   fontWeight: 900,
+  letterSpacing: "-2px",
 };
 
 const addressStyle: React.CSSProperties = {
   margin: "16px 0 0",
-  fontSize: 22,
-  lineHeight: 1.25,
+  fontSize: 24,
+  lineHeight: 1.3,
   fontWeight: 800,
 };
 
@@ -176,60 +177,37 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
 
-      {completed === "1" ? (
-        <div style={successStyle}>Stop completato. Passa al prossimo.</div>
-      ) : null}
-
-      {skipped === "1" ? (
-        <div style={successStyle}>Stop saltato. Passa al prossimo.</div>
-      ) : null}
-
-      {routeCompleted === "1" ? (
-        <div style={successStyle}>Rotta terminata correttamente.</div>
-      ) : null}
+      {completed === "1" && <div style={successStyle}>Stop completato. Passa al prossimo.</div>}
+      {skipped === "1" && <div style={successStyle}>Stop saltato. Passa al prossimo.</div>}
+      {routeCompleted === "1" && <div style={successStyle}>Rotta terminata correttamente.</div>}
 
       {isRouteCompleted ? (
         <div style={{ ...ui.card.base, marginTop: 24 }}>
-          <p style={ui.page.eyebrow}>Riepilogo</p>
           <h2 style={ui.page.sectionTitle}>Rotta completata</h2>
           <p style={mutedTextStyle}>
-            Hai gestito {doneCount} stop su {totalStops}. Stop completati:{" "}
-            {completedStops.length}. Stop saltati: {skippedStops.length}.
+            Hai gestito {doneCount} stop su {totalStops}.
           </p>
-
-          <div style={mobileActionsStyle}>
-            <Link href="/app/routepro" style={ui.button.primary}>
-              Storico rotte
-            </Link>
-
-            <Link href={`/app/routepro/${route.id}`} style={ui.button.secondary}>
-              Dettaglio rotta
-            </Link>
-          </div>
         </div>
       ) : !currentStop || currentStopLat === null || currentStopLng === null ? (
         <div style={{ ...ui.card.base, marginTop: 24 }}>
-          <p style={ui.page.eyebrow}>Fine esecuzione</p>
-          <h2 style={ui.page.sectionTitle}>Nessuno stop valido rimanente</h2>
-          <p style={mutedTextStyle}>
-            Non ci sono altri stop validi con coordinate da eseguire. Puoi
-            terminare la rotta oppure tornare al dettaglio per controllare stop
-            saltati o da rivedere.
-          </p>
+          <h2 style={ui.page.sectionTitle}>Fine rotta</h2>
 
-          <div style={mobileActionsStyle}>
-            <form action={completeRouteProRoute}>
-              <input type="hidden" name="route_id" value={route.id} />
+          <form action={completeRouteProRoute}>
+            <input type="hidden" name="route_id" value={route.id} />
 
-              <button type="submit" style={{ ...ui.button.primary, width: "100%" }}>
-                Termina rotta
-              </button>
-            </form>
-
-            <Link href={`/app/routepro/${route.id}`} style={ui.button.secondary}>
-              Torna alla rotta
-            </Link>
-          </div>
+            <button
+              type="submit"
+              style={{
+                ...ui.button.primary,
+                width: "100%",
+                padding: "18px",
+                fontSize: 18,
+                borderRadius: 14,
+              }}
+            >
+              Termina rotta
+            </button>
+          </form>
         </div>
       ) : (
         <div style={{ ...ui.card.base, marginTop: 24 }}>
@@ -240,22 +218,22 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
           </div>
 
           <p style={mutedTextStyle}>
-            Stop originale Amazon/Flex:{" "}
-            <strong>{currentStop.original_position}</strong>
+            Stop originale: <strong>{currentStop.original_position}</strong>
           </p>
 
           <div style={addressStyle}>{currentStop.address}</div>
-
-          <p style={mutedTextStyle}>
-            Coordinate: {currentStopLat}, {currentStopLng}
-          </p>
 
           <div style={mobileActionsStyle}>
             <a
               href={getGoogleMapsUrl(currentStopLat, currentStopLng)}
               target="_blank"
               rel="noreferrer"
-              style={ui.button.primary}
+              style={{
+                ...ui.button.primary,
+                padding: "16px 18px",
+                fontSize: 16,
+                borderRadius: 14,
+              }}
             >
               Google Maps
             </a>
@@ -264,7 +242,12 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               href={getWazeUrl(currentStopLat, currentStopLng)}
               target="_blank"
               rel="noreferrer"
-              style={ui.button.secondary}
+              style={{
+                ...ui.button.secondary,
+                padding: "16px 18px",
+                fontSize: 16,
+                borderRadius: 14,
+              }}
             >
               Waze
             </a>
@@ -275,7 +258,16 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               <input type="hidden" name="route_id" value={route.id} />
               <input type="hidden" name="stop_id" value={currentStop.id} />
 
-              <button type="submit" style={{ ...ui.button.primary, width: "100%" }}>
+              <button
+                type="submit"
+                style={{
+                  ...ui.button.primary,
+                  width: "100%",
+                  padding: "18px",
+                  fontSize: 18,
+                  borderRadius: 14,
+                }}
+              >
                 Completa stop
               </button>
             </form>
@@ -284,7 +276,16 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               <input type="hidden" name="route_id" value={route.id} />
               <input type="hidden" name="stop_id" value={currentStop.id} />
 
-              <button type="submit" style={{ ...ui.button.secondary, width: "100%" }}>
+              <button
+                type="submit"
+                style={{
+                  ...ui.button.secondary,
+                  width: "100%",
+                  padding: "18px",
+                  fontSize: 18,
+                  borderRadius: 14,
+                }}
+              >
                 Salta stop
               </button>
             </form>

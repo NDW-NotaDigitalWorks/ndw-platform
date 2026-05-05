@@ -39,7 +39,14 @@ const actionsStyle: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: 12,
-  marginTop: 8,
+  marginTop: 12,
+};
+
+const pageGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: 16,
+  marginTop: 16,
 };
 
 const mutedTextStyle: React.CSSProperties = {
@@ -48,11 +55,9 @@ const mutedTextStyle: React.CSSProperties = {
   lineHeight: 1.6,
 };
 
-const pageGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: 16,
-  marginTop: 24,
+const compactCardStyle: React.CSSProperties = {
+  ...ui.card.base,
+  padding: 18,
 };
 
 const stopListStyle: React.CSSProperties = {
@@ -141,6 +146,7 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
 
   const totalStops = route.stops.length;
   const validStops = route.stops.filter((stop) => stop.status === "valid").length;
+  const rawStops = route.stops.filter((stop) => stop.status === "raw").length;
   const needsReviewCount = route.stops.filter(
     (stop) => stop.status === "needs_review",
   ).length;
@@ -155,15 +161,15 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
 
       <div style={actionsStyle}>
         <Link href="/app/routepro" style={ui.button.secondary}>
-          Torna alle rotte
+          Rotte
         </Link>
 
         <Link href={`/app/routepro/${route.id}/execute`} style={ui.button.primary}>
-          Execution mode
+          Execution
         </Link>
 
         <Link href="/app/routepro/settings" style={ui.button.secondary}>
-          Impostazioni API
+          API
         </Link>
       </div>
 
@@ -198,28 +204,87 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
       ) : null}
 
       <div style={pageGridStyle}>
-        <article style={ui.card.base}>
-          <p style={ui.page.eyebrow}>Stop totali</p>
+        <article style={compactCardStyle}>
+          <p style={ui.page.eyebrow}>Totali</p>
           <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{totalStops}</h2>
         </article>
 
-        <article style={ui.card.base}>
+        <article style={compactCardStyle}>
+          <p style={ui.page.eyebrow}>Da geocodificare</p>
+          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{rawStops}</h2>
+        </article>
+
+        <article style={compactCardStyle}>
           <p style={ui.page.eyebrow}>Validi</p>
           <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{validStops}</h2>
         </article>
-
-        <article style={ui.card.base}>
-          <p style={ui.page.eyebrow}>Da rivedere</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{needsReviewCount}</h2>
-        </article>
       </div>
 
-      <div style={{ marginTop: 32 }}>
-        <h2 style={ui.page.sectionTitle}>1. Import stop</h2>
+      <div style={{ ...ui.card.base, marginTop: 24 }}>
+        <p style={ui.page.eyebrow}>Import principale</p>
+        <h2 style={ui.page.sectionTitle}>Screenshot OCR</h2>
+        <p style={mutedTextStyle}>
+          Carica più screenshot insieme. RoutePro estrae numero stop originale e
+          indirizzo, ordina tutto e ti lascia confermare prima dell’import.
+        </p>
+
+        <form action={previewRouteProScreenshotOcr} style={formStyle}>
+          <input type="hidden" name="route_id" value={route.id} />
+
+          <label style={ui.form.label}>
+            Screenshot
+            <input
+              name="screenshot_file"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              style={ui.form.input}
+            />
+          </label>
+
+          <button type="submit" style={ui.button.primary}>
+            Leggi screenshot selezionati
+          </button>
+        </form>
+
+        {ocrPreview ? (
+          <div style={{ ...ui.card.base, marginTop: 18 }}>
+            <h3 style={{ marginTop: 0 }}>Preview OCR pulita</h3>
+            <p style={mutedTextStyle}>
+              Controlla le righe, elimina eventuali errori e poi conferma l’import.
+            </p>
+
+            <form action={addScreenshotOcrRouteProStops} style={formStyle}>
+              <input type="hidden" name="route_id" value={route.id} />
+
+              <label style={ui.form.label}>
+                Stop da importare
+                <textarea
+                  name="ocr_addresses"
+                  rows={10}
+                  defaultValue={ocrPreview}
+                  style={{
+                    ...ui.form.input,
+                    resize: "vertical",
+                    fontFamily: "monospace",
+                  }}
+                />
+              </label>
+
+              <button type="submit" style={ui.button.primary}>
+                Importa stop da screenshot
+              </button>
+            </form>
+          </div>
+        ) : null}
+      </div>
+
+      <div style={{ marginTop: 28 }}>
+        <h2 style={ui.page.sectionTitle}>Altri metodi di import</h2>
 
         <div style={pageGridStyle}>
-          <div style={ui.card.base}>
-            <h3 style={{ marginTop: 0 }}>Aggiungi stop manuale</h3>
+          <div style={compactCardStyle}>
+            <h3 style={{ marginTop: 0 }}>Manuale</h3>
 
             <form action={addManualRouteProStop} style={formStyle}>
               <input type="hidden" name="route_id" value={route.id} />
@@ -229,31 +294,30 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
                 <input
                   name="address"
                   type="text"
-                  placeholder="Esempio: Via Roma 10, Milano"
+                  placeholder="Via Roma 10, Milano"
                   style={ui.form.input}
                 />
               </label>
 
               <button type="submit" style={ui.button.primary}>
-                Aggiungi stop
+                Aggiungi
               </button>
             </form>
           </div>
 
-          <div style={ui.card.base}>
-            <h3 style={{ marginTop: 0 }}>Incolla lista indirizzi</h3>
+          <div style={compactCardStyle}>
+            <h3 style={{ marginTop: 0 }}>Lista</h3>
 
             <form action={addBulkRouteProStops} style={formStyle}>
               <input type="hidden" name="route_id" value={route.id} />
 
               <label style={ui.form.label}>
-                Indirizzi uno per riga
+                Uno per riga
                 <textarea
                   name="bulk_addresses"
-                  rows={6}
+                  rows={5}
                   placeholder={`Via Roma 10, Milano
-Via Torino 5, Milano
-Corso Buenos Aires 22, Milano`}
+Via Torino 5, Milano`}
                   style={{ ...ui.form.input, resize: "vertical" }}
                 />
               </label>
@@ -264,10 +328,10 @@ Corso Buenos Aires 22, Milano`}
             </form>
           </div>
 
-          <div style={ui.card.base}>
-            <h3 style={{ marginTop: 0 }}>Import CSV</h3>
+          <div style={compactCardStyle}>
+            <h3 style={{ marginTop: 0 }}>CSV</h3>
             <p style={mutedTextStyle}>
-              CSV con colonna obbligatoria <strong>address</strong>.
+              Colonna obbligatoria <strong>address</strong>.
             </p>
 
             <form action={addCsvRouteProStops} style={formStyle}>
@@ -289,98 +353,38 @@ Corso Buenos Aires 22, Milano`}
             </form>
           </div>
         </div>
-
-        <div style={{ ...ui.card.base, marginTop: 16 }}>
-          <h3 style={{ marginTop: 0 }}>Import screenshot OCR</h3>
-          <p style={mutedTextStyle}>
-            Carica più screenshot insieme. RoutePro estrarrà stop originali e indirizzi,
-            poi potrai controllare tutto prima dell’import.
-          </p>
-
-          <form action={previewRouteProScreenshotOcr} style={formStyle}>
-            <input type="hidden" name="route_id" value={route.id} />
-
-            <label style={ui.form.label}>
-              Screenshot
-              <input
-                name="screenshot_file"
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                multiple
-                style={ui.form.input}
-              />
-            </label>
-
-            <button type="submit" style={ui.button.primary}>
-              Leggi screenshot selezionati
-            </button>
-          </form>
-
-          {ocrPreview ? (
-            <div style={{ ...ui.card.base, marginTop: 18 }}>
-              <h3 style={{ marginTop: 0 }}>Preview OCR pulita</h3>
-              <p style={mutedTextStyle}>
-                Controlla le righe, elimina eventuali errori e poi conferma l’import.
-              </p>
-
-              <form action={addScreenshotOcrRouteProStops} style={formStyle}>
-                <input type="hidden" name="route_id" value={route.id} />
-
-                <label style={ui.form.label}>
-                  Stop da importare
-                  <textarea
-                    name="ocr_addresses"
-                    rows={10}
-                    defaultValue={ocrPreview}
-                    style={{
-                      ...ui.form.input,
-                      resize: "vertical",
-                      fontFamily: "monospace",
-                    }}
-                  />
-                </label>
-
-                <button type="submit" style={ui.button.primary}>
-                  Importa stop da screenshot
-                </button>
-              </form>
-            </div>
-          ) : null}
-        </div>
       </div>
 
-      <div style={{ marginTop: 32 }}>
-        <h2 style={ui.page.sectionTitle}>2. Prepara rotta</h2>
+      <div style={{ marginTop: 28 }}>
+        <h2 style={ui.page.sectionTitle}>Prossimo passo</h2>
 
         <div style={pageGridStyle}>
-          <div style={ui.card.base}>
-            <h3 style={{ marginTop: 0 }}>Geocoding</h3>
+          <div style={compactCardStyle}>
+            <h3 style={{ marginTop: 0 }}>1. Geocoding</h3>
             <p style={mutedTextStyle}>
-              Trasforma gli indirizzi importati in coordinate. Gli stop non riconosciuti
-              passeranno in revisione.
+              Trasforma gli indirizzi in coordinate e segnala gli stop da rivedere.
             </p>
 
             <form action={geocodeRouteProStops} style={{ marginTop: 16 }}>
               <input type="hidden" name="route_id" value={route.id} />
 
               <button type="submit" style={ui.button.primary}>
-                Geocodifica stop
+                Geocodifica
               </button>
             </form>
           </div>
 
-          <div style={ui.card.base}>
-            <h3 style={{ marginTop: 0 }}>Ottimizzazione</h3>
+          <div style={compactCardStyle}>
+            <h3 style={{ marginTop: 0 }}>2. Ottimizza</h3>
             <p style={mutedTextStyle}>
-              Riordina gli stop validi per ridurre zig-zag evidenti. L’ordine originale
-              resta salvato.
+              Riordina gli stop validi mantenendo sempre il numero originale.
             </p>
 
             <form action={optimizeRouteProRoute} style={{ marginTop: 16 }}>
               <input type="hidden" name="route_id" value={route.id} />
 
               <button type="submit" style={ui.button.primary}>
-                Ottimizza rotta
+                Ottimizza
               </button>
             </form>
 
@@ -390,16 +394,29 @@ Corso Buenos Aires 22, Milano`}
               </p>
             ) : null}
           </div>
+
+          <div style={compactCardStyle}>
+            <h3 style={{ marginTop: 0 }}>3. Esegui</h3>
+            <p style={mutedTextStyle}>
+              Apri la modalità driver con Maps/Waze, complete e skip.
+            </p>
+
+            <div style={actionsStyle}>
+              <Link href={`/app/routepro/${route.id}/execute`} style={ui.button.primary}>
+                Apri execution
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div style={{ marginTop: 32 }}>
-        <h2 style={ui.page.sectionTitle}>3. Stop importati</h2>
+      <div style={{ marginTop: 28 }}>
+        <h2 style={ui.page.sectionTitle}>Stop importati</h2>
 
         {route.stops.length === 0 ? (
           <div style={{ ...ui.card.base, marginTop: 18 }}>
             <p style={mutedTextStyle}>
-              Nessuno stop inserito. Importa una lista, un CSV o screenshot per iniziare.
+              Nessuno stop inserito. Carica screenshot, lista o CSV per iniziare.
             </p>
           </div>
         ) : (
@@ -443,7 +460,7 @@ Corso Buenos Aires 22, Milano`}
 
                   <div style={actionsStyle}>
                     <button type="submit" style={ui.button.secondary}>
-                      Aggiorna stop
+                      Aggiorna
                     </button>
                   </div>
                 </form>
@@ -453,7 +470,7 @@ Corso Buenos Aires 22, Milano`}
                   <input type="hidden" name="stop_id" value={stop.id} />
 
                   <button type="submit" style={ui.button.danger}>
-                    Elimina stop
+                    Elimina
                   </button>
                 </form>
               </article>
@@ -465,8 +482,7 @@ Corso Buenos Aires 22, Milano`}
       <div style={{ ...ui.card.base, marginTop: 32 }}>
         <h2 style={ui.page.sectionTitle}>Zona pericolosa</h2>
         <p style={mutedTextStyle}>
-          Cancella definitivamente questa rotta e tutti gli stop collegati. Questa azione
-          non può essere annullata.
+          Cancella definitivamente questa rotta e tutti gli stop collegati.
         </p>
 
         <form action={deleteRouteProRoute} style={{ marginTop: 16 }}>

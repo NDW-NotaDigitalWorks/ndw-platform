@@ -78,6 +78,26 @@ const errorStyle: React.CSSProperties = {
   fontWeight: 600,
 };
 
+const bottomBarStyle: React.CSSProperties = {
+  position: "fixed",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  zIndex: 50,
+  padding: "12px 16px",
+  background: "rgba(255, 255, 255, 0.96)",
+  borderTop: "1px solid #e5e7eb",
+  boxShadow: "0 -10px 30px rgba(15, 23, 42, 0.12)",
+};
+
+const bottomBarInnerStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 12,
+  maxWidth: 720,
+  margin: "0 auto",
+};
+
 function getGoogleMapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 }
@@ -134,8 +154,14 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
   const remainingCount = executableStops.length;
   const isRouteCompleted = route.status === "completed";
 
+  const showBottomBar =
+    !isRouteCompleted &&
+    currentStop &&
+    currentStopLat !== null &&
+    currentStopLng !== null;
+
   return (
-    <section style={ui.page.section}>
+    <section style={{ ...ui.page.section, paddingBottom: showBottomBar ? 110 : 0 }}>
       <p style={ui.page.eyebrow}>RoutePro Execution</p>
       <h1 style={ui.page.title}>{route.name}</h1>
       <p style={ui.page.subtitle}>
@@ -176,10 +202,9 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
       </div>
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
-
-      {completed === "1" && <div style={successStyle}>Stop completato. Passa al prossimo.</div>}
-      {skipped === "1" && <div style={successStyle}>Stop saltato. Passa al prossimo.</div>}
-      {routeCompleted === "1" && <div style={successStyle}>Rotta terminata correttamente.</div>}
+      {completed === "1" ? <div style={successStyle}>Stop completato. Passa al prossimo.</div> : null}
+      {skipped === "1" ? <div style={successStyle}>Stop saltato. Passa al prossimo.</div> : null}
+      {routeCompleted === "1" ? <div style={successStyle}>Rotta terminata correttamente.</div> : null}
 
       {isRouteCompleted ? (
         <div style={{ ...ui.card.base, marginTop: 24 }}>
@@ -213,9 +238,7 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
         <div style={{ ...ui.card.base, marginTop: 24 }}>
           <p style={ui.page.eyebrow}>Stop corrente</p>
 
-          <div style={bigStopNumberStyle}>
-            #{currentStop.position}
-          </div>
+          <div style={bigStopNumberStyle}>#{currentStop.position}</div>
 
           <p style={mutedTextStyle}>
             Stop originale: <strong>{currentStop.original_position}</strong>
@@ -252,8 +275,12 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               Waze
             </a>
           </div>
+        </div>
+      )}
 
-          <div style={mobileActionsStyle}>
+      {showBottomBar ? (
+        <div style={bottomBarStyle}>
+          <div style={bottomBarInnerStyle}>
             <form action={completeRouteProStop}>
               <input type="hidden" name="route_id" value={route.id} />
               <input type="hidden" name="stop_id" value={currentStop.id} />
@@ -264,11 +291,11 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
                   ...ui.button.primary,
                   width: "100%",
                   padding: "18px",
-                  fontSize: 18,
+                  fontSize: 17,
                   borderRadius: 14,
                 }}
               >
-                Completa stop
+                Completa
               </button>
             </form>
 
@@ -282,16 +309,16 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
                   ...ui.button.secondary,
                   width: "100%",
                   padding: "18px",
-                  fontSize: 18,
+                  fontSize: 17,
                   borderRadius: 14,
                 }}
               >
-                Salta stop
+                Salta
               </button>
             </form>
           </div>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

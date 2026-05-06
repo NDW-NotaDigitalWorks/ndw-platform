@@ -3,6 +3,8 @@ import {
   saveRouteProGoogleVisionKey,
   saveRouteProOpenRouteServiceKey,
 } from "@/modules/routepro/server/routepro.actions";
+import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
+import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 
 type Props = {
@@ -23,7 +25,7 @@ const actionsStyle: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: 12,
-  marginTop: 8,
+  marginTop: 12,
 };
 
 const mutedTextStyle: React.CSSProperties = {
@@ -78,10 +80,12 @@ export default async function RouteProSettingsPage({ searchParams }: Props) {
 
   return (
     <section style={ui.page.section}>
-      <p style={ui.page.eyebrow}>RoutePro</p>
-      <h1 style={ui.page.title}>Impostazioni API</h1>
+      <RouteProHeader subtitle="Configura le API per sbloccare tutte le funzionalità" />
+
+      <p style={ui.page.eyebrow}>Impostazioni</p>
+      <h1 style={ui.page.title}>API & Integrazioni</h1>
       <p style={ui.page.subtitle}>
-        Collega le tue chiavi API per usare geocoding, OCR e funzioni avanzate.
+        Collega le tue chiavi per attivare geocoding, OCR e automazioni avanzate.
       </p>
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
@@ -98,16 +102,18 @@ export default async function RouteProSettingsPage({ searchParams }: Props) {
         </div>
       ) : null}
 
+      {/* OpenRouteService */}
       <div style={{ ...ui.card.base, marginTop: 24 }}>
-        <h2 style={ui.page.sectionTitle}>OpenRouteService</h2>
+        <h2 style={ui.page.sectionTitle}>Geocoding (OpenRouteService)</h2>
+
         <p style={mutedTextStyle}>
-          Questa chiave verrà usata per trasformare gli indirizzi in coordinate.
-          In V1 RoutePro usa il modello BYOK: ogni utente usa le proprie chiavi.
+          Usata per trasformare indirizzi in coordinate. RoutePro usa modello BYOK:
+          la chiave è tua, i limiti sono tuoi.
         </p>
 
         <form action={saveRouteProOpenRouteServiceKey} style={formStyle}>
           <label style={ui.form.label}>
-            API Key OpenRouteService
+            API Key
             <input
               name="openrouteservice_key"
               type="password"
@@ -117,28 +123,29 @@ export default async function RouteProSettingsPage({ searchParams }: Props) {
           </label>
 
           <div style={actionsStyle}>
-            <button type="submit" style={ui.button.primary}>
-              Salva chiave geocoding
+            <button type="submit" style={routeProUi.primaryButton}>
+              Salva chiave
             </button>
 
-            <Link href="/app/routepro" style={ui.button.secondary}>
+            <Link href="/app/routepro" style={routeProUi.secondaryButton}>
               Torna a RoutePro
             </Link>
           </div>
         </form>
       </div>
 
+      {/* Google Vision */}
       <div style={{ ...ui.card.base, marginTop: 24 }}>
-        <h2 style={ui.page.sectionTitle}>Google Vision OCR</h2>
+        <h2 style={ui.page.sectionTitle}>OCR Screenshot (Google Vision)</h2>
 
         <p style={mutedTextStyle}>
-          Questa chiave permette di estrarre automaticamente testo e possibili
-          indirizzi dagli screenshot.
+          Permette di leggere automaticamente screenshot Amazon Flex e ricostruire
+          la lista stop.
         </p>
 
         <form action={saveRouteProGoogleVisionKey} style={formStyle}>
           <label style={ui.form.label}>
-            API Key Google Vision
+            API Key
             <input
               name="google_vision_key"
               type="password"
@@ -148,7 +155,7 @@ export default async function RouteProSettingsPage({ searchParams }: Props) {
           </label>
 
           <div style={actionsStyle}>
-            <button type="submit" style={ui.button.primary}>
+            <button type="submit" style={routeProUi.primaryButton}>
               Salva chiave OCR
             </button>
           </div>

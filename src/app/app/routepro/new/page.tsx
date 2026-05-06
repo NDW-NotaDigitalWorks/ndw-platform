@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { createRouteProRoute } from "@/modules/routepro/server/routepro.actions";
+import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
+import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 
 type Props = {
@@ -18,7 +20,7 @@ const actionsStyle: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: 12,
-  marginTop: 8,
+  marginTop: 12,
 };
 
 const errorStyle: React.CSSProperties = {
@@ -48,17 +50,19 @@ export default async function RouteProNewRoutePage({ searchParams }: Props) {
 
   return (
     <section style={ui.page.section}>
-      <p style={ui.page.eyebrow}>RoutePro</p>
-      <h1 style={ui.page.title}>Nuova rotta</h1>
+      <RouteProHeader subtitle="Crea e prepara una nuova rotta" />
+
+      <p style={ui.page.eyebrow}>Nuova rotta</p>
+      <h1 style={ui.page.title}>Crea percorso</h1>
       <p style={ui.page.subtitle}>
-        Crea una nuova rotta per iniziare a importare gli stop.
+        Dai un nome alla rotta, imposta la data e inizia a importare gli stop.
       </p>
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
 
       <form action={createRouteProRoute} style={{ ...ui.card.base, ...formStyle }}>
         <label style={ui.form.label}>
-          Nome rotta
+          Nome percorso
           <input
             name="name"
             type="text"
@@ -68,26 +72,26 @@ export default async function RouteProNewRoutePage({ searchParams }: Props) {
         </label>
 
         <label style={ui.form.label}>
-          Data rotta
+          Data percorso
           <input name="route_date" type="date" required style={ui.form.input} />
         </label>
 
         <label style={ui.form.label}>
-          Punto di partenza opzionale
+          Punto di partenza (opzionale)
           <input
             name="start_address"
             type="text"
-            placeholder="Esempio: Deposito, casa, magazzino..."
+            placeholder="Deposito, casa, magazzino..."
             style={ui.form.input}
           />
         </label>
 
         <div style={actionsStyle}>
-          <button type="submit" style={ui.button.primary}>
-            Crea rotta
+          <button type="submit" style={routeProUi.primaryButton}>
+            Crea percorso
           </button>
 
-          <Link href="/app/routepro" style={ui.button.secondary}>
+          <Link href="/app/routepro" style={routeProUi.secondaryButton}>
             Annulla
           </Link>
         </div>

@@ -13,6 +13,8 @@ import {
   updateRouteProStopAddress,
 } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
+import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
+import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 
 type Props = {
@@ -153,6 +155,8 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
 
   return (
     <section style={ui.page.section}>
+      <RouteProHeader subtitle="Import, optimize, execute" />
+
       <p style={ui.page.eyebrow}>RoutePro</p>
       <h1 style={ui.page.title}>{route.name}</h1>
       <p style={ui.page.subtitle}>
@@ -160,37 +164,25 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
       </p>
 
       <div style={actionsStyle}>
-        <Link href="/app/routepro" style={ui.button.secondary}>
+        <Link href="/app/routepro" style={routeProUi.secondaryButton}>
           Rotte
         </Link>
 
-        <Link href={`/app/routepro/${route.id}/execute`} style={ui.button.primary}>
-          Execution
+        <Link href={`/app/routepro/${route.id}/execute`} style={routeProUi.primaryButton}>
+          Avvia percorso
         </Link>
 
-        <Link href="/app/routepro/settings" style={ui.button.secondary}>
+        <Link href="/app/routepro/settings" style={routeProUi.secondaryButton}>
           API
         </Link>
       </div>
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
-
-      {geocoded === "1" ? (
-        <div style={successStyle}>Geocoding completato. Controlla eventuali stop da rivedere.</div>
-      ) : null}
-
-      {updated === "1" ? (
-        <div style={successStyle}>Stop aggiornato. Rilancia il geocoding per validarlo.</div>
-      ) : null}
-
+      {geocoded === "1" ? <div style={successStyle}>Geocoding completato. Controlla eventuali stop da rivedere.</div> : null}
+      {updated === "1" ? <div style={successStyle}>Stop aggiornato. Rilancia il geocoding per validarlo.</div> : null}
       {deleted === "1" ? <div style={successStyle}>Stop eliminato correttamente.</div> : null}
-
-      {optimized === "1" ? (
-        <div style={successStyle}>Rotta ottimizzata. L’ordine degli stop è stato aggiornato.</div>
-      ) : null}
-
+      {optimized === "1" ? <div style={successStyle}>Rotta ottimizzata. L’ordine degli stop è stato aggiornato.</div> : null}
       {csvImported === "1" ? <div style={successStyle}>CSV importato correttamente.</div> : null}
-
       {screenshotImported === "1" ? (
         <div style={successStyle}>
           Stop importati dallo screenshot. Ora puoi controllarli e geocodificarli.
@@ -222,7 +214,7 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
 
       <div style={{ ...ui.card.base, marginTop: 24 }}>
         <p style={ui.page.eyebrow}>Import principale</p>
-        <h2 style={ui.page.sectionTitle}>Screenshot OCR</h2>
+        <h2 style={ui.page.sectionTitle}>Importa screenshot automatico</h2>
         <p style={mutedTextStyle}>
           Carica più screenshot insieme. RoutePro estrae numero stop originale e
           indirizzo, ordina tutto e ti lascia confermare prima dell’import.
@@ -242,7 +234,7 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
             />
           </label>
 
-          <button type="submit" style={ui.button.primary}>
+          <button type="submit" style={routeProUi.primaryButton}>
             Leggi screenshot selezionati
           </button>
         </form>
@@ -271,7 +263,7 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
                 />
               </label>
 
-              <button type="submit" style={ui.button.primary}>
+              <button type="submit" style={routeProUi.primaryButton}>
                 Importa stop da screenshot
               </button>
             </form>
@@ -299,7 +291,7 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
                 />
               </label>
 
-              <button type="submit" style={ui.button.primary}>
+              <button type="submit" style={routeProUi.primaryButton}>
                 Aggiungi
               </button>
             </form>
@@ -322,7 +314,7 @@ Via Torino 5, Milano`}
                 />
               </label>
 
-              <button type="submit" style={ui.button.primary}>
+              <button type="submit" style={routeProUi.primaryButton}>
                 Importa lista
               </button>
             </form>
@@ -347,7 +339,7 @@ Via Torino 5, Milano`}
                 />
               </label>
 
-              <button type="submit" style={ui.button.primary}>
+              <button type="submit" style={routeProUi.primaryButton}>
                 Importa CSV
               </button>
             </form>
@@ -360,7 +352,7 @@ Via Torino 5, Milano`}
 
         <div style={pageGridStyle}>
           <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>1. Geocoding</h3>
+            <h3 style={{ marginTop: 0 }}>1. Riconosci indirizzi</h3>
             <p style={mutedTextStyle}>
               Trasforma gli indirizzi in coordinate e segnala gli stop da rivedere.
             </p>
@@ -368,8 +360,8 @@ Via Torino 5, Milano`}
             <form action={geocodeRouteProStops} style={{ marginTop: 16 }}>
               <input type="hidden" name="route_id" value={route.id} />
 
-              <button type="submit" style={ui.button.primary}>
-                Geocodifica
+              <button type="submit" style={routeProUi.primaryButton}>
+                Riconosci indirizzi
               </button>
             </form>
           </div>
@@ -383,7 +375,7 @@ Via Torino 5, Milano`}
             <form action={optimizeRouteProRoute} style={{ marginTop: 16 }}>
               <input type="hidden" name="route_id" value={route.id} />
 
-              <button type="submit" style={ui.button.primary}>
+              <button type="submit" style={routeProUi.primaryButton}>
                 Ottimizza
               </button>
             </form>
@@ -396,14 +388,14 @@ Via Torino 5, Milano`}
           </div>
 
           <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>3. Esegui</h3>
+            <h3 style={{ marginTop: 0 }}>3. Avvia percorso</h3>
             <p style={mutedTextStyle}>
               Apri la modalità driver con Maps/Waze, complete e skip.
             </p>
 
             <div style={actionsStyle}>
-              <Link href={`/app/routepro/${route.id}/execute`} style={ui.button.primary}>
-                Apri execution
+              <Link href={`/app/routepro/${route.id}/execute`} style={routeProUi.primaryButton}>
+                Avvia percorso
               </Link>
             </div>
           </div>
@@ -459,7 +451,7 @@ Via Torino 5, Milano`}
                   </label>
 
                   <div style={actionsStyle}>
-                    <button type="submit" style={ui.button.secondary}>
+                    <button type="submit" style={routeProUi.secondaryButton}>
                       Aggiorna
                     </button>
                   </div>
@@ -469,7 +461,7 @@ Via Torino 5, Milano`}
                   <input type="hidden" name="route_id" value={route.id} />
                   <input type="hidden" name="stop_id" value={stop.id} />
 
-                  <button type="submit" style={ui.button.danger}>
+                  <button type="submit" style={routeProUi.dangerButton}>
                     Elimina
                   </button>
                 </form>
@@ -488,7 +480,7 @@ Via Torino 5, Milano`}
         <form action={deleteRouteProRoute} style={{ marginTop: 16 }}>
           <input type="hidden" name="route_id" value={route.id} />
 
-          <button type="submit" style={ui.button.danger}>
+          <button type="submit" style={routeProUi.dangerButton}>
             Cancella rotta
           </button>
         </form>

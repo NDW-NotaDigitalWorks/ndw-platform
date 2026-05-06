@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getRouteProDictionary } from "@/modules/routepro/i18n";
 import { getMyRouteProRoutes } from "@/modules/routepro/server/routepro.routes";
+import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 
@@ -52,17 +53,9 @@ export default async function RouteProModulePage() {
 
   return (
     <section style={routeProUi.shell}>
-      <div style={routeProUi.hero}>
-        <div style={routeProUi.brandRow}>
-          <div style={routeProUi.logoMark}>RP</div>
-          <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: "#86efac" }}>
-              NDW MODULE
-            </p>
-            <strong style={{ color: "#f9fafb" }}>RoutePro</strong>
-          </div>
-        </div>
+      <RouteProHeader />
 
+      <div style={routeProUi.hero}>
         <h1 style={routeProUi.heroTitle}>{t.title}</h1>
         <p style={routeProUi.heroSubtitle}>
           Importa screenshot, liste o CSV. Geocodifica, ottimizza e completa la
@@ -70,11 +63,11 @@ export default async function RouteProModulePage() {
         </p>
 
         <div style={actionsStyle}>
-          <Link href="/app/routepro/new" style={ui.button.primary}>
+          <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
             Nuova rotta
           </Link>
 
-          <Link href="/app/routepro/settings" style={ui.button.secondary}>
+          <Link href="/app/routepro/settings" style={routeProUi.secondaryButton}>
             Impostazioni API
           </Link>
         </div>
@@ -109,7 +102,7 @@ export default async function RouteProModulePage() {
             </p>
 
             <div style={actionsStyle}>
-              <Link href="/app/routepro/new" style={ui.button.primary}>
+              <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
                 Crea prima rotta
               </Link>
             </div>
@@ -134,15 +127,15 @@ export default async function RouteProModulePage() {
                 </p>
 
                 <div style={actionsStyle}>
-                  <Link href={`/app/routepro/${route.id}`} style={ui.button.primary}>
+                  <Link href={`/app/routepro/${route.id}`} style={routeProUi.primaryButton}>
                     Apri rotta
                   </Link>
 
                   <Link
                     href={`/app/routepro/${route.id}/execute`}
-                    style={ui.button.secondary}
+                    style={routeProUi.secondaryButton}
                   >
-                    Execution
+                    Avvia percorso
                   </Link>
                 </div>
               </article>

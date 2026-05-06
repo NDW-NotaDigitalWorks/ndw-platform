@@ -6,6 +6,8 @@ import {
   skipRouteProStop,
 } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
+import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
+import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 
 type Props = {
@@ -162,18 +164,20 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
 
   return (
     <section style={{ ...ui.page.section, paddingBottom: showBottomBar ? 110 : 0 }}>
-      <p style={ui.page.eyebrow}>RoutePro Execution</p>
+      <RouteProHeader subtitle="Driver execution mode" />
+
+      <p style={ui.page.eyebrow}>Percorso attivo</p>
       <h1 style={ui.page.title}>{route.name}</h1>
       <p style={ui.page.subtitle}>
-        Modalità lavoro mobile-first per seguire la rotta stop dopo stop.
+        Segui la rotta stop dopo stop con Maps, Waze, complete e skip.
       </p>
 
       <div style={actionsStyle}>
-        <Link href={`/app/routepro/${route.id}`} style={ui.button.secondary}>
+        <Link href={`/app/routepro/${route.id}`} style={routeProUi.secondaryButton}>
           Torna alla rotta
         </Link>
 
-        <Link href="/app/routepro" style={ui.button.secondary}>
+        <Link href="/app/routepro" style={routeProUi.secondaryButton}>
           Storico rotte
         </Link>
       </div>
@@ -223,7 +227,7 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
             <button
               type="submit"
               style={{
-                ...ui.button.primary,
+                ...routeProUi.primaryButton,
                 width: "100%",
                 padding: "18px",
                 fontSize: 18,
@@ -252,7 +256,7 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               target="_blank"
               rel="noreferrer"
               style={{
-                ...ui.button.primary,
+                ...routeProUi.primaryButton,
                 padding: "16px 18px",
                 fontSize: 16,
                 borderRadius: 14,
@@ -266,7 +270,7 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               target="_blank"
               rel="noreferrer"
               style={{
-                ...ui.button.secondary,
+                ...routeProUi.secondaryButton,
                 padding: "16px 18px",
                 fontSize: 16,
                 borderRadius: 14,
@@ -288,7 +292,7 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               <button
                 type="submit"
                 style={{
-                  ...ui.button.primary,
+                  ...routeProUi.primaryButton,
                   width: "100%",
                   padding: "18px",
                   fontSize: 17,
@@ -306,7 +310,7 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               <button
                 type="submit"
                 style={{
-                  ...ui.button.secondary,
+                  ...routeProUi.secondaryButton,
                   width: "100%",
                   padding: "18px",
                   fontSize: 17,

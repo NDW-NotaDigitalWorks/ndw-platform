@@ -28,8 +28,8 @@ export const routeProUi = {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "#22c55e",
-    color: "#052e16",
+    background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
+    color: "#ffffff",
     fontWeight: 900,
     fontSize: 18,
   } satisfies CSSProperties,
@@ -50,17 +50,18 @@ export const routeProUi = {
     color: "#cbd5e1",
   } satisfies CSSProperties,
 
-  darkCard: {
-    ...ui.card.base,
-    background: "#0f172a",
-    color: "#f9fafb",
-    border: "1px solid rgba(148, 163, 184, 0.2)",
+  primaryButton: {
+    ...ui.button.primary,
+    background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
+    boxShadow: "0 10px 24px rgba(14, 165, 233, 0.22)",
   } satisfies CSSProperties,
 
-  darkMuted: {
-    margin: "8px 0 0",
-    fontSize: 14,
-    lineHeight: 1.6,
-    color: "#cbd5e1",
+  secondaryButton: {
+    ...ui.button.secondary,
+    borderColor: "rgba(14, 165, 233, 0.35)",
+  } satisfies CSSProperties,
+
+  dangerButton: {
+    ...ui.button.danger,
   } satisfies CSSProperties,
 };

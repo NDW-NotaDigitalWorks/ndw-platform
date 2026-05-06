@@ -4,16 +4,15 @@ import {
   addBulkRouteProStops,
   addCsvRouteProStops,
   addManualRouteProStop,
-  addScreenshotOcrRouteProStops,
   deleteRouteProRoute,
   deleteRouteProStop,
   geocodeRouteProStops,
   optimizeRouteProRoute,
-  previewRouteProScreenshotOcr,
   updateRouteProStopAddress,
 } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
+import { RouteProOcrBatchUploader } from "@/modules/routepro/ui/RouteProOcrBatchUploader";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 
@@ -26,7 +25,6 @@ type Props = {
     deleted?: string;
     optimized?: string;
     csvImported?: string;
-    ocrPreview?: string;
     screenshotImported?: string;
   }>;
 };
@@ -115,9 +113,6 @@ function getErrorMessage(error?: string): string | null {
   if (error === "csv-invalid") return "Il CSV non è valido. Usa una riga header e almeno un indirizzo.";
   if (error === "csv-missing-address-column") return "Il CSV deve contenere una colonna chiamata address.";
   if (error === "csv-failed") return "Non siamo riusciti a importare il CSV. Riprova.";
-  if (error === "screenshot-missing") return "Carica almeno uno screenshot prima di avviare OCR.";
-  if (error === "ocr-missing-key") return "Per usare OCR devi salvare una API key Google Vision nelle impostazioni.";
-  if (error === "ocr-failed") return "Non siamo riusciti a leggere lo screenshot. Prova con un'immagine più chiara.";
   if (error === "ocr-import-empty") return "Non ci sono righe OCR da importare.";
   if (error === "ocr-import-failed") return "Non siamo riusciti a importare gli stop dallo screenshot.";
   if (error === "delete-route-failed") return "Non siamo riusciti a cancellare la rotta. Riprova.";
@@ -136,9 +131,6 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
   const optimized = resolvedSearchParams?.optimized;
   const csvImported = resolvedSearchParams?.csvImported;
   const screenshotImported = resolvedSearchParams?.screenshotImported;
-  const ocrPreview = resolvedSearchParams?.ocrPreview
-    ? decodeURIComponent(resolvedSearchParams.ocrPreview)
-    : null;
 
   const route = await getMyRouteProRouteDetail(routeId);
 
@@ -212,64 +204,7 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
         </article>
       </div>
 
-      <div style={{ ...ui.card.base, marginTop: 24 }}>
-        <p style={ui.page.eyebrow}>Import principale</p>
-        <h2 style={ui.page.sectionTitle}>Importa screenshot automatico</h2>
-        <p style={mutedTextStyle}>
-          Carica più screenshot insieme. RoutePro estrae numero stop originale e
-          indirizzo, ordina tutto e ti lascia confermare prima dell’import.
-        </p>
-
-        <form action={previewRouteProScreenshotOcr} style={formStyle}>
-          <input type="hidden" name="route_id" value={route.id} />
-
-          <label style={ui.form.label}>
-            Screenshot
-            <input
-              name="screenshot_file"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              multiple
-              style={ui.form.input}
-            />
-          </label>
-
-          <button type="submit" style={routeProUi.primaryButton}>
-            Leggi screenshot selezionati
-          </button>
-        </form>
-
-        {ocrPreview ? (
-          <div style={{ ...ui.card.base, marginTop: 18 }}>
-            <h3 style={{ marginTop: 0 }}>Preview OCR pulita</h3>
-            <p style={mutedTextStyle}>
-              Controlla le righe, elimina eventuali errori e poi conferma l’import.
-            </p>
-
-            <form action={addScreenshotOcrRouteProStops} style={formStyle}>
-              <input type="hidden" name="route_id" value={route.id} />
-
-              <label style={ui.form.label}>
-                Stop da importare
-                <textarea
-                  name="ocr_addresses"
-                  rows={10}
-                  defaultValue={ocrPreview}
-                  style={{
-                    ...ui.form.input,
-                    resize: "vertical",
-                    fontFamily: "monospace",
-                  }}
-                />
-              </label>
-
-              <button type="submit" style={routeProUi.primaryButton}>
-                Importa stop da screenshot
-              </button>
-            </form>
-          </div>
-        ) : null}
-      </div>
+      <RouteProOcrBatchUploader routeId={route.id} />
 
       <div style={{ marginTop: 28 }}>
         <h2 style={ui.page.sectionTitle}>Altri metodi di import</h2>

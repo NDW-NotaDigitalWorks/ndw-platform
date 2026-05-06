@@ -15,6 +15,7 @@ import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
 import { RouteProOcrBatchUploader } from "@/modules/routepro/ui/RouteProOcrBatchUploader";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
+import { RouteProSubmitButton } from "@/modules/routepro/ui/RouteProSubmitButton";
 
 type Props = {
   params: Promise<{ routeId: string }>;
@@ -274,9 +275,10 @@ Via Torino 5, Milano`}
                 />
               </label>
 
-              <button type="submit" style={routeProUi.primaryButton}>
-                Importa CSV
-              </button>
+              <RouteProSubmitButton
+  idleLabel="Importa CSV"
+  pendingLabel="Import CSV in corso..."
+/>
             </form>
           </div>
         </div>
@@ -295,9 +297,10 @@ Via Torino 5, Milano`}
             <form action={geocodeRouteProStops} style={{ marginTop: 16 }}>
               <input type="hidden" name="route_id" value={route.id} />
 
-              <button type="submit" style={routeProUi.primaryButton}>
-                Riconosci indirizzi
-              </button>
+              <RouteProSubmitButton
+  idleLabel="Riconosci indirizzi"
+  pendingLabel="Riconoscimento in corso..."
+/>
             </form>
           </div>
 
@@ -310,9 +313,10 @@ Via Torino 5, Milano`}
             <form action={optimizeRouteProRoute} style={{ marginTop: 16 }}>
               <input type="hidden" name="route_id" value={route.id} />
 
-              <button type="submit" style={routeProUi.primaryButton}>
-                Ottimizza
-              </button>
+              <RouteProSubmitButton
+  idleLabel="Ottimizza"
+  pendingLabel="Ottimizzazione in corso..."
+/>
             </form>
 
             {route.is_optimized ? (
@@ -386,9 +390,11 @@ Via Torino 5, Milano`}
                   </label>
 
                   <div style={actionsStyle}>
-                    <button type="submit" style={routeProUi.secondaryButton}>
-                      Aggiorna
-                    </button>
+                    <RouteProSubmitButton
+  idleLabel="Aggiorna"
+  pendingLabel="Aggiornamento..."
+  variant="secondary"
+/>
                   </div>
                 </form>
 
@@ -396,9 +402,11 @@ Via Torino 5, Milano`}
                   <input type="hidden" name="route_id" value={route.id} />
                   <input type="hidden" name="stop_id" value={stop.id} />
 
-                  <button type="submit" style={routeProUi.dangerButton}>
-                    Elimina
-                  </button>
+                  <RouteProSubmitButton
+  idleLabel="Elimina"
+  pendingLabel="Eliminazione..."
+  variant="danger"
+/>
                 </form>
               </article>
             ))}
@@ -415,9 +423,11 @@ Via Torino 5, Milano`}
         <form action={deleteRouteProRoute} style={{ marginTop: 16 }}>
           <input type="hidden" name="route_id" value={route.id} />
 
-          <button type="submit" style={routeProUi.dangerButton}>
-            Cancella rotta
-          </button>
+          <RouteProSubmitButton
+  idleLabel="Cancella rotta"
+  pendingLabel="Cancellazione..."
+  variant="danger"
+/>
         </form>
       </div>
     </section>

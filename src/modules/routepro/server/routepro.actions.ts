@@ -682,6 +682,8 @@ export async function previewRouteProScreenshotOcr(formData: FormData) {
     redirect(`/app/routepro/${routeId}?error=screenshot-missing`);
   }
 
+  const BATCH_SIZE = 10;
+
   const allParsedStops: {
     originalPosition: number;
     address: string;
@@ -690,31 +692,35 @@ export async function previewRouteProScreenshotOcr(formData: FormData) {
 
   const fallbackTexts: string[] = [];
 
-  for (const file of imageFiles) {
-    const result = await extractTextFromImageWithGoogleVision(file);
+  for (let index = 0; index < imageFiles.length; index += BATCH_SIZE) {
+    const batch = imageFiles.slice(index, index + BATCH_SIZE);
 
-    if (!result.ok) {
-      console.error("RoutePro OCR preview error:", result.message);
+    for (const file of batch) {
+      const result = await extractTextFromImageWithGoogleVision(file);
 
-      if (result.reason === "missing_key") {
-        redirect(`/app/routepro/${routeId}?error=ocr-missing-key`);
+      if (!result.ok) {
+        console.error("RoutePro OCR preview error:", result.message);
+
+        if (result.reason === "missing_key") {
+          redirect(`/app/routepro/${routeId}?error=ocr-missing-key`);
+        }
+
+        redirect(`/app/routepro/${routeId}?error=ocr-failed`);
       }
 
-      redirect(`/app/routepro/${routeId}?error=ocr-failed`);
-    }
+      const parsedStops = parseAmazonFlexStopsFromVisionLayout(result.words);
 
-    const parsedStops = parseAmazonFlexStopsFromVisionLayout(result.words);
-
-    if (parsedStops.length > 0) {
-      allParsedStops.push(
-        ...parsedStops.map((stop) => ({
-          originalPosition: stop.originalPosition,
-          address: stop.address,
-          city: stop.city,
-        })),
-      );
-    } else {
-      fallbackTexts.push(result.text);
+      if (parsedStops.length > 0) {
+        allParsedStops.push(
+          ...parsedStops.map((stop) => ({
+            originalPosition: stop.originalPosition,
+            address: stop.address,
+            city: stop.city,
+          })),
+        );
+      } else {
+        fallbackTexts.push(result.text);
+      }
     }
   }
 

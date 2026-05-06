@@ -135,7 +135,7 @@ export default function RouteProLandingPage() {
 
           <div style={{ marginTop: 28 }}>
             <a
-              href="https://whop.com/ndw-nota-digital-works/routepro-pro/"
+              href="https://whop.com/ndw-nota-digital-works/routepro-pro-ad"
               target="_blank"
               style={{
                 background: "#22c55e",

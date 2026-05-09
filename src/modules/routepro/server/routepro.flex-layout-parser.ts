@@ -112,20 +112,69 @@ function extractStopLine(text: string): {
   };
 }
 
+function looksLikeStreetWithoutPrefix(text: string): boolean {
+  const cleaned = normalizeText(text);
+
+  if (cleaned.length < 6) {
+    return false;
+  }
+
+  const lower = cleaned.toLowerCase();
+
+  if (
+    lower.includes("consegna") ||
+    lower.includes("locker") ||
+    lower.includes("pacco") ||
+    lower.includes("pacchi") ||
+    lower.includes("amazon") ||
+    lower.includes("elenco") ||
+    lower.includes("tappe") ||
+    lower.includes("fermata") ||
+    lower.startsWith("n.")
+  ) {
+    return false;
+  }
+
+  const hasNumber = /\d{1,4}/.test(cleaned);
+
+  if (!hasNumber) {
+    return false;
+  }
+
+  const words = cleaned.split(" ").filter(Boolean);
+
+  if (words.length < 2) {
+    return false;
+  }
+
+  const firstWord = words[0];
+
+  if (!firstWord || firstWord.length < 3) {
+    return false;
+  }
+
+  return /^[a-zA-ZÀ-ÿ'`.-]+/.test(firstWord);
+}
+
 function containsAddressWord(text: string): boolean {
   const lower = normalizeText(text).toLowerCase();
 
-  return ADDRESS_WORDS.some(
-    (word) =>
-      lower.includes(`${word} `) ||
-      lower.includes(`${word},`),
+  const hasClassicStreetWord = ADDRESS_WORDS.some(
+    (word) => lower.includes(`${word} `) || lower.includes(`${word},`),
   );
+
+  if (hasClassicStreetWord) {
+    return true;
+  }
+
+  return looksLikeStreetWithoutPrefix(text);
 }
 
 function cleanAddressText(text: string): string {
   return normalizeText(text)
     .replace(/\s+,/g, ",")
     .replace(/,\s+/g, ", ")
+    .replace(/\s+\/\s+/g, "/")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -148,6 +197,10 @@ function looksLikeCity(text: string): boolean {
   }
 
   if (lower.includes("pacco")) {
+    return false;
+  }
+
+  if (lower.includes("pacchi")) {
     return false;
   }
 

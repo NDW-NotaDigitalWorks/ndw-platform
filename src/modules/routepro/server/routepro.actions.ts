@@ -7,14 +7,21 @@ import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/ro
 import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
 import { extractTextFromImageWithGoogleVision } from "@/modules/routepro/server/routepro.ocr";
 import { encryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
-
-import {
-  formatLayoutParsedStopsForTextarea,
-  parseAmazonFlexStopsFromVisionLayout,
-} from "@/modules/routepro/server/routepro.flex-layout-parser";
+import { parseAmazonFlexStopsFromVisionLayout } from "@/modules/routepro/server/routepro.flex-layout-parser";
 
 function getDefaultRouteName(routeDate: string): string {
   return `Route ${routeDate}`;
+}
+
+async function runRouteProGeocodingInBatches<T>(
+  items: T[],
+  batchSize: number,
+  handler: (item: T) => Promise<void>,
+): Promise<void> {
+  for (let index = 0; index < items.length; index += batchSize) {
+    const batch = items.slice(index, index + batchSize);
+    await Promise.all(batch.map((item) => handler(item)));
+  }
 }
 
 export async function createRouteProRoute(formData: FormData) {
@@ -25,17 +32,13 @@ export async function createRouteProRoute(formData: FormData) {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    redirect("/login");
-  }
+  if (userError || !user) redirect("/login");
 
   const rawName = String(formData.get("name") ?? "").trim();
   const routeDate = String(formData.get("route_date") ?? "").trim();
   const startAddress = String(formData.get("start_address") ?? "").trim();
 
-  if (!routeDate) {
-    redirect("/app/routepro/new?error=missing-date");
-  }
+  if (!routeDate) redirect("/app/routepro/new?error=missing-date");
 
   const name = rawName || getDefaultRouteName(routeDate);
 
@@ -65,13 +68,8 @@ export async function addManualRouteProStop(formData: FormData) {
   const routeId = String(formData.get("route_id") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
-
-  if (!address) {
-    redirect(`/app/routepro/${routeId}?error=missing-address`);
-  }
+  if (!routeId) redirect("/app/routepro");
+  if (!address) redirect(`/app/routepro/${routeId}?error=missing-address`);
 
   const { count, error: countError } = await supabase
     .from("routepro_stops")
@@ -103,19 +101,15 @@ export async function addManualRouteProStop(formData: FormData) {
   revalidatePath(`/app/routepro/${routeId}`);
   redirect(`/app/routepro/${routeId}`);
 }
+
 export async function addBulkRouteProStops(formData: FormData) {
   const supabase = await createClient();
 
   const routeId = String(formData.get("route_id") ?? "").trim();
   const rawText = String(formData.get("bulk_addresses") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
-
-  if (!rawText) {
-    redirect(`/app/routepro/${routeId}?error=missing-address`);
-  }
+  if (!routeId) redirect("/app/routepro");
+  if (!rawText) redirect(`/app/routepro/${routeId}?error=missing-address`);
 
   const lines = rawText
     .split("\n")
@@ -148,9 +142,7 @@ export async function addBulkRouteProStops(formData: FormData) {
     return row;
   });
 
-  const { error } = await supabase
-    .from("routepro_stops")
-    .insert(rows);
+  const { error } = await supabase.from("routepro_stops").insert(rows);
 
   if (error) {
     console.error("Bulk stop insert error:", error.message);
@@ -169,15 +161,11 @@ export async function saveRouteProOpenRouteServiceKey(formData: FormData) {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    redirect("/login");
-  }
+  if (userError || !user) redirect("/login");
 
   const apiKey = String(formData.get("openrouteservice_key") ?? "").trim();
 
-  if (!apiKey) {
-    redirect("/app/routepro/settings?error=missing-key");
-  }
+  if (!apiKey) redirect("/app/routepro/settings?error=missing-key");
 
   const { error } = await supabase.from("routepro_api_keys").upsert(
     {
@@ -187,9 +175,7 @@ export async function saveRouteProOpenRouteServiceKey(formData: FormData) {
       is_active: true,
       updated_at: new Date().toISOString(),
     },
-    {
-      onConflict: "user_id,provider",
-    },
+    { onConflict: "user_id,provider" },
   );
 
   if (error) {
@@ -205,9 +191,7 @@ export async function geocodeRouteProStops(formData: FormData) {
 
   const routeId = String(formData.get("route_id") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
+  if (!routeId) redirect("/app/routepro");
 
   const { data: stops, error: stopsError } = await supabase
     .from("routepro_stops")
@@ -225,25 +209,37 @@ export async function geocodeRouteProStops(formData: FormData) {
     redirect(`/app/routepro/${routeId}?geocoded=0`);
   }
 
-  for (const stop of stops) {
-    const result = await geocodeAddressWithOpenRouteService(stop.address);
+  const GEOCODING_BATCH_SIZE = 5;
 
-    if (result.ok) {
-      await supabase
-        .from("routepro_stops")
-        .update({
-          lat: result.lat,
-          lng: result.lng,
-          status: "valid",
-          geocoding_provider: result.provider,
-          geocoding_status: "success",
-          geocoding_confidence: result.confidence,
-          geocoding_error: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", stop.id);
-    } else {
-      await supabase
+  await runRouteProGeocodingInBatches(
+    stops,
+    GEOCODING_BATCH_SIZE,
+    async (stop) => {
+      const result = await geocodeAddressWithOpenRouteService(stop.address);
+
+      if (result.ok) {
+        const { error } = await supabase
+          .from("routepro_stops")
+          .update({
+            lat: result.lat,
+            lng: result.lng,
+            status: "valid",
+            geocoding_provider: result.provider,
+            geocoding_status: "success",
+            geocoding_confidence: result.confidence,
+            geocoding_error: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", stop.id);
+
+        if (error) {
+          console.error("RoutePro geocode update success error:", error.message);
+        }
+
+        return;
+      }
+
+      const { error } = await supabase
         .from("routepro_stops")
         .update({
           status: "needs_review",
@@ -254,8 +250,12 @@ export async function geocodeRouteProStops(formData: FormData) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", stop.id);
-    }
-  }
+
+      if (error) {
+        console.error("RoutePro geocode update failed error:", error.message);
+      }
+    },
+  );
 
   revalidatePath(`/app/routepro/${routeId}`);
   redirect(`/app/routepro/${routeId}?geocoded=1`);
@@ -268,9 +268,7 @@ export async function updateRouteProStopAddress(formData: FormData) {
   const stopId = String(formData.get("stop_id") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
+  if (!routeId) redirect("/app/routepro");
 
   if (!stopId || !address) {
     redirect(`/app/routepro/${routeId}?error=update-stop-failed`);
@@ -307,13 +305,8 @@ export async function deleteRouteProStop(formData: FormData) {
   const routeId = String(formData.get("route_id") ?? "").trim();
   const stopId = String(formData.get("stop_id") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
-
-  if (!stopId) {
-    redirect(`/app/routepro/${routeId}?error=delete-stop-failed`);
-  }
+  if (!routeId) redirect("/app/routepro");
+  if (!stopId) redirect(`/app/routepro/${routeId}?error=delete-stop-failed`);
 
   const { error } = await supabase
     .from("routepro_stops")
@@ -334,9 +327,7 @@ export async function optimizeRouteProRoute(formData: FormData) {
 
   const routeId = String(formData.get("route_id") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
+  if (!routeId) redirect("/app/routepro");
 
   const { data: route, error: routeError } = await supabase
     .from("routepro_routes")
@@ -431,10 +422,7 @@ export async function optimizeRouteProRoute(formData: FormData) {
     .eq("id", routeId);
 
   if (routeUpdateError) {
-    console.error(
-      "RoutePro optimize route update error:",
-      routeUpdateError.message,
-    );
+    console.error("RoutePro optimize route update error:", routeUpdateError.message);
     redirect(`/app/routepro/${routeId}?error=optimize-failed`);
   }
 
@@ -448,13 +436,8 @@ export async function completeRouteProStop(formData: FormData) {
   const routeId = String(formData.get("route_id") ?? "").trim();
   const stopId = String(formData.get("stop_id") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
-
-  if (!stopId) {
-    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
-  }
+  if (!routeId) redirect("/app/routepro");
+  if (!stopId) redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
 
   const { error } = await supabase
     .from("routepro_stops")
@@ -487,13 +470,8 @@ export async function skipRouteProStop(formData: FormData) {
   const routeId = String(formData.get("route_id") ?? "").trim();
   const stopId = String(formData.get("stop_id") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
-
-  if (!stopId) {
-    redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
-  }
+  if (!routeId) redirect("/app/routepro");
+  if (!stopId) redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
 
   const { error } = await supabase
     .from("routepro_stops")
@@ -525,9 +503,7 @@ export async function completeRouteProRoute(formData: FormData) {
 
   const routeId = String(formData.get("route_id") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
+  if (!routeId) redirect("/app/routepro");
 
   const { error } = await supabase
     .from("routepro_routes")
@@ -555,9 +531,7 @@ export async function addCsvRouteProStops(formData: FormData) {
   const routeId = String(formData.get("route_id") ?? "").trim();
   const file = formData.get("csv_file");
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
+  if (!routeId) redirect("/app/routepro");
 
   if (!(file instanceof File) || file.size === 0) {
     redirect(`/app/routepro/${routeId}?error=csv-missing`);
@@ -635,15 +609,11 @@ export async function saveRouteProGoogleVisionKey(formData: FormData) {
     error: userError,
   } = await supabase.auth.getUser();
 
-  if (userError || !user) {
-    redirect("/login");
-  }
+  if (userError || !user) redirect("/login");
 
   const apiKey = String(formData.get("google_vision_key") ?? "").trim();
 
-  if (!apiKey) {
-    redirect("/app/routepro/settings?error=missing-vision-key");
-  }
+  if (!apiKey) redirect("/app/routepro/settings?error=missing-vision-key");
 
   const { error } = await supabase.from("routepro_api_keys").upsert(
     {
@@ -653,9 +623,7 @@ export async function saveRouteProGoogleVisionKey(formData: FormData) {
       is_active: true,
       updated_at: new Date().toISOString(),
     },
-    {
-      onConflict: "user_id,provider",
-    },
+    { onConflict: "user_id,provider" },
   );
 
   if (error) {
@@ -670,9 +638,7 @@ export async function previewRouteProScreenshotOcr(formData: FormData) {
   const routeId = String(formData.get("route_id") ?? "").trim();
   const files = formData.getAll("screenshot_file");
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
+  if (!routeId) redirect("/app/routepro");
 
   const imageFiles = files.filter(
     (file): file is File => file instanceof File && file.size > 0,
@@ -764,9 +730,7 @@ export async function addScreenshotOcrRouteProStops(formData: FormData) {
   const routeId = String(formData.get("route_id") ?? "").trim();
   const rawText = String(formData.get("ocr_addresses") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
+  if (!routeId) redirect("/app/routepro");
 
   if (!rawText) {
     redirect(`/app/routepro/${routeId}?error=ocr-import-empty`);
@@ -779,9 +743,7 @@ export async function addScreenshotOcrRouteProStops(formData: FormData) {
     .map((line) => {
       const match = line.match(/^(\d{1,3})\s*\|\s*(.+)$/);
 
-      if (!match?.[1] || !match?.[2]) {
-        return null;
-      }
+      if (!match?.[1] || !match?.[2]) return null;
 
       return {
         originalPosition: Number(match[1]),
@@ -851,9 +813,7 @@ export async function deleteRouteProRoute(formData: FormData) {
 
   const routeId = String(formData.get("route_id") ?? "").trim();
 
-  if (!routeId) {
-    redirect("/app/routepro");
-  }
+  if (!routeId) redirect("/app/routepro");
 
   const { error } = await supabase
     .from("routepro_routes")

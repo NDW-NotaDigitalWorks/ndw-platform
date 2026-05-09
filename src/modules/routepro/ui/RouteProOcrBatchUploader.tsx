@@ -11,6 +11,12 @@ type ParsedStop = {
   city: string | null;
 };
 
+type SuspiciousStop = {
+  originalPosition: number;
+  address: string;
+  reasons: string[];
+};
+
 type ApiSuccessResponse = {
   ok: true;
   parsedStops: ParsedStop[];
@@ -43,21 +49,21 @@ const mutedTextStyle: React.CSSProperties = {
   lineHeight: 1.6,
 };
 
+const warningStyle: React.CSSProperties = {
+  marginTop: 16,
+  padding: 12,
+  borderRadius: 12,
+  background: "#fffbeb",
+  color: "#92400e",
+  fontWeight: 600,
+};
+
 const errorStyle: React.CSSProperties = {
   marginTop: 16,
   padding: 12,
   borderRadius: 12,
   background: "#fff1f2",
   color: "#be123c",
-  fontWeight: 600,
-};
-
-const successStyle: React.CSSProperties = {
-  marginTop: 16,
-  padding: 12,
-  borderRadius: 12,
-  background: "#ecfdf5",
-  color: "#047857",
   fontWeight: 600,
 };
 
@@ -71,7 +77,7 @@ function chunkFiles(files: File[], size: number): File[][] {
   return chunks;
 }
 
-function formatStopsForTextarea(stops: ParsedStop[]): string {
+function getUniqueOrderedStops(stops: ParsedStop[]): ParsedStop[] {
   const unique = new Map<number, ParsedStop>();
 
   for (const stop of stops) {
@@ -80,8 +86,13 @@ function formatStopsForTextarea(stops: ParsedStop[]): string {
     }
   }
 
-  return Array.from(unique.values())
-    .sort((a, b) => a.originalPosition - b.originalPosition)
+  return Array.from(unique.values()).sort(
+    (a, b) => a.originalPosition - b.originalPosition,
+  );
+}
+
+function formatStopsForTextarea(stops: ParsedStop[]): string {
+  return getUniqueOrderedStops(stops)
     .map((stop) => {
       const cityPart = stop.city ? `, ${stop.city}` : "";
       return `${stop.originalPosition} | ${stop.address}${cityPart}`;
@@ -89,17 +100,94 @@ function formatStopsForTextarea(stops: ParsedStop[]): string {
     .join("\n");
 }
 
+function findMissingStopNumbers(stops: ParsedStop[]): number[] {
+  const orderedStops = getUniqueOrderedStops(stops);
+
+  if (orderedStops.length < 2) {
+    return [];
+  }
+
+  const numbers = orderedStops.map((stop) => stop.originalPosition);
+  const min = Math.min(...numbers);
+  const max = Math.max(...numbers);
+  const existing = new Set(numbers);
+  const missing: number[] = [];
+
+  for (let value = min; value <= max; value += 1) {
+    if (!existing.has(value)) {
+      missing.push(value);
+    }
+  }
+
+  return missing;
+}
+
+function detectSuspiciousStops(stops: ParsedStop[]): SuspiciousStop[] {
+  const suspicious: SuspiciousStop[] = [];
+
+  for (const stop of getUniqueOrderedStops(stops)) {
+    const reasons: string[] = [];
+    const address = stop.address.trim();
+    const lower = address.toLowerCase();
+
+    if (address.length < 8) {
+      reasons.push("indirizzo molto corto");
+    }
+
+    if (!/\d/.test(address)) {
+      reasons.push("manca numero civico");
+    }
+
+    if (!stop.city) {
+      reasons.push("città non rilevata");
+    }
+
+    if (
+      address.includes("...") ||
+      lower.includes(" mon...") ||
+      lower.includes(" indicazio") ||
+      lower.includes(" supermercat") ||
+      lower.includes(" corpor") ||
+      lower.includes(" calzet") ||
+      lower.includes(" citofono ...")
+    ) {
+      reasons.push("testo probabilmente tagliato");
+    }
+
+    if (reasons.length > 0) {
+      suspicious.push({
+        originalPosition: stop.originalPosition,
+        address,
+        reasons,
+      });
+    }
+  }
+
+  return suspicious;
+}
+
 export function RouteProOcrBatchUploader({ routeId }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentBatch, setCurrentBatch] = useState(0);
   const [previewText, setPreviewText] = useState("");
+  const [parsedStops, setParsedStops] = useState<ParsedStop[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const batches = useMemo(() => chunkFiles(files, BATCH_SIZE), [files]);
   const totalBatches = batches.length;
   const progress =
     totalBatches > 0 ? Math.round((currentBatch / totalBatches) * 100) : 0;
+
+  const missingStopNumbers = useMemo(
+    () => findMissingStopNumbers(parsedStops),
+    [parsedStops],
+  );
+
+  const suspiciousStops = useMemo(
+    () => detectSuspiciousStops(parsedStops),
+    [parsedStops],
+  );
 
   async function handleProcessScreenshots() {
     if (files.length === 0) {
@@ -110,6 +198,7 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
     setIsProcessing(true);
     setErrorMessage(null);
     setPreviewText("");
+    setParsedStops([]);
     setCurrentBatch(0);
 
     const allStops: ParsedStop[] = [];
@@ -146,6 +235,8 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
       }
 
       const formattedStops = formatStopsForTextarea(allStops);
+
+      setParsedStops(getUniqueOrderedStops(allStops));
 
       if (formattedStops.length > 0) {
         setPreviewText(formattedStops);
@@ -187,6 +278,7 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
               const selectedFiles = Array.from(event.target.files ?? []);
               setFiles(selectedFiles);
               setPreviewText("");
+              setParsedStops([]);
               setErrorMessage(null);
               setCurrentBatch(0);
             }}
@@ -252,8 +344,40 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
         <div style={{ ...ui.card.base, marginTop: 18 }}>
           <h3 style={{ marginTop: 0 }}>Preview OCR pulita</h3>
 
+          {missingStopNumbers.length > 0 ? (
+            <div style={warningStyle}>
+              Numeri stop mancanti nella sequenza:{" "}
+              {missingStopNumbers.join(", ")}
+            </div>
+          ) : null}
+
+          {suspiciousStops.length > 0 ? (
+            <div style={warningStyle}>
+              <p style={{ margin: 0 }}>
+                Indirizzi da controllare: {suspiciousStops.length}
+              </p>
+
+              <ul style={{ margin: "10px 0 0", paddingLeft: 18 }}>
+                {suspiciousStops.slice(0, 12).map((stop) => (
+                  <li key={stop.originalPosition}>
+                    Stop {stop.originalPosition}: {stop.address} —{" "}
+                    {stop.reasons.join(", ")}
+                  </li>
+                ))}
+              </ul>
+
+              {suspiciousStops.length > 12 ? (
+                <p style={{ margin: "10px 0 0" }}>
+                  + altri {suspiciousStops.length - 12} indirizzi da controllare
+                  nella textarea.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <p style={mutedTextStyle}>
-            Controlla le righe, elimina eventuali errori e poi conferma l’import.
+            Controlla le righe segnalate, correggi eventuali errori nella textarea
+            e poi conferma l’import.
           </p>
 
           <form action={addScreenshotOcrRouteProStops} style={formStyle}>

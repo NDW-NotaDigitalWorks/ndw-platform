@@ -39,32 +39,35 @@ const BATCH_SIZE = 5;
 
 const formStyle: React.CSSProperties = {
   display: "grid",
-  gap: 14,
-  marginTop: 18,
+  gap: 16,
+  marginTop: 20,
 };
 
 const mutedTextStyle: React.CSSProperties = {
   margin: "8px 0 0",
   fontSize: 14,
-  lineHeight: 1.6,
+  lineHeight: 1.65,
+  opacity: 0.86,
 };
 
 const warningStyle: React.CSSProperties = {
   marginTop: 16,
-  padding: 12,
-  borderRadius: 12,
-  background: "#fffbeb",
-  color: "#92400e",
-  fontWeight: 600,
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid rgba(245, 158, 11, 0.28)",
+  background: "rgba(245, 158, 11, 0.10)",
+  color: "#fbbf24",
+  fontWeight: 700,
 };
 
 const errorStyle: React.CSSProperties = {
   marginTop: 16,
-  padding: 12,
-  borderRadius: 12,
-  background: "#fff1f2",
-  color: "#be123c",
-  fontWeight: 600,
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid rgba(244, 63, 94, 0.28)",
+  background: "rgba(244, 63, 94, 0.10)",
+  color: "#fda4af",
+  fontWeight: 700,
 };
 
 function chunkFiles(files: File[], size: number): File[][] {
@@ -272,7 +275,11 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
             type="file"
             accept="image/png,image/jpeg,image/webp"
             multiple
-            style={ui.form.input}
+            style={{
+  ...ui.form.input,
+  minHeight: 48,
+  padding: 12,
+}}
             disabled={isProcessing}
             onChange={(event) => {
               const selectedFiles = Array.from(event.target.files ?? []);
@@ -317,7 +324,7 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
               height: 10,
               marginTop: 12,
               borderRadius: 999,
-              background: "#e5e7eb",
+              background: "rgba(255,255,255,0.08)",
               overflow: "hidden",
             }}
           >
@@ -326,7 +333,7 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
                 height: "100%",
                 width: `${progress}%`,
                 borderRadius: 999,
-                background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
+                background: "linear-gradient(135deg, #ff7a00, #ffb347)",
                 transition: "width 180ms ease",
               }}
             />
@@ -387,19 +394,29 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
               Stop da importare
               <textarea
                 name="ocr_addresses"
-                rows={10}
+                rows={12}
                 defaultValue={previewText}
                 style={{
                   ...ui.form.input,
                   resize: "vertical",
-                  fontFamily: "monospace",
+fontFamily:
+  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+minHeight: 260,
+lineHeight: 1.6,
                 }}
               />
             </label>
 
-            <button type="submit" style={routeProUi.primaryButton}>
-              Importa stop da screenshot
-            </button>
+            <button
+  type="submit"
+  style={{
+    ...routeProUi.primaryButton,
+    minHeight: 48,
+    width: "fit-content",
+  }}
+>
+  Importa stop da screenshot
+</button>
           </form>
         </div>
       ) : null}

@@ -12,7 +12,7 @@ export const routeProModule: ModuleDefinition = {
   href: "/app/routepro",
 
   loadPage: async () => {
-    const module = await import("./ui/RouteProModulePage");
-    return module.default;
-  },
+  const loadedModule = await import("./ui/RouteProModulePage");
+  return loadedModule.default;
+},
 };

@@ -12,7 +12,7 @@ export const coreModule: ModuleDefinition = {
   href: "/app/core",
 
   loadPage: async () => {
-    const module = await import("./ui/CoreModulePage");
-    return module.default;
-  },
+  const loadedModule = await import("./ui/CoreModulePage");
+  return loadedModule.default;
+},
 };

@@ -1,47 +1,43 @@
 import Link from "next/link";
+import {
+  NdwEmptyState,
+  NdwMetricCard,
+  NdwSectionHeader,
+  NdwStatusPill,
+} from "@/components/ndw";
 import { getRouteProDictionary } from "@/modules/routepro/i18n";
 import { getMyRouteProRoutes } from "@/modules/routepro/server/routepro.routes";
 import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
-import { ui } from "@/styles/ui";
+import { ndwTokens } from "@/styles/ndw/ndw-tokens";
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-  gap: 16,
-  marginTop: 20,
+  gap: ndwTokens.spacing.lg,
+  marginTop: ndwTokens.spacing.xl,
 };
 
 const actionsStyle: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: 12,
-  marginTop: 24,
-};
-
-const mutedTextStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  fontSize: 14,
-  lineHeight: 1.6,
+  gap: ndwTokens.spacing.md,
+  marginTop: ndwTokens.spacing.xl,
 };
 
 const routeCardHeaderStyle: React.CSSProperties = {
   display: "flex",
   justifyContent: "space-between",
-  gap: 12,
+  gap: ndwTokens.spacing.md,
   alignItems: "flex-start",
 };
 
-const badgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "4px 8px",
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 700,
-  background: "#f1f5f9",
-  color: "#334155",
-};
+function getRouteStatusVariant(status: string) {
+  if (status === "completed") return "success";
+  if (status === "active") return "info";
+  if (status === "archived") return "neutral";
+  return "warning";
+}
 
 export default async function RouteProModulePage() {
   const t = getRouteProDictionary("it");
@@ -74,53 +70,81 @@ export default async function RouteProModulePage() {
       </div>
 
       <div style={gridStyle}>
-        <article style={ui.card.base}>
-          <p style={ui.page.eyebrow}>Rotte totali</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{totalRoutes}</h2>
-        </article>
-
-        <article style={ui.card.base}>
-          <p style={ui.page.eyebrow}>Attive</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{activeRoutes}</h2>
-        </article>
-
-        <article style={ui.card.base}>
-          <p style={ui.page.eyebrow}>Completate</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{completedRoutes}</h2>
-        </article>
+        <NdwMetricCard label="Rotte totali" value={totalRoutes} />
+        <NdwMetricCard label="Attive" value={activeRoutes} />
+        <NdwMetricCard label="Completate" value={completedRoutes} />
       </div>
 
-      <div style={{ marginTop: 32 }}>
-        <h2 style={ui.page.sectionTitle}>Le tue rotte</h2>
+      <div style={{ marginTop: ndwTokens.spacing["3xl"] }}>
+        <NdwSectionHeader
+          eyebrow="RoutePro"
+          title="Le tue rotte"
+          subtitle="Gestisci le rotte create, apri i dettagli o avvia la modalità percorso."
+        />
 
         {routes.length === 0 ? (
-          <div style={{ ...ui.card.base, marginTop: 18 }}>
-            <h3 style={{ marginTop: 0 }}>Nessuna rotta creata</h3>
-            <p style={mutedTextStyle}>
-              Crea la tua prima rotta, importa gli stop, geocodifica, ottimizza
-              e avvia la modalità execution.
-            </p>
-
-            <div style={actionsStyle}>
+          <NdwEmptyState
+            eyebrow="Nessuna rotta"
+            title="Nessuna rotta creata"
+            description="Crea la tua prima rotta, importa gli stop, geocodifica, ottimizza e avvia la modalità execution."
+            action={
               <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
                 Crea prima rotta
               </Link>
-            </div>
-          </div>
+            }
+          />
         ) : (
           <div style={gridStyle}>
             {routes.map((route) => (
-              <article key={route.id} style={ui.card.base}>
+              <article
+                key={route.id}
+                style={{
+                  padding: ndwTokens.spacing.xl,
+                  borderRadius: ndwTokens.radius["2xl"],
+                  border: `1px solid ${ndwTokens.colors.border}`,
+                  background: `linear-gradient(180deg, ${ndwTokens.colors.surfaceSoft} 0%, ${ndwTokens.colors.surface} 100%)`,
+                  boxShadow: ndwTokens.shadows.sm,
+                }}
+              >
                 <div style={routeCardHeaderStyle}>
                   <div>
-                    <h3 style={{ margin: 0 }}>{route.name}</h3>
-                    <p style={mutedTextStyle}>Data: {route.route_date}</p>
+                    <h3
+                      style={{
+                        margin: 0,
+                        color: ndwTokens.colors.textPrimary,
+                        fontSize: ndwTokens.typography.sizes.cardTitle,
+                        fontWeight: ndwTokens.typography.weights.black,
+                      }}
+                    >
+                      {route.name}
+                    </h3>
+
+                    <p
+                      style={{
+                        margin: "10px 0 0",
+                        color: ndwTokens.colors.textSecondary,
+                        fontSize: ndwTokens.typography.sizes.body,
+                        lineHeight: ndwTokens.typography.lineHeights.normal,
+                      }}
+                    >
+                      Data: {route.route_date}
+                    </p>
                   </div>
 
-                  <span style={badgeStyle}>{route.status}</span>
+                  <NdwStatusPill
+                    label={route.status}
+                    variant={getRouteStatusVariant(route.status)}
+                  />
                 </div>
 
-                <p style={mutedTextStyle}>
+                <p
+                  style={{
+                    margin: "16px 0 0",
+                    color: ndwTokens.colors.textSecondary,
+                    fontSize: ndwTokens.typography.sizes.body,
+                    lineHeight: ndwTokens.typography.lineHeights.normal,
+                  }}
+                >
                   {route.is_optimized
                     ? "Rotta ottimizzata"
                     : "Rotta non ancora ottimizzata"}

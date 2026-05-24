@@ -1,67 +1,107 @@
 import type { CSSProperties } from "react";
-import { ui } from "@/styles/ui";
+import { ndwModuleAccents } from "@/styles/ndw/ndw-module-accents";
+import { ndwTokens } from "@/styles/ndw/ndw-tokens";
+
+const accent = ndwModuleAccents.routepro;
 
 export const routeProUi = {
   shell: {
-    ...ui.page.section,
+    maxWidth: ndwTokens.layout.pageMaxWidth,
+    margin: "0 auto",
   } satisfies CSSProperties,
 
   hero: {
-    ...ui.card.base,
-    padding: 28,
-    background:
-      "linear-gradient(135deg, rgba(15, 23, 42, 1) 0%, rgba(30, 41, 59, 1) 55%, rgba(34, 197, 94, 0.18) 100%)",
-    color: "#f9fafb",
-    border: "1px solid rgba(148, 163, 184, 0.25)",
+    padding: ndwTokens.spacing["3xl"],
+    borderRadius: ndwTokens.radius["2xl"],
+    background: `
+      radial-gradient(circle at top right, ${accent.accentSoft} 0%, transparent 32%),
+      linear-gradient(180deg, ${ndwTokens.colors.surfaceSoft} 0%, ${ndwTokens.colors.surface} 100%)
+    `,
+    border: `1px solid ${accent.accentBorder}`,
+    boxShadow: ndwTokens.shadows.md,
+    color: ndwTokens.colors.textPrimary,
   } satisfies CSSProperties,
 
   brandRow: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: ndwTokens.spacing.md,
   } satisfies CSSProperties,
 
   logoMark: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: ndwTokens.radius.lg,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
-    color: "#ffffff",
-    fontWeight: 900,
+    background: accent.accent,
+    color: ndwTokens.colors.textPrimary,
+    fontWeight: ndwTokens.typography.weights.black,
     fontSize: 18,
+    boxShadow: "0 10px 24px rgba(255,122,0,0.22)",
   } satisfies CSSProperties,
 
   heroTitle: {
-    margin: "18px 0 0",
-    fontSize: 42,
-    lineHeight: 1.05,
+    margin: "20px 0 0",
+    fontSize: 44,
+    lineHeight: ndwTokens.typography.lineHeights.tight,
     letterSpacing: "-0.04em",
-    color: "#f9fafb",
+    color: ndwTokens.colors.textPrimary,
+    fontWeight: ndwTokens.typography.weights.black,
   } satisfies CSSProperties,
 
   heroSubtitle: {
     margin: "14px 0 0",
-    maxWidth: 720,
-    fontSize: 16,
-    lineHeight: 1.65,
-    color: "#cbd5e1",
+    maxWidth: 760,
+    fontSize: ndwTokens.typography.sizes.bodyLarge,
+    lineHeight: ndwTokens.typography.lineHeights.normal,
+    color: ndwTokens.colors.textSecondary,
   } satisfies CSSProperties,
 
   primaryButton: {
-    ...ui.button.primary,
-    background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
-    boxShadow: "0 10px 24px rgba(14, 165, 233, 0.22)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+    padding: "0 18px",
+    borderRadius: ndwTokens.radius.md,
+    border: `1px solid ${accent.accent}`,
+    background: accent.accent,
+    color: ndwTokens.colors.textPrimary,
+    fontSize: ndwTokens.typography.sizes.body,
+    fontWeight: ndwTokens.typography.weights.black,
+    textDecoration: "none",
+    boxShadow: "0 10px 24px rgba(255,122,0,0.22)",
   } satisfies CSSProperties,
 
   secondaryButton: {
-    ...ui.button.secondary,
-    borderColor: "rgba(14, 165, 233, 0.35)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+    padding: "0 18px",
+    borderRadius: ndwTokens.radius.md,
+    border: `1px solid ${accent.accentBorder}`,
+    background: ndwTokens.colors.surfaceRaised,
+    color: ndwTokens.colors.textPrimary,
+    fontSize: ndwTokens.typography.sizes.body,
+    fontWeight: ndwTokens.typography.weights.bold,
+    textDecoration: "none",
   } satisfies CSSProperties,
 
   dangerButton: {
-    ...ui.button.danger,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+    padding: "0 18px",
+    borderRadius: ndwTokens.radius.md,
+    border: `1px solid ${ndwTokens.colors.danger}`,
+    background: ndwTokens.colors.danger,
+    color: ndwTokens.colors.textPrimary,
+    fontSize: ndwTokens.typography.sizes.body,
+    fontWeight: ndwTokens.typography.weights.black,
+    textDecoration: "none",
   } satisfies CSSProperties,
 };

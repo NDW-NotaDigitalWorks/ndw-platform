@@ -9,6 +9,7 @@ import type { AgendaEventFilter, AgendaEventStatus } from "@/modules/agenda/type
 import { agendaTranslations } from "@/modules/agenda/i18n";
 import { ui } from "@/styles/ui";
 import { theme } from "@/styles/theme";
+import Link from "next/link";
 
 type Props = {
   searchParams?: {
@@ -53,15 +54,15 @@ export default async function AgendaModulePage({ searchParams }: Props) {
 
       {/* FILTER */}
       <div style={{ marginTop: 28, display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <a href="/app/agenda?filter=today" style={ui.button.secondary}>
+        <Link href="/app/agenda?filter=today" style={ui.button.secondary}>
           {t.filterToday}
-        </a>
-        <a href="/app/agenda?filter=week" style={ui.button.secondary}>
+        </Link>
+        <Link href="/app/agenda?filter=week" style={ui.button.secondary}>
           {t.filterWeek}
-        </a>
-        <a href="/app/agenda?filter=all" style={ui.button.secondary}>
+        </Link>
+        <Link href="/app/agenda?filter=all" style={ui.button.secondary}>
           {t.filterAll}
-        </a>
+        </Link>
       </div>
 
       {/* CREATE EVENT */}

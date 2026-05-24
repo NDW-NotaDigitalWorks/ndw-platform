@@ -12,7 +12,7 @@ export const agendaModule: ModuleDefinition = {
   href: "/app/agenda",
 
   loadPage: async () => {
-    const module = await import("./ui/AgendaModulePage");
-    return module.default;
-  },
+  const loadedModule = await import("./ui/AgendaModulePage");
+  return loadedModule.default;
+},
 };

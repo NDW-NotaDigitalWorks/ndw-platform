@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { getCoreWorkspaceData } from "@/modules/core/workspace/workspace.queries";
-import { theme } from "@/styles/theme";
-import { ui } from "@/styles/ui";
+import { NdwModuleCard } from "@/components/ndw";
+import { ndwTokens } from "@/styles/ndw/ndw-tokens";
 
 type AppPageProps = {
   searchParams: Promise<{
@@ -18,34 +17,95 @@ export default async function AppPage({ searchParams }: AppPageProps) {
     params.accessDenied === "1" || params["access-denied"] === "1";
 
   return (
-    <section style={ui.page.section}>
-      <p style={ui.page.eyebrow}>Workspace</p>
-      <h1 style={ui.page.title}>{workspace.title}</h1>
-      <p style={ui.page.subtitle}>{workspace.subtitle}</p>
+    <section
+      style={{
+        maxWidth: ndwTokens.layout.pageMaxWidth,
+        margin: "0 auto",
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          color: ndwTokens.colors.primary,
+          fontSize: ndwTokens.typography.sizes.small,
+          fontWeight: ndwTokens.typography.weights.black,
+          textTransform: "uppercase",
+          letterSpacing: 1.2,
+        }}
+      >
+        Workspace
+      </p>
+
+      <h1
+        style={{
+          margin: "14px 0 0",
+          color: ndwTokens.colors.textPrimary,
+          fontSize: ndwTokens.typography.sizes.pageTitle,
+          fontWeight: ndwTokens.typography.weights.black,
+          lineHeight: ndwTokens.typography.lineHeights.tight,
+          letterSpacing: "-0.03em",
+        }}
+      >
+        {workspace.title}
+      </h1>
+
+      <p
+        style={{
+          margin: "12px 0 0",
+          maxWidth: ndwTokens.layout.narrowMaxWidth,
+          color: ndwTokens.colors.textSecondary,
+          fontSize: ndwTokens.typography.sizes.bodyLarge,
+          lineHeight: ndwTokens.typography.lineHeights.normal,
+        }}
+      >
+        {workspace.subtitle}
+      </p>
 
       {showAccessDenied ? (
         <div
           style={{
-            marginTop: 24,
-            padding: 16,
-            border: "1px solid #fecaca",
-            background: "#fef2f2",
-            borderRadius: 12,
-            color: "#991b1b",
+            marginTop: ndwTokens.spacing.xl,
+            padding: ndwTokens.spacing.lg,
+            border: `1px solid ${ndwTokens.colors.danger}`,
+            background: ndwTokens.colors.dangerSoft,
+            borderRadius: ndwTokens.radius.lg,
+            color: ndwTokens.colors.danger,
+            fontWeight: ndwTokens.typography.weights.bold,
           }}
         >
           Accesso negato: non hai i permessi per aprire quel modulo.
         </div>
       ) : null}
 
-      <div style={{ marginTop: 36 }}>
-        <h2 style={ui.page.sectionTitle}>Moduli NDW</h2>
+      <div style={{ marginTop: ndwTokens.spacing["3xl"] }}>
+        <div style={{ marginBottom: ndwTokens.spacing.xl }}>
+          <h2
+            style={{
+              margin: 0,
+              color: ndwTokens.colors.textPrimary,
+              fontSize: ndwTokens.typography.sizes.sectionTitle,
+              fontWeight: ndwTokens.typography.weights.black,
+            }}
+          >
+            Moduli NDW
+          </h2>
+
+          <p
+            style={{
+              margin: "8px 0 0",
+              color: ndwTokens.colors.textMuted,
+              fontSize: ndwTokens.typography.sizes.body,
+            }}
+          >
+            Ambienti operativi collegati al tuo workspace.
+          </p>
+        </div>
 
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-            gap: 16,
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: ndwTokens.spacing.lg,
           }}
         >
           {workspace.modules.map((module) => {
@@ -54,75 +114,15 @@ export default async function AppPage({ searchParams }: AppPageProps) {
               : `/app/upgrade?module=${module.key}`;
 
             return (
-              <Link
+              <NdwModuleCard
                 key={module.key}
+                moduleKey={module.key}
+                title={module.name}
+                description={module.description}
                 href={targetHref}
-                style={{
-                  ...ui.card.base,
-                  display: "block",
-                  textDecoration: "none",
-                  color: "inherit",
-                  opacity: module.hasAccess ? 1 : 0.82,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    alignItems: "center",
-                  }}
-                >
-                  <strong style={{ fontSize: 18 }}>{module.name}</strong>
-
-                  <span
-                    style={{
-                      fontSize: 12,
-                      padding: "4px 8px",
-                      borderRadius: 999,
-                      background: module.hasAccess ? "#ecfdf5" : "#fef3c7",
-                      color: module.hasAccess ? "#047857" : "#92400e",
-                      fontWeight: 800,
-                    }}
-                  >
-                    {module.hasAccess ? "Attivo" : "Upgrade"}
-                  </span>
-                </div>
-
-                <p
-                  style={{
-                    marginTop: 10,
-                    color: theme.colors.textMuted,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  {module.description}
-                </p>
-
-                <p
-                  style={{
-                    marginTop: 14,
-                    fontSize: 13,
-                    color: theme.colors.textMuted,
-                  }}
-                >
-                  Piano richiesto:{" "}
-                  <strong style={{ color: theme.colors.textSecondary }}>
-                    {module.requiredPlan}
-                  </strong>
-                </p>
-
-                <p
-                  style={{
-                    marginTop: 18,
-                    fontSize: 14,
-                    fontWeight: 800,
-                    color: theme.colors.primary,
-                  }}
-                >
-                  {module.hasAccess ? "Apri modulo →" : "Sblocca modulo →"}
-                </p>
-              </Link>
+                hasAccess={module.hasAccess}
+                requiredPlan={module.requiredPlan}
+              />
             );
           })}
         </div>

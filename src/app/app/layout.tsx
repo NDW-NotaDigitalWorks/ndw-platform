@@ -1,13 +1,31 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getMyCoreAccessState } from "@/modules/core/server/core-access";
 import { getMyActiveModuleKeys } from "@/modules/core/server/module-entitlements";
 import { getEnabledModules } from "@/modules/registry/registry.queries";
-import { theme } from "@/styles/theme";
-import { ui } from "@/styles/ui";
+import { ndwModuleAccents } from "@/styles/ndw/ndw-module-accents";
+import { ndwTokens } from "@/styles/ndw/ndw-tokens";
+import { NdwWorkspaceNav } from "@/components/ndw";
 
 function isOwnerRole(role: string | null | undefined): boolean {
   return role?.trim().toLowerCase() === "owner";
+}
+
+function getCurrentPathname(headersList: Headers) {
+  const pathname =
+    headersList.get("x-current-path") ??
+    headersList.get("next-url") ??
+    "/app";
+
+  return pathname;
+}
+
+function getModuleAccent(moduleKey: string) {
+  return (
+    ndwModuleAccents[moduleKey as keyof typeof ndwModuleAccents] ??
+    ndwModuleAccents.core
+  );
 }
 
 export default async function AppLayout({
@@ -29,6 +47,8 @@ export default async function AppLayout({
   );
 
   const isOwner = isOwnerRole(access.profile?.role);
+  const headersList = await headers();
+  const pathname = getCurrentPathname(headersList);
 
   return (
     <>
@@ -48,9 +68,19 @@ export default async function AppLayout({
             }
 
             .ndw-main {
-              padding: 18px !important;
-              width: 100% !important;
-            }
+  padding: 16px !important;
+  width: 100% !important;
+}
+
+.ndw-mobile-bar {
+  padding: 12px 14px !important;
+}
+
+.ndw-mobile-actions {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
           }
 
           @media (min-width: 761px) {
@@ -66,76 +96,96 @@ export default async function AppLayout({
         style={{
           display: "flex",
           minHeight: "100vh",
-          background: theme.colors.background,
-          color: theme.colors.text,
+          background: `radial-gradient(circle at top left, ${ndwTokens.colors.primarySoft} 0, transparent 34%), ${ndwTokens.colors.background}`,
+          color: ndwTokens.colors.textPrimary,
         }}
       >
         <aside
           className="ndw-sidebar"
           style={{
-            width: 280,
-            padding: 24,
-            background: theme.colors.card,
-            borderRight: `1px solid ${theme.colors.border}`,
+            width: ndwTokens.layout.sidebarWidth,
+            padding: ndwTokens.spacing.xl,
+            background: `linear-gradient(180deg, ${ndwTokens.colors.surfaceSoft} 0%, ${ndwTokens.colors.surface} 100%)`,
+            borderRight: `1px solid ${ndwTokens.colors.border}`,
+            boxShadow: ndwTokens.shadows.sm,
           }}
         >
           <Link href="/app" style={{ textDecoration: "none", color: "inherit" }}>
-            <strong style={{ fontSize: 22 }}>NDW Core</strong>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 42,
+                height: 42,
+                borderRadius: ndwTokens.radius.lg,
+                background: ndwTokens.colors.primarySoft,
+                border: `1px solid ${ndwTokens.colors.borderStrong}`,
+                color: ndwTokens.colors.primary,
+                fontWeight: ndwTokens.typography.weights.black,
+                marginBottom: ndwTokens.spacing.md,
+              }}
+            >
+              NDW
+            </div>
+
+            <strong
+              style={{
+                display: "block",
+                fontSize: 22,
+                lineHeight: 1.1,
+                color: ndwTokens.colors.textPrimary,
+              }}
+            >
+              NDW Core
+            </strong>
+
             <p
               style={{
-                marginTop: 4,
-                fontSize: 13,
-                color: theme.colors.textMuted,
+                margin: "6px 0 0",
+                fontSize: ndwTokens.typography.sizes.small,
+                color: ndwTokens.colors.textMuted,
               }}
             >
               Nota Digital Works
             </p>
           </Link>
 
-          <nav style={{ marginTop: 34 }}>
-            <p style={ui.page.eyebrow}>Workspace</p>
+          <NdwWorkspaceNav
+  pathname={pathname}
+  modules={visibleModules}
+  isOwner={isOwner}
+/>
 
-            <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 0" }}>
-              <li>
-                <Link href="/app" style={ui.button.secondary}>
-                  Dashboard
-                </Link>
-              </li>
-
-              {visibleModules.map((module) => (
-                <li key={module.key} style={{ marginTop: 10 }}>
-                  <Link href={module.href} style={ui.button.secondary}>
-                    {module.navLabel}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-
-            {isOwner ? (
-              <div style={{ marginTop: 34 }}>
-                <p style={ui.page.eyebrow}>Admin</p>
-
-                <ul style={{ listStyle: "none", padding: 0, margin: "14px 0 0" }}>
-                  <li>
-                    <Link href="/app/admin/entitlements" style={ui.button.secondary}>
-                      Entitlements
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-            ) : null}
-          </nav>
-
-          <div style={{ marginTop: 40, ...ui.card.base, padding: 18 }}>
-            <p style={{ margin: 0, fontSize: 12, color: theme.colors.textMuted }}>
+          <div
+            style={{
+              marginTop: 42,
+              padding: ndwTokens.spacing.lg,
+              borderRadius: ndwTokens.radius.xl,
+              border: `1px solid ${ndwTokens.colors.border}`,
+              background: ndwTokens.colors.surfaceRaised,
+              boxShadow: ndwTokens.shadows.sm,
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: ndwTokens.typography.sizes.caption,
+                color: ndwTokens.colors.textMuted,
+                textTransform: "uppercase",
+                letterSpacing: 1,
+                fontWeight: ndwTokens.typography.weights.bold,
+              }}
+            >
               Account
             </p>
 
             <p
               style={{
-                margin: "6px 0 0",
-                fontSize: 13,
-                fontWeight: 700,
+                margin: "8px 0 0",
+                fontSize: ndwTokens.typography.sizes.small,
+                fontWeight: ndwTokens.typography.weights.bold,
+                color: ndwTokens.colors.textPrimary,
                 wordBreak: "break-word",
               }}
             >
@@ -145,15 +195,29 @@ export default async function AppLayout({
             <p
               style={{
                 margin: "8px 0 0",
-                fontSize: 13,
-                color: theme.colors.textMuted,
+                fontSize: ndwTokens.typography.sizes.small,
+                color: ndwTokens.colors.textMuted,
               }}
             >
               Ruolo: {access.profile?.role}
             </p>
 
             <form action="/auth/logout" method="post" style={{ marginTop: 16 }}>
-              <button type="submit" style={ui.button.secondary}>
+              <button
+                type="submit"
+                style={{
+  width: "100%",
+  minHeight: 42,
+  padding: "0 14px",
+  borderRadius: ndwTokens.radius.md,
+  border: `1px solid ${ndwTokens.colors.border}`,
+  background: ndwTokens.colors.surfaceSoft,
+  color: ndwTokens.colors.textSecondary,
+  fontSize: ndwTokens.typography.sizes.body,
+  fontWeight: ndwTokens.typography.weights.bold,
+  cursor: "pointer",
+}}
+              >
                 Logout
               </button>
             </form>
@@ -161,36 +225,100 @@ export default async function AppLayout({
         </aside>
 
         <div
-          className="ndw-mobile-bar"
+  className="ndw-mobile-bar"
+  style={{
+    display: "none",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "14px 18px",
+    background: ndwTokens.colors.surface,
+    borderBottom: `1px solid ${ndwTokens.colors.border}`,
+    position: "sticky",
+    top: 0,
+    zIndex: ndwTokens.zIndex.sticky,
+  }}
+>
+  <Link href="/app" style={{ textDecoration: "none", color: "inherit" }}>
+    <div>
+  <strong
+    style={{
+      display: "block",
+      fontSize: 15,
+      lineHeight: 1,
+    }}
+  >
+    NDW Core
+  </strong>
+
+  <span
+    style={{
+      fontSize: 11,
+      color: ndwTokens.colors.textMuted,
+    }}
+  >
+    Operational Workspace
+  </span>
+</div>
+  </Link>
+
+  <div
+  className="ndw-mobile-actions"
+  style={{
+    display: "flex",
+    gap: 8,
+  }}
+>
+    <Link
+      href="/app"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 44,
+        padding: "0 14px",
+        borderRadius: ndwTokens.radius.md,
+        border: `1px solid ${ndwTokens.colors.border}`,
+        background: ndwTokens.colors.surfaceSoft,
+        color: ndwTokens.colors.textSecondary,
+        textDecoration: "none",
+        fontSize: ndwTokens.typography.sizes.body,
+        fontWeight: ndwTokens.typography.weights.bold,
+      }}
+    >
+      Home
+    </Link>
+
+    <Link
+      href="/app/upgrade"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 44,
+        padding: "0 14px",
+        borderRadius: ndwTokens.radius.md,
+        border: `1px solid ${ndwTokens.colors.primary}`,
+        background: ndwTokens.colors.primary,
+        color: ndwTokens.colors.textPrimary,
+        textDecoration: "none",
+        fontSize: ndwTokens.typography.sizes.body,
+        fontWeight: ndwTokens.typography.weights.bold,
+      }}
+    >
+      Upgrade
+    </Link>
+  </div>
+</div>
+
+        <main
+          className="ndw-main"
           style={{
-            display: "none",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            padding: "14px 18px",
-            background: theme.colors.card,
-            borderBottom: `1px solid ${theme.colors.border}`,
-            position: "sticky",
-            top: 0,
-            zIndex: 20,
+            flex: 1,
+            padding: ndwTokens.spacing["3xl"],
+            minWidth: 0,
           }}
         >
-          <Link href="/app/routepro" style={{ textDecoration: "none", color: "inherit" }}>
-            <strong>RoutePro</strong>
-          </Link>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <Link href="/app" style={ui.button.secondary}>
-              Home
-            </Link>
-
-            <Link href="/app/routepro" style={ui.button.primary}>
-              Rotte
-            </Link>
-          </div>
-        </div>
-
-        <main className="ndw-main" style={{ flex: 1, padding: 36 }}>
           {children}
         </main>
       </div>

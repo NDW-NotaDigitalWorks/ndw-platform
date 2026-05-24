@@ -9,9 +9,9 @@ type Props = {
 export default async function ModulePage({ params }: Props) {
   const { moduleKey } = await params;
 
-  const module = getModuleByKey(moduleKey);
+  const moduleDefinition = getModuleByKey(moduleKey);
 
-  if (!module) {
+  if (!moduleDefinition) {
     notFound();
   }
 
@@ -21,7 +21,7 @@ export default async function ModulePage({ params }: Props) {
     redirect(`/app/upgrade?module=${moduleKey}`);
   }
 
-  const Page = await module.loadPage();
+  const Page = await moduleDefinition.loadPage();
 
   return <Page />;
 }

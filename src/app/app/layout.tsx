@@ -67,8 +67,14 @@ export default async function AppLayout({
               display: flex !important;
             }
 
-            .ndw-main {
-  padding: 16px !important;
+            .ndw-app-shell {
+  width: 100% !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+}
+
+.ndw-main {
+  padding: 14px !important;
   width: 100% !important;
   max-width: 100vw !important;
   overflow-x: hidden !important;
@@ -88,7 +94,10 @@ export default async function AppLayout({
 }
 
 .ndw-mobile-bar {
-  padding: 12px 14px !important;
+  padding: 10px 12px !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
 }
 
 .ndw-mobile-actions {

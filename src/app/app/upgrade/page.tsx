@@ -52,6 +52,40 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
         Upgrade
       </p>
 
+      <div
+  style={{
+    marginTop: 20,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 14px",
+    borderRadius: ndwTokens.radius.full,
+    border: `1px solid ${accent.accentBorder}`,
+    background: accent.accentSoft,
+  }}
+>
+  <div
+    style={{
+      width: 10,
+      height: 10,
+      borderRadius: 999,
+      background: accent.accent,
+      boxShadow: `0 0 16px ${accent.accent}`,
+    }}
+  />
+
+  <span
+    style={{
+      color: accent.accentText,
+      fontSize: ndwTokens.typography.sizes.small,
+      fontWeight: ndwTokens.typography.weights.black,
+      letterSpacing: 0.3,
+    }}
+  >
+    {moduleDefinition.name} Module
+  </span>
+</div>
+
       <h1
         style={{
           margin: "14px 0 0",
@@ -93,6 +127,29 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
               gap: ndwTokens.spacing.lg,
             }}
           >
+
+          <div
+  style={{
+    padding: ndwTokens.spacing.lg,
+    borderRadius: ndwTokens.radius.xl,
+    border: `1px solid ${accent.accentBorder}`,
+    background: accent.accentSoft,
+  }}
+>
+  <p
+    style={{
+      margin: 0,
+      color: accent.accentText,
+      fontSize: ndwTokens.typography.sizes.body,
+      fontWeight: ndwTokens.typography.weights.bold,
+      lineHeight: ndwTokens.typography.lineHeights.normal,
+    }}
+  >
+    Questo modulo fa parte dell’ecosistema operativo NDW e verrà
+    integrato direttamente nel tuo workspace personale.
+  </p>
+</div>
+
             <div>
               <NdwStatusPill label="Modulo bloccato" variant="warning" />
             </div>

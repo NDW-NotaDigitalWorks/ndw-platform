@@ -6,7 +6,7 @@ import { getMyActiveModuleKeys } from "@/modules/core/server/module-entitlements
 import { getEnabledModules } from "@/modules/registry/registry.queries";
 import { ndwModuleAccents } from "@/styles/ndw/ndw-module-accents";
 import { ndwTokens } from "@/styles/ndw/ndw-tokens";
-import { NdwWorkspaceNav } from "@/components/ndw";
+import { NdwWorkspaceNav, NdwBrand } from "@/components/ndw";
 
 function isOwnerRole(role: string | null | undefined): boolean {
   return role?.trim().toLowerCase() === "owner";
@@ -70,6 +70,21 @@ export default async function AppLayout({
             .ndw-main {
   padding: 16px !important;
   width: 100% !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.ndw-main * {
+  box-sizing: border-box !important;
+}
+
+.ndw-main section {
+  max-width: 100% !important;
+}
+
+.ndw-main a {
+  max-width: 100% !important;
 }
 
 .ndw-mobile-bar {
@@ -111,44 +126,7 @@ export default async function AppLayout({
           }}
         >
           <Link href="/app" style={{ textDecoration: "none", color: "inherit" }}>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 42,
-                height: 42,
-                borderRadius: ndwTokens.radius.lg,
-                background: ndwTokens.colors.primarySoft,
-                border: `1px solid ${ndwTokens.colors.borderStrong}`,
-                color: ndwTokens.colors.primary,
-                fontWeight: ndwTokens.typography.weights.black,
-                marginBottom: ndwTokens.spacing.md,
-              }}
-            >
-              NDW
-            </div>
-
-            <strong
-              style={{
-                display: "block",
-                fontSize: 22,
-                lineHeight: 1.1,
-                color: ndwTokens.colors.textPrimary,
-              }}
-            >
-              NDW Core
-            </strong>
-
-            <p
-              style={{
-                margin: "6px 0 0",
-                fontSize: ndwTokens.typography.sizes.small,
-                color: ndwTokens.colors.textMuted,
-              }}
-            >
-              Nota Digital Works
-            </p>
+            <NdwBrand />
           </Link>
 
           <NdwWorkspaceNav

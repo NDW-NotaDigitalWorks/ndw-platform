@@ -9,3 +9,4 @@ export * from "./NdwModuleCard";
 export * from "./NdwEmptyState";
 export * from "./NdwActionBar";
 export * from "./NdwWorkspaceNav";
+export * from "./NdwBrand";

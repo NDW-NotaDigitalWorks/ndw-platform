@@ -33,14 +33,20 @@ export function NdwModuleCard({
     <Link
       href={href}
       style={{
-        display: "block",
-        textDecoration: "none",
-        color: "inherit",
-      }}
+  display: "block",
+  width: "100%",
+  maxWidth: "100%",
+  textDecoration: "none",
+  color: "inherit",
+  boxSizing: "border-box",
+}}
     >
       <article
         style={{
           minHeight: 220,
+          width: "100%",
+maxWidth: "100%",
+boxSizing: "border-box",
           padding: ndwTokens.spacing.xl,
           borderRadius: ndwTokens.radius["2xl"],
           border: `1px solid ${

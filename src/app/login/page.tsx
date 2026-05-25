@@ -1,7 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { theme } from "@/styles/theme";
-import { ui } from "@/styles/ui";
+import { ndwTokens } from "@/styles/ndw/ndw-tokens";
 
 type LoginPageProps = {
   searchParams: Promise<{
@@ -25,32 +25,93 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <main
       style={{
         minHeight: "100vh",
-        background: theme.colors.background,
+        background: `radial-gradient(circle at top left, ${ndwTokens.colors.primarySoft} 0, transparent 34%), ${ndwTokens.colors.background}`,
+        color: ndwTokens.colors.textPrimary,
         padding: "72px 24px",
-        color: theme.colors.text,
       }}
     >
-      <div style={{ maxWidth: 460, margin: "0 auto" }}>
+      <div style={{ maxWidth: 480, margin: "0 auto" }}>
         <Link
           href="/"
           style={{
-            color: theme.colors.primary,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            color: ndwTokens.colors.textSecondary,
             fontWeight: 800,
             textDecoration: "none",
-            fontSize: 14,
+            fontSize: ndwTokens.typography.sizes.body,
           }}
         >
           ← NDW Core
         </Link>
 
-        <div style={{ marginTop: 28, ...ui.card.base }}>
-          <p style={ui.page.eyebrow}>Accesso</p>
+        <div
+          style={{
+            marginTop: 28,
+            padding: ndwTokens.spacing["2xl"],
+            borderRadius: ndwTokens.radius["2xl"],
+            border: `1px solid ${ndwTokens.colors.border}`,
+            background: `linear-gradient(180deg, ${ndwTokens.colors.surfaceSoft} 0%, ${ndwTokens.colors.surface} 100%)`,
+            boxShadow: ndwTokens.shadows.md,
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: ndwTokens.radius.lg,
+              overflow: "hidden",
+              border: `1px solid ${ndwTokens.colors.borderStrong}`,
+              background: ndwTokens.colors.surfaceRaised,
+              marginBottom: 24,
+            }}
+          >
+            <Image
+              src="/brand/ndw/icon/ndw-mark.png"
+              alt="NDW"
+              width={52}
+              height={52}
+              priority
+            />
+          </div>
 
-          <h1 style={ui.page.title}>Accedi a NDW Core</h1>
+          <p
+            style={{
+              margin: 0,
+              color: ndwTokens.colors.primary,
+              fontSize: ndwTokens.typography.sizes.small,
+              fontWeight: ndwTokens.typography.weights.black,
+              textTransform: "uppercase",
+              letterSpacing: 1.2,
+            }}
+          >
+            Accesso workspace
+          </p>
 
-          <p style={ui.page.subtitle}>
+          <h1
+            style={{
+              margin: "12px 0 0",
+              color: ndwTokens.colors.textPrimary,
+              fontSize: 42,
+              lineHeight: 1.02,
+              letterSpacing: "-0.04em",
+              fontWeight: ndwTokens.typography.weights.black,
+            }}
+          >
+            Accedi a NDW Core
+          </h1>
+
+          <p
+            style={{
+              margin: "16px 0 0",
+              color: ndwTokens.colors.textSecondary,
+              fontSize: ndwTokens.typography.sizes.bodyLarge,
+              lineHeight: ndwTokens.typography.lineHeights.normal,
+            }}
+          >
             Inserisci la tua email. Riceverai un magic link per accedere al
-            workspace.
+            workspace operativo.
           </p>
 
           {hasError ? (
@@ -58,11 +119,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               style={{
                 marginTop: 20,
                 padding: 14,
-                borderRadius: 12,
-                border: "1px solid #fecaca",
-                background: "#fef2f2",
-                color: "#991b1b",
-                fontSize: 14,
+                borderRadius: ndwTokens.radius.md,
+                border: `1px solid ${ndwTokens.colors.danger}`,
+                background: ndwTokens.colors.dangerSoft,
+                color: "#FCA5A5",
+                fontSize: ndwTokens.typography.sizes.body,
               }}
             >
               Accesso non riuscito. Controlla l’email e riprova.
@@ -74,11 +135,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               style={{
                 marginTop: 20,
                 padding: 14,
-                borderRadius: 12,
-                border: "1px solid #bfdbfe",
-                background: theme.colors.primarySoft,
-                color: theme.colors.primaryHover,
-                fontSize: 14,
+                borderRadius: ndwTokens.radius.md,
+                border: `1px solid ${ndwTokens.colors.primary}`,
+                background: ndwTokens.colors.primarySoft,
+                color: "#93C5FD",
+                fontSize: ndwTokens.typography.sizes.body,
               }}
             >
               Magic link inviato. Controlla la tua casella email.
@@ -87,19 +148,53 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
           {user ? (
             <div style={{ marginTop: 24 }}>
-              <p style={{ color: theme.colors.textSecondary }}>
+              <p style={{ color: ndwTokens.colors.textSecondary }}>
                 Sei già loggato come:
               </p>
 
-              <p style={{ fontWeight: 800 }}>{user.email}</p>
+              <p
+                style={{
+                  color: ndwTokens.colors.textPrimary,
+                  fontWeight: ndwTokens.typography.weights.black,
+                  wordBreak: "break-word",
+                }}
+              >
+                {user.email}
+              </p>
 
               <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-                <Link href="/app" style={ui.button.primary}>
+                <Link
+                  href="/app"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: 44,
+                    padding: "0 16px",
+                    borderRadius: ndwTokens.radius.md,
+                    background: ndwTokens.colors.primary,
+                    color: "#ffffff",
+                    textDecoration: "none",
+                    fontWeight: ndwTokens.typography.weights.black,
+                  }}
+                >
                   Vai al workspace
                 </Link>
 
                 <form action="/auth/logout" method="post">
-                  <button type="submit" style={ui.button.secondary}>
+                  <button
+                    type="submit"
+                    style={{
+                      minHeight: 44,
+                      padding: "0 16px",
+                      borderRadius: ndwTokens.radius.md,
+                      border: `1px solid ${ndwTokens.colors.borderStrong}`,
+                      background: ndwTokens.colors.surfaceRaised,
+                      color: ndwTokens.colors.textPrimary,
+                      fontWeight: ndwTokens.typography.weights.bold,
+                      cursor: "pointer",
+                    }}
+                  >
                     Logout
                   </button>
                 </form>
@@ -107,14 +202,32 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
           ) : (
             <form action="/auth/login" method="post" style={{ marginTop: 24 }}>
-              <label style={ui.form.label}>
+              <label
+                style={{
+                  display: "block",
+                  color: ndwTokens.colors.textSecondary,
+                  fontSize: ndwTokens.typography.sizes.small,
+                  fontWeight: ndwTokens.typography.weights.bold,
+                }}
+              >
                 Email
                 <input
                   type="email"
                   name="email"
                   required
                   placeholder="you@example.com"
-                  style={ui.form.input}
+                  style={{
+                    width: "100%",
+                    marginTop: 8,
+                    minHeight: 48,
+                    padding: "0 14px",
+                    borderRadius: ndwTokens.radius.md,
+                    border: `1px solid ${ndwTokens.colors.borderStrong}`,
+                    background: ndwTokens.colors.surfaceRaised,
+                    color: ndwTokens.colors.textPrimary,
+                    fontSize: ndwTokens.typography.sizes.body,
+                    boxSizing: "border-box",
+                  }}
                 />
               </label>
 
@@ -123,7 +236,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 style={{
                   marginTop: 18,
                   width: "100%",
-                  ...ui.button.primary,
+                  minHeight: 48,
+                  border: "none",
+                  borderRadius: ndwTokens.radius.md,
+                  background: ndwTokens.colors.primary,
+                  color: "#ffffff",
+                  fontSize: ndwTokens.typography.sizes.body,
+                  fontWeight: ndwTokens.typography.weights.black,
+                  cursor: "pointer",
+                  boxShadow: ndwTokens.shadows.accent,
                 }}
               >
                 Invia magic link

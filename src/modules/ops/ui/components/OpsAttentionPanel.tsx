@@ -2,8 +2,7 @@ import type {
   OpsAttentionItem,
   OpsAttentionSummary,
 } from "@/modules/ops/domain/ops.attention";
-import { ui } from "@/styles/ui";
-import { theme } from "@/styles/theme";
+import { ndwTokens } from "@/styles/ndw/ndw-tokens";
 import OpsAttentionBlock from "./OpsAttentionBlock";
 import OpsResponsiveGrid from "./OpsResponsiveGrid";
 
@@ -20,9 +19,34 @@ export default function OpsAttentionPanel({
 }: Props) {
   if (summary.healthy) {
     return (
-      <div style={ui.card.base}>
-        <h2 style={ui.page.sectionTitle}>Operational Attention</h2>
-        <p style={{ marginTop: 10, color: theme.colors.textMuted }}>
+      <div
+        style={{
+          padding: ndwTokens.spacing.xl,
+          borderRadius: ndwTokens.radius["2xl"],
+          border: `1px solid ${ndwTokens.colors.border}`,
+          background: `linear-gradient(180deg, ${ndwTokens.colors.surfaceSoft} 0%, ${ndwTokens.colors.surface} 100%)`,
+          boxShadow: ndwTokens.shadows.sm,
+        }}
+      >
+        <h2
+          style={{
+            margin: 0,
+            color: ndwTokens.colors.textPrimary,
+            fontSize: ndwTokens.typography.sizes.sectionTitle,
+            fontWeight: ndwTokens.typography.weights.black,
+          }}
+        >
+          Operational Attention
+        </h2>
+
+        <p
+          style={{
+            margin: "10px 0 0",
+            color: ndwTokens.colors.textSecondary,
+            fontSize: ndwTokens.typography.sizes.body,
+            lineHeight: ndwTokens.typography.lineHeights.normal,
+          }}
+        >
           Tutto stabile. Nessun elemento operativo richiede attenzione.
         </p>
       </div>
@@ -31,9 +55,26 @@ export default function OpsAttentionPanel({
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={ui.page.sectionTitle}>Operational Attention</h2>
-        <p style={{ marginTop: 8, color: theme.colors.textMuted }}>
+      <div style={{ marginBottom: ndwTokens.spacing.lg }}>
+        <h2
+          style={{
+            margin: 0,
+            color: ndwTokens.colors.textPrimary,
+            fontSize: ndwTokens.typography.sizes.sectionTitle,
+            fontWeight: ndwTokens.typography.weights.black,
+          }}
+        >
+          Operational Attention
+        </h2>
+
+        <p
+          style={{
+            margin: "8px 0 0",
+            color: ndwTokens.colors.textSecondary,
+            fontSize: ndwTokens.typography.sizes.body,
+            lineHeight: ndwTokens.typography.lineHeights.normal,
+          }}
+        >
           {summary.total} segnali rilevati — {summary.warning} warning,{" "}
           {summary.info} info.
         </p>

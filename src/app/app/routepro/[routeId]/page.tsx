@@ -16,6 +16,7 @@ import { RouteProOcrBatchUploader } from "@/modules/routepro/ui/RouteProOcrBatch
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 import { RouteProSubmitButton } from "@/modules/routepro/ui/RouteProSubmitButton";
+import { RouteProWorkflowHeader } from "@/modules/routepro/v2/ui/RouteProWorkflowHeader";
 
 type Props = {
   params: Promise<{ routeId: string }>;
@@ -148,7 +149,34 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
 
   return (
     <section style={ui.page.section}>
-      <RouteProHeader subtitle="Import, optimize, execute" />
+      <RouteProHeader subtitle="Import your stops. Review your route. Drive smarter." />
+
+<RouteProWorkflowHeader
+  steps={[
+    { label: "Import", status: totalStops > 0 ? "completed" : "current" },
+    { label: "Extract", status: totalStops > 0 ? "completed" : "pending" },
+    {
+      label: "Review",
+      status: needsReviewCount > 0 ? "current" : totalStops > 0 ? "completed" : "pending",
+    },
+    {
+      label: "Verify",
+      status: rawStops > 0 ? "current" : validStops > 0 ? "completed" : "pending",
+    },
+    {
+      label: "Optimize",
+      status: route.is_optimized ? "completed" : validStops >= 2 ? "current" : "pending",
+    },
+    {
+      label: "Drive",
+      status: route.is_optimized ? "current" : "pending",
+    },
+    {
+      label: "Summary",
+      status: route.status === "completed" ? "completed" : "pending",
+    },
+  ]}
+/>
 
       <p style={ui.page.eyebrow}>RoutePro</p>
       <h1 style={ui.page.title}>{route.name}</h1>
@@ -285,11 +313,11 @@ Via Torino 5, Milano`}
       </div>
 
       <div style={{ marginTop: 28 }}>
-        <h2 style={ui.page.sectionTitle}>Prossimo passo</h2>
+        <h2 style={ui.page.sectionTitle}>Route workflow</h2>
 
         <div style={pageGridStyle}>
           <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>1. Riconosci indirizzi</h3>
+            <h3 style={{ marginTop: 0 }}>Verify addresses</h3>
             <p style={mutedTextStyle}>
               Trasforma gli indirizzi in coordinate e segnala gli stop da rivedere.
             </p>
@@ -305,7 +333,7 @@ Via Torino 5, Milano`}
           </div>
 
           <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>2. Ottimizza</h3>
+            <h3 style={{ marginTop: 0 }}>Optimize route</h3>
             <p style={mutedTextStyle}>
               Riordina gli stop validi mantenendo sempre il numero originale.
             </p>
@@ -327,7 +355,7 @@ Via Torino 5, Milano`}
           </div>
 
           <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>3. Avvia percorso</h3>
+            <h3 style={{ marginTop: 0 }}>Drive route</h3>
             <p style={mutedTextStyle}>
               Apri la modalità driver con Maps/Waze, complete e skip.
             </p>

@@ -4,7 +4,8 @@ export const routeProModule: ModuleDefinition = {
   key: "routepro",
   name: "RoutePro",
   navLabel: "RoutePro",
-  description: "Ottimizzazione percorsi per driver e corrieri.",
+  description:
+  "Delivery Workflow System per driver multi-stop e corrieri.",
   category: "logistics",
   status: "beta",
   requiredPlan: "base",

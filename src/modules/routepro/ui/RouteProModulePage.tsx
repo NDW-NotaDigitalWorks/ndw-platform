@@ -10,6 +10,7 @@ import { getMyRouteProRoutes } from "@/modules/routepro/server/routepro.routes";
 import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ndwTokens } from "@/styles/ndw/ndw-tokens";
+import { RouteProWorkflowHeader } from "@/modules/routepro/v2/ui/RouteProWorkflowHeader";
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
@@ -50,46 +51,56 @@ export default async function RouteProModulePage() {
   return (
     <section style={routeProUi.shell}>
       <RouteProHeader />
+       <RouteProWorkflowHeader
+  steps={[
+    { label: "Import", status: "current" },
+    { label: "Review", status: "pending" },
+    { label: "Verify", status: "pending" },
+    { label: "Optimize", status: "pending" },
+    { label: "Drive", status: "pending" },
+    { label: "Summary", status: "pending" },
+  ]}
+/>
 
       <div style={routeProUi.hero}>
-        <h1 style={routeProUi.heroTitle}>{t.title}</h1>
-        <p style={routeProUi.heroSubtitle}>
-          Importa screenshot, liste o CSV. Geocodifica, ottimizza e completa la
-          rotta con una modalità execution pensata per driver reali.
-        </p>
+        <h1 style={routeProUi.heroTitle}>RoutePro Command Center</h1>
+<p style={routeProUi.heroSubtitle}>
+  Import your stops, review your route, verify addresses, optimize the sequence
+  and drive smarter with a workflow built for real multi-stop drivers.
+</p>
 
         <div style={actionsStyle}>
           <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
-            Nuova rotta
+            Prepare new route
           </Link>
 
           <Link href="/app/routepro/settings" style={routeProUi.secondaryButton}>
-            Impostazioni API
+            Driver settings
           </Link>
         </div>
       </div>
 
       <div style={gridStyle}>
-        <NdwMetricCard label="Rotte totali" value={totalRoutes} />
-        <NdwMetricCard label="Attive" value={activeRoutes} />
-        <NdwMetricCard label="Completate" value={completedRoutes} />
+        <NdwMetricCard label="Routes prepared" value={totalRoutes} />
+<NdwMetricCard label="Active workflows" value={activeRoutes} />
+<NdwMetricCard label="Completed days" value={completedRoutes} />
       </div>
 
       <div style={{ marginTop: ndwTokens.spacing["3xl"] }}>
         <NdwSectionHeader
           eyebrow="RoutePro"
-          title="Le tue rotte"
-          subtitle="Gestisci le rotte create, apri i dettagli o avvia la modalità percorso."
+          title="Your delivery days"
+subtitle="Open a route workflow, continue preparation or start driving."
         />
 
         {routes.length === 0 ? (
           <NdwEmptyState
             eyebrow="Nessuna rotta"
-            title="Nessuna rotta creata"
-            description="Crea la tua prima rotta, importa gli stop, geocodifica, ottimizza e avvia la modalità execution."
+            title="No delivery day prepared yet"
+description="Create your first route, import stops, review addresses, optimize the sequence and start driving."
             action={
               <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
-                Crea prima rotta
+                Prepare first route
               </Link>
             }
           />
@@ -146,20 +157,20 @@ export default async function RouteProModulePage() {
                   }}
                 >
                   {route.is_optimized
-                    ? "Rotta ottimizzata"
-                    : "Rotta non ancora ottimizzata"}
+  ? "Route optimized and ready to drive"
+  : "Route preparation in progress"}
                 </p>
 
                 <div style={actionsStyle}>
                   <Link href={`/app/routepro/${route.id}`} style={routeProUi.primaryButton}>
-                    Apri rotta
+                    Open workflow
                   </Link>
 
                   <Link
                     href={`/app/routepro/${route.id}/execute`}
                     style={routeProUi.secondaryButton}
                   >
-                    Avvia percorso
+                    Drive route
                   </Link>
                 </div>
               </article>

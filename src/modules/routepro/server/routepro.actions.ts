@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/routepro.geocoding";
 import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
+import { optimizeStopsWithOpenRouteService } from "@/modules/routepro/server/routepro.ors-optimization";
 import { extractTextFromImageWithGoogleVision } from "@/modules/routepro/server/routepro.ocr";
 import { encryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
 import { parseAmazonFlexStopsFromVisionLayout } from "@/modules/routepro/server/routepro.flex-layout-parser";
@@ -360,7 +361,7 @@ export async function optimizeRouteProRoute(formData: FormData) {
 
   const { data: stops, error: stopsError } = await supabase
     .from("routepro_stops")
-    .select("id, position, lat, lng")
+    .select("id, position, original_position, address, lat, lng")
     .eq("route_id", routeId)
     .eq("status", "valid")
     .not("lat", "is", null)
@@ -384,15 +385,33 @@ export async function optimizeRouteProRoute(formData: FormData) {
         }
       : null;
 
-  const optimizedStops = optimizeStopsNearestNeighbor(
-    stops.map((stop) => ({
-      id: stop.id,
-      position: Number(stop.position),
-      lat: Number(stop.lat),
-      lng: Number(stop.lng),
-    })),
-    startPoint,
-  );
+  const optimizationStops = stops.map((stop) => ({
+  id: stop.id,
+  position: Number(stop.position),
+  original_position: Number(stop.original_position),
+  address: String(stop.address ?? ""),
+  lat: Number(stop.lat),
+  lng: Number(stop.lng),
+}));
+
+const orsResult = await optimizeStopsWithOpenRouteService(
+  optimizationStops.map((stop) => ({
+    id: stop.id,
+    lat: stop.lat,
+    lng: stop.lng,
+  })),
+  startPoint,
+);
+
+const optimizedStops = orsResult.ok
+  ? orsResult.orderedStopIds
+      .map((stopId) => optimizationStops.find((stop) => stop.id === stopId))
+      .filter((stop): stop is (typeof optimizationStops)[number] => Boolean(stop))
+  : optimizeStopsNearestNeighbor(optimizationStops, startPoint);
+
+const optimizationMethod = orsResult.ok
+  ? "ors_optimization_v1"
+  : "cluster_nearest_neighbor_2opt_centroid_v1";
 
   for (let index = 0; index < optimizedStops.length; index += 1) {
     const stop = optimizedStops[index];
@@ -416,7 +435,7 @@ export async function optimizeRouteProRoute(formData: FormData) {
     .update({
       is_optimized: true,
       optimized_at: new Date().toISOString(),
-      optimization_method: "nearest_neighbor_v1",
+      optimization_method: optimizationMethod,
       updated_at: new Date().toISOString(),
     })
     .eq("id", routeId);

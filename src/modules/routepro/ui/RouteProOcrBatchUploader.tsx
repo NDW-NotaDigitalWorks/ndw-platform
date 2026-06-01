@@ -17,10 +17,27 @@ type SuspiciousStop = {
   reasons: string[];
 };
 
+type DuplicateStopReport = {
+  originalPosition: number;
+  keptAddress: string;
+  duplicateAddress: string;
+};
+
+type ImportReport = {
+  totalFiles: number;
+  processedFiles: number;
+  failedFiles: string[];
+  extractedStopsBeforeDeduplication: number;
+  extractedStops: number;
+  duplicateStopsIgnored: number;
+  duplicateStops: DuplicateStopReport[];
+};
+
 type ApiSuccessResponse = {
   ok: true;
   parsedStops: ParsedStop[];
   fallbackTexts: string[];
+  importReport: ImportReport;
 };
 
 type ApiErrorResponse = {
@@ -176,6 +193,8 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
   const [previewText, setPreviewText] = useState("");
   const [parsedStops, setParsedStops] = useState<ParsedStop[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [importReport, setImportReport] =
+  useState<ImportReport | null>(null);
 
   const batches = useMemo(() => chunkFiles(files, BATCH_SIZE), [files]);
   const totalBatches = batches.length;
@@ -202,10 +221,12 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
     setErrorMessage(null);
     setPreviewText("");
     setParsedStops([]);
+    setImportReport(null);
     setCurrentBatch(0);
 
     const allStops: ParsedStop[] = [];
     const fallbackTexts: string[] = [];
+    let latestImportReport: ImportReport | null = null;
 
     try {
       for (let index = 0; index < batches.length; index += 1) {
@@ -233,6 +254,7 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
 
         allStops.push(...json.parsedStops);
         fallbackTexts.push(...json.fallbackTexts);
+        latestImportReport = json.importReport;
 
         setCurrentBatch(index + 1);
       }
@@ -240,6 +262,8 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
       const formattedStops = formatStopsForTextarea(allStops);
 
       setParsedStops(getUniqueOrderedStops(allStops));
+
+      setImportReport(latestImportReport);
 
       if (formattedStops.length > 0) {
         setPreviewText(formattedStops);
@@ -346,6 +370,47 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
       ) : null}
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
+
+      {importReport ? (
+  <div style={{ ...ui.card.base, marginTop: 18 }}>
+    <h3 style={{ marginTop: 0 }}>OCR import report</h3>
+
+    <p style={mutedTextStyle}>
+      {importReport.extractedStops} stops extracted from{" "}
+      {importReport.processedFiles} screenshots.
+    </p>
+
+    {importReport.duplicateStopsIgnored > 0 ? (
+      <div style={warningStyle}>
+        {importReport.duplicateStopsIgnored} duplicate stops ignored.
+      </div>
+    ) : null}
+
+    {importReport.failedFiles.length > 0 ? (
+      <div style={errorStyle}>
+        {importReport.failedFiles.length} screenshots failed OCR.
+      </div>
+    ) : null}
+
+    {importReport.duplicateStops.length > 0 ? (
+      <details style={{ marginTop: 12 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 800 }}>
+          View duplicate stops
+        </summary>
+
+        <ul style={{ margin: "10px 0 0", paddingLeft: 18 }}>
+          {importReport.duplicateStops.slice(0, 12).map((duplicate) => (
+            <li key={`${duplicate.originalPosition}-${duplicate.duplicateAddress}`}>
+              Stop {duplicate.originalPosition}: kept{" "}
+              <strong>{duplicate.keptAddress}</strong>, ignored{" "}
+              <strong>{duplicate.duplicateAddress}</strong>
+            </li>
+          ))}
+        </ul>
+      </details>
+    ) : null}
+  </div>
+) : null}
 
       {previewText ? (
         <div style={{ ...ui.card.base, marginTop: 18 }}>

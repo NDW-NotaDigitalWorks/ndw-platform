@@ -26,6 +26,32 @@ const ADDRESS_WORDS = [
   "vicolo",
   "largo",
   "piazzale",
+  "località",
+  "localita",
+  "contrada",
+  "frazione",
+  "traversa",
+  "rue",
+  "avenue",
+  "road",
+  "street",
+  "drive",
+  "lane",
+];
+
+const NEGATIVE_WORDS = [
+  "consegna",
+  "locker",
+  "pacco",
+  "pacchi",
+  "amazon",
+  "elenco",
+  "tappe",
+  "fermata",
+  "corrente",
+  "scansiona",
+  "ritira",
+  "codice",
 ];
 
 function normalizeText(value: string): string {
@@ -96,7 +122,7 @@ function extractStopLine(text: string): {
 
   const stopNumber = Number(match[1]);
 
-  if (stopNumber < 1 || stopNumber > 200) {
+  if (stopNumber < 1 || stopNumber > 250) {
     return null;
   }
 
@@ -112,62 +138,67 @@ function extractStopLine(text: string): {
   };
 }
 
-function looksLikeStreetWithoutPrefix(text: string): boolean {
-  const cleaned = normalizeText(text);
-
-  if (cleaned.length < 6) {
-    return false;
-  }
-
-  const lower = cleaned.toLowerCase();
-
-  if (
-    lower.includes("consegna") ||
-    lower.includes("locker") ||
-    lower.includes("pacco") ||
-    lower.includes("pacchi") ||
-    lower.includes("amazon") ||
-    lower.includes("elenco") ||
-    lower.includes("tappe") ||
-    lower.includes("fermata") ||
-    lower.startsWith("n.")
-  ) {
-    return false;
-  }
-
-  const hasNumber = /\d{1,4}/.test(cleaned);
-
-  if (!hasNumber) {
-    return false;
-  }
-
-  const words = cleaned.split(" ").filter(Boolean);
-
-  if (words.length < 2) {
-    return false;
-  }
-
-  const firstWord = words[0];
-
-  if (!firstWord || firstWord.length < 3) {
-    return false;
-  }
-
-  return /^[a-zA-ZÀ-ÿ'`.-]+/.test(firstWord);
-}
-
-function containsAddressWord(text: string): boolean {
+function hasClassicAddressWord(text: string): boolean {
   const lower = normalizeText(text).toLowerCase();
 
-  const hasClassicStreetWord = ADDRESS_WORDS.some(
-    (word) => lower.includes(`${word} `) || lower.includes(`${word},`),
+  return ADDRESS_WORDS.some(
+    (word) =>
+      lower.startsWith(`${word} `) ||
+      lower.includes(` ${word} `) ||
+      lower.includes(`${word},`) ||
+      lower.includes(` ${word},`),
   );
+}
 
-  if (hasClassicStreetWord) {
-    return true;
+function hasNegativeWords(text: string): boolean {
+  const lower = normalizeText(text).toLowerCase();
+
+  return NEGATIVE_WORDS.some((word) => lower.includes(word));
+}
+
+function hasStreetNumber(text: string): boolean {
+  return /\b\d{1,4}[a-zA-Z]?\b/.test(normalizeText(text));
+}
+
+function hasUsefulWords(text: string): boolean {
+  const words = normalizeText(text).split(" ").filter(Boolean);
+
+  return words.length >= 2;
+}
+
+function hasAlphaCharacters(text: string): boolean {
+  return /[a-zA-ZÀ-ÿ]/.test(text);
+}
+
+function getAddressConfidenceScore(text: string): number {
+  const cleaned = normalizeText(text);
+
+  if (cleaned.length < 4) {
+    return 0;
   }
 
-  return looksLikeStreetWithoutPrefix(text);
+  let score = 0;
+
+  if (hasAlphaCharacters(cleaned)) score += 20;
+  if (hasUsefulWords(cleaned)) score += 20;
+  if (hasStreetNumber(cleaned)) score += 25;
+  if (hasClassicAddressWord(cleaned)) score += 35;
+
+  if (cleaned.length >= 8) score += 10;
+  if (cleaned.length >= 16) score += 10;
+
+  if (/[,-]/.test(cleaned)) score += 5;
+
+  if (hasNegativeWords(cleaned)) score -= 45;
+  if (/^\d{1,3}$/.test(cleaned)) score -= 50;
+  if (/^\d{1,2}:\d{2}/.test(cleaned)) score -= 50;
+  if (/^n\./i.test(cleaned)) score -= 30;
+
+  return Math.max(0, Math.min(score, 100));
+}
+
+function looksLikeAddress(text: string): boolean {
+  return getAddressConfidenceScore(text) >= 60;
 }
 
 function cleanAddressText(text: string): string {
@@ -190,37 +221,13 @@ function looksLikeCity(text: string): boolean {
     return false;
   }
 
+  if (hasNegativeWords(cleaned)) {
+    return false;
+  }
+
   const lower = cleaned.toLowerCase();
 
-  if (lower.includes("consegna")) {
-    return false;
-  }
-
-  if (lower.includes("pacco")) {
-    return false;
-  }
-
-  if (lower.includes("pacchi")) {
-    return false;
-  }
-
-  if (lower.includes("locker")) {
-    return false;
-  }
-
-  if (lower.includes("elenco")) {
-    return false;
-  }
-
-  if (lower.includes("tappe")) {
-    return false;
-  }
-
   if (lower.startsWith("n.")) {
-    return false;
-  }
-
-  if (lower.includes("fermata")) {
     return false;
   }
 
@@ -253,7 +260,7 @@ export function parseAmazonFlexStopsFromVisionLayout(
       continue;
     }
 
-    if (!containsAddressWord(stopLine.addressPart)) {
+    if (!looksLikeAddress(stopLine.addressPart)) {
       continue;
     }
 
@@ -297,7 +304,9 @@ export function debugVisionLayoutLines(words: RouteProOcrWord[]): string {
 
   return lines
     .map((line) => {
-      return `[y=${Math.round(line.yCenter)} x=${Math.round(
+      const score = getAddressConfidenceScore(line.text);
+
+      return `[score=${score} y=${Math.round(line.yCenter)} x=${Math.round(
         line.xMin,
       )}-${Math.round(line.xMax)}] ${line.text}`;
     })

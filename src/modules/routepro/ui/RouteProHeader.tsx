@@ -34,7 +34,7 @@ const logoStyle: CSSProperties = {
 
 export function RouteProHeader({
   title = "RoutePro",
-  subtitle = "Smart delivery routing",
+  subtitle = "Import your stops. Review your route. Drive smarter.",
 }: RouteProHeaderProps) {
   return (
     <div style={headerStyle}>

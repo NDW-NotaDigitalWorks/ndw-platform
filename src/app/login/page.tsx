@@ -6,6 +6,7 @@ import { ndwTokens } from "@/styles/ndw/ndw-tokens";
 type LoginPageProps = {
   searchParams: Promise<{
     error?: string;
+    mode?: string;
     "check-email"?: string;
   }>;
 };
@@ -20,6 +21,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   const hasError = params.error === "1";
   const checkEmail = params["check-email"] === "1";
+  const signupMode = params.mode === "signup";
 
   return (
     <main
@@ -201,55 +203,123 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </div>
             </div>
           ) : (
-            <form action="/auth/login" method="post" style={{ marginTop: 24 }}>
-              <label
-                style={{
-                  display: "block",
-                  color: ndwTokens.colors.textSecondary,
-                  fontSize: ndwTokens.typography.sizes.small,
-                  fontWeight: ndwTokens.typography.weights.bold,
-                }}
-              >
-                Email
-                <input
-                  type="email"
-                  name="email"
-                  required
-                  placeholder="you@example.com"
-                  style={{
-                    width: "100%",
-                    marginTop: 8,
-                    minHeight: 48,
-                    padding: "0 14px",
-                    borderRadius: ndwTokens.radius.md,
-                    border: `1px solid ${ndwTokens.colors.borderStrong}`,
-                    background: ndwTokens.colors.surfaceRaised,
-                    color: ndwTokens.colors.textPrimary,
-                    fontSize: ndwTokens.typography.sizes.body,
-                    boxSizing: "border-box",
-                  }}
-                />
-              </label>
+            <div style={{ marginTop: 24 }}>
+  <form
+    action={signupMode ? "/auth/signup" : "/auth/signin"}
+    method="post"
+  >
+    <label
+      style={{
+        display: "block",
+        color: ndwTokens.colors.textSecondary,
+        fontSize: ndwTokens.typography.sizes.small,
+        fontWeight: ndwTokens.typography.weights.bold,
+      }}
+    >
+      Email
 
-              <button
-                type="submit"
-                style={{
-                  marginTop: 18,
-                  width: "100%",
-                  minHeight: 48,
-                  border: "none",
-                  borderRadius: ndwTokens.radius.md,
-                  background: ndwTokens.colors.primary,
-                  color: "#ffffff",
-                  fontSize: ndwTokens.typography.sizes.body,
-                  fontWeight: ndwTokens.typography.weights.black,
-                  cursor: "pointer",
-                  boxShadow: ndwTokens.shadows.accent,
-                }}
-              >
-                Invia magic link
-              </button>
-            </form>
+      <input
+        type="email"
+        name="email"
+        required
+        placeholder="you@example.com"
+        style={{
+          width: "100%",
+          marginTop: 8,
+          minHeight: 48,
+          padding: "0 14px",
+          borderRadius: ndwTokens.radius.md,
+          border: `1px solid ${ndwTokens.colors.borderStrong}`,
+          background: ndwTokens.colors.surfaceRaised,
+          color: ndwTokens.colors.textPrimary,
+          fontSize: ndwTokens.typography.sizes.body,
+          boxSizing: "border-box",
+        }}
+      />
+    </label>
+
+    <label
+      style={{
+        display: "block",
+        marginTop: 14,
+        color: ndwTokens.colors.textSecondary,
+        fontSize: ndwTokens.typography.sizes.small,
+        fontWeight: ndwTokens.typography.weights.bold,
+      }}
+    >
+      Password
+
+      <input
+        type="password"
+        name="password"
+        required
+        minLength={8}
+        style={{
+          width: "100%",
+          marginTop: 8,
+          minHeight: 48,
+          padding: "0 14px",
+          borderRadius: ndwTokens.radius.md,
+          border: `1px solid ${ndwTokens.colors.borderStrong}`,
+          background: ndwTokens.colors.surfaceRaised,
+          color: ndwTokens.colors.textPrimary,
+          fontSize: ndwTokens.typography.sizes.body,
+          boxSizing: "border-box",
+        }}
+      />
+    </label>
+
+    <button
+      type="submit"
+      style={{
+        marginTop: 18,
+        width: "100%",
+        minHeight: 48,
+        border: "none",
+        borderRadius: ndwTokens.radius.md,
+        background: ndwTokens.colors.primary,
+        color: "#ffffff",
+        fontSize: ndwTokens.typography.sizes.body,
+        fontWeight: ndwTokens.typography.weights.black,
+        cursor: "pointer",
+        boxShadow: ndwTokens.shadows.accent,
+      }}
+    >
+      {signupMode ? "Crea account" : "Accedi"}
+    </button>
+  </form>
+
+  <div
+    style={{
+      marginTop: 18,
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 10,
+    }}
+  >
+    <Link
+      href={signupMode ? "/login" : "/login?mode=signup"}
+      style={{
+        color: ndwTokens.colors.primary,
+        textDecoration: "none",
+      }}
+    >
+      {signupMode
+        ? "Hai già un account? Accedi"
+        : "Non hai un account? Registrati"}
+    </Link>
+
+    <Link
+      href="/login?magic=1"
+      style={{
+        color: ndwTokens.colors.textSecondary,
+        textDecoration: "none",
+      }}
+    >
+      Usa Magic Link
+    </Link>
+  </div>
+</div>
           )}
         </div>
       </div>

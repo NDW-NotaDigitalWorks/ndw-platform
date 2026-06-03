@@ -319,6 +319,56 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       Usa Magic Link
     </Link>
   </div>
+  <form
+  action="/auth/forgot-password"
+  method="post"
+  style={{ marginTop: 18 }}
+>
+  <label
+    style={{
+      display: "block",
+      color: ndwTokens.colors.textSecondary,
+      fontSize: ndwTokens.typography.sizes.small,
+      fontWeight: ndwTokens.typography.weights.bold,
+    }}
+  >
+    Password dimenticata?
+    <input
+      type="email"
+      name="email"
+      required
+      placeholder="Inserisci la tua email"
+      style={{
+        width: "100%",
+        marginTop: 8,
+        minHeight: 44,
+        padding: "0 14px",
+        borderRadius: ndwTokens.radius.md,
+        border: `1px solid ${ndwTokens.colors.borderStrong}`,
+        background: ndwTokens.colors.surfaceRaised,
+        color: ndwTokens.colors.textPrimary,
+        boxSizing: "border-box",
+      }}
+    />
+  </label>
+
+  <button
+    type="submit"
+    style={{
+      marginTop: 10,
+      width: "100%",
+      minHeight: 44,
+      borderRadius: ndwTokens.radius.md,
+      border: `1px solid ${ndwTokens.colors.borderStrong}`,
+      background: "transparent",
+      color: ndwTokens.colors.textPrimary,
+      fontWeight: ndwTokens.typography.weights.bold,
+      cursor: "pointer",
+    }}
+  >
+    Ricevi link reset password
+  </button>
+</form>
 </div>
           )}
         </div>

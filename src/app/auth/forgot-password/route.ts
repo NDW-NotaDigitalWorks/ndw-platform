@@ -1,4 +1,4 @@
-import { getBaseUrl } from "@/lib/auth/auth-url";
+import { getAuthCallbackUrl } from "@/lib/auth/auth-url";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   const supabase = await createClient();
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${getBaseUrl(request.url)}/reset-password`,
+    redirectTo: getAuthCallbackUrl(request.url, "/reset-password"),
   });
 
   if (error) {

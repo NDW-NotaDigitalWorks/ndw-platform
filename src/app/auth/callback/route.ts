@@ -1,21 +1,6 @@
+import { getSafeNextPath } from "@/lib/auth/auth-url";
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
-
-function getSafeNextPath(value: string | null): string {
-  if (!value) {
-    return "/app";
-  }
-
-  if (!value.startsWith("/")) {
-    return "/app";
-  }
-
-  if (value.startsWith("//")) {
-    return "/app";
-  }
-
-  return value;
-}
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
@@ -24,7 +9,9 @@ export async function GET(request: Request) {
   const next = getSafeNextPath(requestUrl.searchParams.get("next"));
 
   if (!code) {
-    return NextResponse.redirect(new URL("/login?error=missing-code", requestUrl.origin));
+    return NextResponse.redirect(
+      new URL("/login?error=missing-code", requestUrl.origin),
+    );
   }
 
   const supabase = await createClient();
@@ -33,7 +20,10 @@ export async function GET(request: Request) {
 
   if (error) {
     console.error("Auth callback error:", error.message);
-    return NextResponse.redirect(new URL("/login?error=callback", requestUrl.origin));
+
+    return NextResponse.redirect(
+      new URL("/login?error=callback", requestUrl.origin),
+    );
   }
 
   return NextResponse.redirect(new URL(next, requestUrl.origin));

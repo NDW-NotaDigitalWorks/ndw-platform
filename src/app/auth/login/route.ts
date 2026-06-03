@@ -1,16 +1,21 @@
+import { getAuthCallbackUrl } from "@/lib/auth/auth-url";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
-  const email = String(formData.get("email"));
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+
+  if (!email) {
+    redirect("/login?error=missing-email");
+  }
 
   const supabase = await createClient();
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin}/auth/callback?next=/app`,
+      emailRedirectTo: getAuthCallbackUrl(request.url, "/app"),
     },
   });
 

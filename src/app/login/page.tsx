@@ -216,6 +216,38 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         fontWeight: ndwTokens.typography.weights.bold,
       }}
     >
+
+      <Link
+  href="/auth/google"
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 48,
+    borderRadius: ndwTokens.radius.md,
+    border: `1px solid ${ndwTokens.colors.borderStrong}`,
+    background: ndwTokens.colors.surfaceRaised,
+    color: ndwTokens.colors.textPrimary,
+    fontSize: ndwTokens.typography.sizes.body,
+    fontWeight: ndwTokens.typography.weights.black,
+    textDecoration: "none",
+  }}
+>
+  Continua con Google
+</Link>
+
+<div
+  style={{
+    margin: "18px 0",
+    color: ndwTokens.colors.textSecondary,
+    textAlign: "center",
+    fontSize: ndwTokens.typography.sizes.small,
+  }}
+>
+  oppure
+</div>
+
+
       Email
 
       <input

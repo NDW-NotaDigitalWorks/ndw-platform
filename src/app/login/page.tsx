@@ -1,14 +1,17 @@
 import Image from "next/image";
 import Link from "next/link";
+import { PasswordField } from "@/components/auth/PasswordField";
 import { createClient } from "@/lib/supabase/server";
 import { ndwTokens } from "@/styles/ndw/ndw-tokens";
-import { PasswordField } from "@/components/auth/PasswordField";
 
 type LoginPageProps = {
   searchParams: Promise<{
     error?: string;
     mode?: string;
+    magic?: string;
     "check-email"?: string;
+    "reset-email"?: string;
+    "password-updated"?: string;
   }>;
 };
 
@@ -20,10 +23,26 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const hasError = params.error === "1";
-  const passwordMismatch = params.error === "password-mismatch";
-  const checkEmail = params["check-email"] === "1";
   const signupMode = params.mode === "signup";
+  const magicMode = params.magic === "1";
+  const checkEmail = params["check-email"] === "1";
+  const resetEmail = params["reset-email"] === "1";
+  const passwordUpdated = params["password-updated"] === "1";
+
+  const errorMessage =
+    params.error === "password-mismatch"
+      ? "Le password non coincidono. Controlla e riprova."
+      : params.error === "signin"
+        ? "Email o password non corrette."
+        : params.error === "signup"
+          ? "Registrazione non riuscita. L’email potrebbe essere già registrata."
+          : params.error === "invalid-signup"
+            ? "Inserisci un’email valida e una password di almeno 8 caratteri."
+            : params.error === "reset-request"
+              ? "Non è stato possibile inviare il link di reset. Riprova più tardi."
+              : params.error
+                ? "Operazione non riuscita. Controlla i dati e riprova."
+                : null;
 
   return (
     <main
@@ -38,9 +57,6 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <Link
           href="/"
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 10,
             color: ndwTokens.colors.textSecondary,
             fontWeight: 800,
             textDecoration: "none",
@@ -103,7 +119,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               fontWeight: ndwTokens.typography.weights.black,
             }}
           >
-            Accedi a NDW Core
+            {signupMode ? "Crea il tuo account NDW" : "Accedi a NDW Core"}
           </h1>
 
           <p
@@ -114,11 +130,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               lineHeight: ndwTokens.typography.lineHeights.normal,
             }}
           >
-            Inserisci la tua email. Riceverai un magic link per accedere al
-            workspace operativo.
+            {signupMode
+              ? "Registrati con Google oppure crea un account con email e password."
+              : "Accedi con Google oppure usa email e password per entrare nel tuo workspace operativo."}
           </p>
 
-          {hasError ? (
+          {errorMessage ? (
             <div
               style={{
                 marginTop: 20,
@@ -130,25 +147,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 fontSize: ndwTokens.typography.sizes.body,
               }}
             >
-              Accesso non riuscito. Controlla l’email e riprova.
+              {errorMessage}
             </div>
           ) : null}
-
-          {passwordMismatch ? (
-  <div
-    style={{
-      marginTop: 20,
-      padding: 14,
-      borderRadius: ndwTokens.radius.md,
-      border: `1px solid ${ndwTokens.colors.danger}`,
-      background: ndwTokens.colors.dangerSoft,
-      color: "#FCA5A5",
-      fontSize: ndwTokens.typography.sizes.body,
-    }}
-  >
-    Le password non coincidono. Controlla e riprova.
-  </div>
-) : null}
 
           {checkEmail ? (
             <div
@@ -159,10 +160,39 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 border: `1px solid ${ndwTokens.colors.primary}`,
                 background: ndwTokens.colors.primarySoft,
                 color: "#93C5FD",
-                fontSize: ndwTokens.typography.sizes.body,
               }}
             >
-              Magic link inviato. Controlla la tua casella email.
+              Magic Link inviato. Controlla la tua casella email.
+            </div>
+          ) : null}
+
+          {resetEmail ? (
+            <div
+              style={{
+                marginTop: 20,
+                padding: 14,
+                borderRadius: ndwTokens.radius.md,
+                border: `1px solid ${ndwTokens.colors.primary}`,
+                background: ndwTokens.colors.primarySoft,
+                color: "#93C5FD",
+              }}
+            >
+              Link di reset inviato. Controlla la tua email.
+            </div>
+          ) : null}
+
+          {passwordUpdated ? (
+            <div
+              style={{
+                marginTop: 20,
+                padding: 14,
+                borderRadius: ndwTokens.radius.md,
+                border: `1px solid ${ndwTokens.colors.primary}`,
+                background: ndwTokens.colors.primarySoft,
+                color: "#93C5FD",
+              }}
+            >
+              Password aggiornata. Ora puoi accedere.
             </div>
           ) : null}
 
@@ -222,194 +252,253 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             </div>
           ) : (
             <div style={{ marginTop: 24 }}>
-  <form
-    action={signupMode ? "/auth/signup" : "/auth/signin"}
-    method="post"
-  >
-    <label
-      style={{
-        display: "block",
-        color: ndwTokens.colors.textSecondary,
-        fontSize: ndwTokens.typography.sizes.small,
-        fontWeight: ndwTokens.typography.weights.bold,
-      }}
-    >
+              {!magicMode ? (
+                <>
+                  <Link
+                    href="/auth/google"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minHeight: 48,
+                      borderRadius: ndwTokens.radius.md,
+                      border: `1px solid ${ndwTokens.colors.borderStrong}`,
+                      background: ndwTokens.colors.surfaceRaised,
+                      color: ndwTokens.colors.textPrimary,
+                      fontSize: ndwTokens.typography.sizes.body,
+                      fontWeight: ndwTokens.typography.weights.black,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Continua con Google
+                  </Link>
 
-      <Link
-  href="/auth/google"
-  style={{
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 48,
-    borderRadius: ndwTokens.radius.md,
-    border: `1px solid ${ndwTokens.colors.borderStrong}`,
-    background: ndwTokens.colors.surfaceRaised,
-    color: ndwTokens.colors.textPrimary,
-    fontSize: ndwTokens.typography.sizes.body,
-    fontWeight: ndwTokens.typography.weights.black,
-    textDecoration: "none",
-  }}
->
-  Continua con Google
-</Link>
+                  <div
+                    style={{
+                      margin: "18px 0",
+                      color: ndwTokens.colors.textSecondary,
+                      textAlign: "center",
+                      fontSize: ndwTokens.typography.sizes.small,
+                    }}
+                  >
+                    oppure
+                  </div>
 
-<div
-  style={{
-    margin: "18px 0",
-    color: ndwTokens.colors.textSecondary,
-    textAlign: "center",
-    fontSize: ndwTokens.typography.sizes.small,
-  }}
->
-  oppure
-</div>
+                  <form
+                    action={signupMode ? "/auth/signup" : "/auth/signin"}
+                    method="post"
+                  >
+                    <label
+                      style={{
+                        display: "block",
+                        color: ndwTokens.colors.textSecondary,
+                        fontSize: ndwTokens.typography.sizes.small,
+                        fontWeight: ndwTokens.typography.weights.bold,
+                      }}
+                    >
+                      Email
 
+                      <input
+                        type="email"
+                        name="email"
+                        required
+                        placeholder="you@example.com"
+                        style={{
+                          width: "100%",
+                          marginTop: 8,
+                          minHeight: 48,
+                          padding: "0 14px",
+                          borderRadius: ndwTokens.radius.md,
+                          border: `1px solid ${ndwTokens.colors.borderStrong}`,
+                          background: ndwTokens.colors.surfaceRaised,
+                          color: ndwTokens.colors.textPrimary,
+                          fontSize: ndwTokens.typography.sizes.body,
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </label>
 
-      Email
+                    <PasswordField label="Password" name="password" />
 
-      <input
-        type="email"
-        name="email"
-        required
-        placeholder="you@example.com"
-        style={{
-          width: "100%",
-          marginTop: 8,
-          minHeight: 48,
-          padding: "0 14px",
-          borderRadius: ndwTokens.radius.md,
-          border: `1px solid ${ndwTokens.colors.borderStrong}`,
-          background: ndwTokens.colors.surfaceRaised,
-          color: ndwTokens.colors.textPrimary,
-          fontSize: ndwTokens.typography.sizes.body,
-          boxSizing: "border-box",
-        }}
-      />
-    </label>
+                    {signupMode ? (
+                      <PasswordField
+                        label="Conferma password"
+                        name="confirmPassword"
+                      />
+                    ) : null}
 
-    <PasswordField label="Password" name="password" />
+                    <button
+                      type="submit"
+                      style={{
+                        marginTop: 18,
+                        width: "100%",
+                        minHeight: 48,
+                        border: "none",
+                        borderRadius: ndwTokens.radius.md,
+                        background: ndwTokens.colors.primary,
+                        color: "#ffffff",
+                        fontSize: ndwTokens.typography.sizes.body,
+                        fontWeight: ndwTokens.typography.weights.black,
+                        cursor: "pointer",
+                        boxShadow: ndwTokens.shadows.accent,
+                      }}
+                    >
+                      {signupMode ? "Crea account" : "Accedi"}
+                    </button>
+                  </form>
 
-    {signupMode ? (
-  <PasswordField label="Conferma password" name="confirmPassword" />
-) : null}
+                  <div
+                    style={{
+                      marginTop: 18,
+                      display: "grid",
+                      gap: 12,
+                    }}
+                  >
+                    <Link
+                      href={signupMode ? "/login" : "/login?mode=signup"}
+                      style={{
+                        color: ndwTokens.colors.primary,
+                        textDecoration: "none",
+                        fontWeight: ndwTokens.typography.weights.bold,
+                      }}
+                    >
+                      {signupMode
+                        ? "Hai già un account? Accedi"
+                        : "Non hai un account? Registrati"}
+                    </Link>
 
-    <button
-      type="submit"
-      style={{
-        marginTop: 18,
-        width: "100%",
-        minHeight: 48,
-        border: "none",
-        borderRadius: ndwTokens.radius.md,
-        background: ndwTokens.colors.primary,
-        color: "#ffffff",
-        fontSize: ndwTokens.typography.sizes.body,
-        fontWeight: ndwTokens.typography.weights.black,
-        cursor: "pointer",
-        boxShadow: ndwTokens.shadows.accent,
-      }}
-    >
-      {signupMode ? "Crea account" : "Accedi"}
-    </button>
-  </form>
+                    {!signupMode ? (
+                      <details>
+                        <summary
+                          style={{
+                            cursor: "pointer",
+                            color: ndwTokens.colors.textSecondary,
+                            fontWeight: ndwTokens.typography.weights.bold,
+                          }}
+                        >
+                          Password dimenticata o metodi alternativi
+                        </summary>
 
-  <div
-    style={{
-      marginTop: 18,
-      display: "flex",
-      justifyContent: "space-between",
-      gap: 10,
-    }}
-  >
-    <Link
-      href={signupMode ? "/login" : "/login?mode=signup"}
-      style={{
-        color: ndwTokens.colors.primary,
-        textDecoration: "none",
-      }}
-    >
-      {signupMode
-        ? "Hai già un account? Accedi"
-        : "Non hai un account? Registrati"}
-    </Link>
+                        <form
+                          action="/auth/forgot-password"
+                          method="post"
+                          style={{ marginTop: 14 }}
+                        >
+                          <input
+                            type="email"
+                            name="email"
+                            required
+                            placeholder="Inserisci la tua email"
+                            style={{
+                              width: "100%",
+                              minHeight: 44,
+                              padding: "0 14px",
+                              borderRadius: ndwTokens.radius.md,
+                              border: `1px solid ${ndwTokens.colors.borderStrong}`,
+                              background: ndwTokens.colors.surfaceRaised,
+                              color: ndwTokens.colors.textPrimary,
+                              boxSizing: "border-box",
+                            }}
+                          />
 
-    <details>
-  <summary
-    style={{
-      cursor: "pointer",
-      color: ndwTokens.colors.textSecondary,
-    }}
-  >
-    Metodi alternativi
-  </summary>
+                          <button
+                            type="submit"
+                            style={{
+                              marginTop: 10,
+                              width: "100%",
+                              minHeight: 44,
+                              borderRadius: ndwTokens.radius.md,
+                              border: `1px solid ${ndwTokens.colors.borderStrong}`,
+                              background: "transparent",
+                              color: ndwTokens.colors.textPrimary,
+                              fontWeight: ndwTokens.typography.weights.bold,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Ricevi link reset password
+                          </button>
+                        </form>
 
-  <div style={{ marginTop: 8 }}>
-    <Link
-      href="/login?magic=1"
-      style={{
-        color: ndwTokens.colors.textSecondary,
-        textDecoration: "none",
-      }}
-    >
-      Accedi con Magic Link
-    </Link>
-  </div>
-</details>
-  </div>
-  {!signupMode ? (
-  <form
-  action="/auth/forgot-password"
-  method="post"
-  style={{ marginTop: 18 }}
->
-  <label
-    style={{
-      display: "block",
-      color: ndwTokens.colors.textSecondary,
-      fontSize: ndwTokens.typography.sizes.small,
-      fontWeight: ndwTokens.typography.weights.bold,
-    }}
-  >
-    Password dimenticata?
-    <input
-      type="email"
-      name="email"
-      required
-      placeholder="Inserisci la tua email"
-      style={{
-        width: "100%",
-        marginTop: 8,
-        minHeight: 44,
-        padding: "0 14px",
-        borderRadius: ndwTokens.radius.md,
-        border: `1px solid ${ndwTokens.colors.borderStrong}`,
-        background: ndwTokens.colors.surfaceRaised,
-        color: ndwTokens.colors.textPrimary,
-        boxSizing: "border-box",
-      }}
-    />
-  </label>
+                        <div style={{ marginTop: 12 }}>
+                          <Link
+                            href="/login?magic=1"
+                            style={{
+                              color: ndwTokens.colors.textSecondary,
+                              textDecoration: "none",
+                            }}
+                          >
+                            Accedi con Magic Link
+                          </Link>
+                        </div>
+                      </details>
+                    ) : null}
+                  </div>
+                </>
+              ) : (
+                <form action="/auth/login" method="post">
+                  <label
+                    style={{
+                      display: "block",
+                      color: ndwTokens.colors.textSecondary,
+                      fontSize: ndwTokens.typography.sizes.small,
+                      fontWeight: ndwTokens.typography.weights.bold,
+                    }}
+                  >
+                    Email
 
-  <button
-    type="submit"
-    style={{
-      marginTop: 10,
-      width: "100%",
-      minHeight: 44,
-      borderRadius: ndwTokens.radius.md,
-      border: `1px solid ${ndwTokens.colors.borderStrong}`,
-      background: "transparent",
-      color: ndwTokens.colors.textPrimary,
-      fontWeight: ndwTokens.typography.weights.bold,
-      cursor: "pointer",
-    }}
-  >
-    Ricevi link reset password
-  </button>
-</form>
-) : null}
-</div>
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      placeholder="you@example.com"
+                      style={{
+                        width: "100%",
+                        marginTop: 8,
+                        minHeight: 48,
+                        padding: "0 14px",
+                        borderRadius: ndwTokens.radius.md,
+                        border: `1px solid ${ndwTokens.colors.borderStrong}`,
+                        background: ndwTokens.colors.surfaceRaised,
+                        color: ndwTokens.colors.textPrimary,
+                        fontSize: ndwTokens.typography.sizes.body,
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  </label>
+
+                  <button
+                    type="submit"
+                    style={{
+                      marginTop: 18,
+                      width: "100%",
+                      minHeight: 48,
+                      border: "none",
+                      borderRadius: ndwTokens.radius.md,
+                      background: ndwTokens.colors.primary,
+                      color: "#ffffff",
+                      fontSize: ndwTokens.typography.sizes.body,
+                      fontWeight: ndwTokens.typography.weights.black,
+                      cursor: "pointer",
+                      boxShadow: ndwTokens.shadows.accent,
+                    }}
+                  >
+                    Invia Magic Link
+                  </button>
+
+                  <Link
+                    href="/login"
+                    style={{
+                      display: "block",
+                      marginTop: 16,
+                      color: ndwTokens.colors.textSecondary,
+                      textDecoration: "none",
+                    }}
+                  >
+                    Torna al login principale
+                  </Link>
+                </form>
+              )}
+            </div>
           )}
         </div>
       </div>

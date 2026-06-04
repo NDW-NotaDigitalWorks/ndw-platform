@@ -6,9 +6,14 @@ export async function POST(request: Request) {
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
   if (!email || !password || password.length < 8) {
     redirect("/login?mode=signup&error=invalid-signup");
+  }
+
+  if (password !== confirmPassword) {
+    redirect("/login?mode=signup&error=password-mismatch");
   }
 
   const supabase = await createClient();

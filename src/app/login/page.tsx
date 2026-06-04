@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ndwTokens } from "@/styles/ndw/ndw-tokens";
+import { PasswordField } from "@/components/auth/PasswordField";
 
 type LoginPageProps = {
   searchParams: Promise<{
@@ -20,6 +21,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   } = await supabase.auth.getUser();
 
   const hasError = params.error === "1";
+  const passwordMismatch = params.error === "password-mismatch";
   const checkEmail = params["check-email"] === "1";
   const signupMode = params.mode === "signup";
 
@@ -131,6 +133,22 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               Accesso non riuscito. Controlla l’email e riprova.
             </div>
           ) : null}
+
+          {passwordMismatch ? (
+  <div
+    style={{
+      marginTop: 20,
+      padding: 14,
+      borderRadius: ndwTokens.radius.md,
+      border: `1px solid ${ndwTokens.colors.danger}`,
+      background: ndwTokens.colors.dangerSoft,
+      color: "#FCA5A5",
+      fontSize: ndwTokens.typography.sizes.body,
+    }}
+  >
+    Le password non coincidono. Controlla e riprova.
+  </div>
+) : null}
 
           {checkEmail ? (
             <div
@@ -270,36 +288,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       />
     </label>
 
-    <label
-      style={{
-        display: "block",
-        marginTop: 14,
-        color: ndwTokens.colors.textSecondary,
-        fontSize: ndwTokens.typography.sizes.small,
-        fontWeight: ndwTokens.typography.weights.bold,
-      }}
-    >
-      Password
+    <PasswordField label="Password" name="password" />
 
-      <input
-        type="password"
-        name="password"
-        required
-        minLength={8}
-        style={{
-          width: "100%",
-          marginTop: 8,
-          minHeight: 48,
-          padding: "0 14px",
-          borderRadius: ndwTokens.radius.md,
-          border: `1px solid ${ndwTokens.colors.borderStrong}`,
-          background: ndwTokens.colors.surfaceRaised,
-          color: ndwTokens.colors.textPrimary,
-          fontSize: ndwTokens.typography.sizes.body,
-          boxSizing: "border-box",
-        }}
-      />
-    </label>
+    {signupMode ? (
+  <PasswordField label="Conferma password" name="confirmPassword" />
+) : null}
 
     <button
       type="submit"
@@ -341,6 +334,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         : "Non hai un account? Registrati"}
     </Link>
 
+    <details>
+  <summary
+    style={{
+      cursor: "pointer",
+      color: ndwTokens.colors.textSecondary,
+    }}
+  >
+    Metodi alternativi
+  </summary>
+
+  <div style={{ marginTop: 8 }}>
     <Link
       href="/login?magic=1"
       style={{
@@ -348,9 +352,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         textDecoration: "none",
       }}
     >
-      Usa Magic Link
+      Accedi con Magic Link
     </Link>
   </div>
+</details>
+  </div>
+  {!signupMode ? (
   <form
   action="/auth/forgot-password"
   method="post"
@@ -401,6 +408,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     Ricevi link reset password
   </button>
 </form>
+) : null}
 </div>
           )}
         </div>

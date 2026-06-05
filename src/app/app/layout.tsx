@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { getMyCoreAccessState } from "@/modules/core/server/core-access";
 import { getMyActiveModuleKeys } from "@/modules/core/server/module-entitlements";
 import { getEnabledModules } from "@/modules/registry/registry.queries";
-import { ndwModuleAccents } from "@/styles/ndw/ndw-module-accents";
 import { ndwTokens } from "@/styles/ndw/ndw-tokens";
 import { NdwWorkspaceNav, NdwBrand } from "@/components/ndw";
 
@@ -13,18 +12,10 @@ function isOwnerRole(role: string | null | undefined): boolean {
 }
 
 function getCurrentPathname(headersList: Headers) {
-  const pathname =
+  return (
     headersList.get("x-current-path") ??
     headersList.get("next-url") ??
-    "/app";
-
-  return pathname;
-}
-
-function getModuleAccent(moduleKey: string) {
-  return (
-    ndwModuleAccents[moduleKey as keyof typeof ndwModuleAccents] ??
-    ndwModuleAccents.core
+    "/app"
   );
 }
 
@@ -57,6 +48,9 @@ export default async function AppLayout({
           @media (max-width: 760px) {
             .ndw-app-shell {
               display: block !important;
+              width: 100% !important;
+              max-width: 100vw !important;
+              overflow-x: hidden !important;
             }
 
             .ndw-sidebar {
@@ -65,46 +59,34 @@ export default async function AppLayout({
 
             .ndw-mobile-bar {
               display: flex !important;
+              padding: 10px 12px !important;
+              width: 100% !important;
+              max-width: 100vw !important;
+              box-sizing: border-box !important;
             }
 
-            .ndw-app-shell {
-  width: 100% !important;
-  max-width: 100vw !important;
-  overflow-x: hidden !important;
-}
+            .ndw-mobile-actions {
+              display: flex !important;
+              gap: 8px !important;
+              align-items: center !important;
+            }
 
-.ndw-main {
-  padding: 14px !important;
-  width: 100% !important;
-  max-width: 100vw !important;
-  overflow-x: hidden !important;
-  box-sizing: border-box !important;
-}
+            .ndw-main {
+              padding: 14px !important;
+              width: 100% !important;
+              max-width: 100vw !important;
+              overflow-x: hidden !important;
+              box-sizing: border-box !important;
+            }
 
-.ndw-main * {
-  box-sizing: border-box !important;
-}
+            .ndw-main * {
+              box-sizing: border-box !important;
+            }
 
-.ndw-main section {
-  max-width: 100% !important;
-}
-
-.ndw-main a {
-  max-width: 100% !important;
-}
-
-.ndw-mobile-bar {
-  padding: 10px 12px !important;
-  width: 100% !important;
-  max-width: 100vw !important;
-  box-sizing: border-box !important;
-}
-
-.ndw-mobile-actions {
-  display: flex !important;
-  gap: 8px !important;
-  align-items: center !important;
-}
+            .ndw-main section,
+            .ndw-main a {
+              max-width: 100% !important;
+            }
           }
 
           @media (min-width: 761px) {
@@ -139,10 +121,10 @@ export default async function AppLayout({
           </Link>
 
           <NdwWorkspaceNav
-  pathname={pathname}
-  modules={visibleModules}
-  isOwner={isOwner}
-/>
+            pathname={pathname}
+            modules={visibleModules}
+            isOwner={isOwner}
+          />
 
           <div
             style={{
@@ -189,21 +171,42 @@ export default async function AppLayout({
               Ruolo: {access.profile?.role}
             </p>
 
-            <form action="/auth/logout" method="post" style={{ marginTop: 16 }}>
+            <Link
+              href="/app/account"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                minHeight: 42,
+                marginTop: 14,
+                borderRadius: ndwTokens.radius.md,
+                border: `1px solid ${ndwTokens.colors.border}`,
+                background: ndwTokens.colors.surfaceSoft,
+                color: ndwTokens.colors.textPrimary,
+                textDecoration: "none",
+                fontSize: ndwTokens.typography.sizes.body,
+                fontWeight: ndwTokens.typography.weights.bold,
+              }}
+            >
+              Gestisci account
+            </Link>
+
+            <form action="/auth/logout" method="post" style={{ marginTop: 12 }}>
               <button
                 type="submit"
                 style={{
-  width: "100%",
-  minHeight: 42,
-  padding: "0 14px",
-  borderRadius: ndwTokens.radius.md,
-  border: `1px solid ${ndwTokens.colors.border}`,
-  background: ndwTokens.colors.surfaceSoft,
-  color: ndwTokens.colors.textSecondary,
-  fontSize: ndwTokens.typography.sizes.body,
-  fontWeight: ndwTokens.typography.weights.bold,
-  cursor: "pointer",
-}}
+                  width: "100%",
+                  minHeight: 42,
+                  padding: "0 14px",
+                  borderRadius: ndwTokens.radius.md,
+                  border: `1px solid ${ndwTokens.colors.border}`,
+                  background: "transparent",
+                  color: ndwTokens.colors.textSecondary,
+                  fontSize: ndwTokens.typography.sizes.body,
+                  fontWeight: ndwTokens.typography.weights.bold,
+                  cursor: "pointer",
+                }}
               >
                 Logout
               </button>
@@ -212,91 +215,111 @@ export default async function AppLayout({
         </aside>
 
         <div
-  className="ndw-mobile-bar"
-  style={{
-    display: "none",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "14px 18px",
-    background: ndwTokens.colors.surface,
-    borderBottom: `1px solid ${ndwTokens.colors.border}`,
-    position: "sticky",
-    top: 0,
-    zIndex: ndwTokens.zIndex.sticky,
-  }}
->
-  <Link href="/app" style={{ textDecoration: "none", color: "inherit" }}>
-    <div>
-  <strong
-    style={{
-      display: "block",
-      fontSize: 15,
-      lineHeight: 1,
-    }}
-  >
-    NDW Core
-  </strong>
+          className="ndw-mobile-bar"
+          style={{
+            display: "none",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "14px 18px",
+            background: ndwTokens.colors.surface,
+            borderBottom: `1px solid ${ndwTokens.colors.border}`,
+            position: "sticky",
+            top: 0,
+            zIndex: ndwTokens.zIndex.sticky,
+          }}
+        >
+          <Link href="/app" style={{ textDecoration: "none", color: "inherit" }}>
+            <div>
+              <strong
+                style={{
+                  display: "block",
+                  fontSize: 15,
+                  lineHeight: 1,
+                }}
+              >
+                NDW Core
+              </strong>
 
-  <span
-    style={{
-      fontSize: 11,
-      color: ndwTokens.colors.textMuted,
-    }}
-  >
-    Operational Workspace
-  </span>
-</div>
-  </Link>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: ndwTokens.colors.textMuted,
+                }}
+              >
+                Operational Workspace
+              </span>
+            </div>
+          </Link>
 
-  <div
-  className="ndw-mobile-actions"
-  style={{
-    display: "flex",
-    gap: 8,
-  }}
->
-    <Link
-      href="/app"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: 44,
-        padding: "0 14px",
-        borderRadius: ndwTokens.radius.md,
-        border: `1px solid ${ndwTokens.colors.border}`,
-        background: ndwTokens.colors.surfaceSoft,
-        color: ndwTokens.colors.textSecondary,
-        textDecoration: "none",
-        fontSize: ndwTokens.typography.sizes.body,
-        fontWeight: ndwTokens.typography.weights.bold,
-      }}
-    >
-      Home
-    </Link>
+          <div
+            className="ndw-mobile-actions"
+            style={{
+              display: "flex",
+              gap: 8,
+            }}
+          >
+            <Link
+              href="/app"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 44,
+                padding: "0 14px",
+                borderRadius: ndwTokens.radius.md,
+                border: `1px solid ${ndwTokens.colors.border}`,
+                background: ndwTokens.colors.surfaceSoft,
+                color: ndwTokens.colors.textSecondary,
+                textDecoration: "none",
+                fontSize: ndwTokens.typography.sizes.body,
+                fontWeight: ndwTokens.typography.weights.bold,
+              }}
+            >
+              Home
+            </Link>
 
-    <Link
-      href="/app/upgrade"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: 44,
-        padding: "0 14px",
-        borderRadius: ndwTokens.radius.md,
-        border: `1px solid ${ndwTokens.colors.primary}`,
-        background: ndwTokens.colors.primary,
-        color: ndwTokens.colors.textPrimary,
-        textDecoration: "none",
-        fontSize: ndwTokens.typography.sizes.body,
-        fontWeight: ndwTokens.typography.weights.bold,
-      }}
-    >
-      Upgrade
-    </Link>
-  </div>
-</div>
+            <Link
+              href="/app/account"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 44,
+                padding: "0 14px",
+                borderRadius: ndwTokens.radius.md,
+                border: `1px solid ${ndwTokens.colors.border}`,
+                background: ndwTokens.colors.surfaceSoft,
+                color: ndwTokens.colors.textSecondary,
+                textDecoration: "none",
+                fontSize: ndwTokens.typography.sizes.body,
+                fontWeight: ndwTokens.typography.weights.bold,
+              }}
+            >
+              Account
+            </Link>
+
+            <Link
+              href="/app/upgrade"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: 44,
+                padding: "0 14px",
+                borderRadius: ndwTokens.radius.md,
+                border: `1px solid ${ndwTokens.colors.primary}`,
+                background: ndwTokens.colors.primary,
+                color: "#ffffff",
+                textDecoration: "none",
+                fontSize: ndwTokens.typography.sizes.body,
+                fontWeight: ndwTokens.typography.weights.bold,
+              }}
+            >
+              Upgrade
+            </Link>
+          </div>
+        </div>
 
         <main
           className="ndw-main"

@@ -16,6 +16,7 @@ import {
   hasWebhookBeenProcessed,
   markWebhookProcessed,
 } from "@/modules/billing/server/webhook-events";
+import { verifyWhopWebhookSignature } from "@/modules/billing/server/whop/whop-signature";
 
 export async function POST(request: Request) {
   const bodyText = await request.text();
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
   const webhookId = request.headers.get("webhook-id");
   const webhookSignature = request.headers.get("webhook-signature");
   const webhookTimestamp = request.headers.get("webhook-timestamp");
+  
 
   if (!webhookId || !webhookSignature || !webhookTimestamp) {
     return NextResponse.json(
@@ -30,6 +32,19 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  const isValidSignature = verifyWhopWebhookSignature({
+  bodyText,
+  signatureHeader: webhookSignature,
+  timestampHeader: webhookTimestamp,
+  webhookId,
+});
+
+if (!isValidSignature) {
+  return NextResponse.json(
+    { ok: false, error: "invalid-signature" },
+    { status: 401 },
+  );
+}
 
   let payload: unknown;
 

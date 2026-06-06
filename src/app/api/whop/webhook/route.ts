@@ -1,4 +1,17 @@
 import { NextResponse } from "next/server";
+import {
+  getWhopCustomerEmail,
+  getWhopEventType,
+  getWhopProductRoute,
+  mapWhopPayloadToPlanCode,
+  mapWhopProductToModuleKey,
+  shouldGrantAccessForWhopEvent,
+  shouldRevokeAccessForWhopEvent,
+} from "@/modules/billing/server/whop/whop-mapper";
+import {
+  grantModuleAccessByEmail,
+  revokeModuleAccessByEmail,
+} from "@/modules/billing/server/billing-access";
 
 export async function POST(request: Request) {
   const bodyText = await request.text();
@@ -25,23 +38,75 @@ export async function POST(request: Request) {
     );
   }
 
-  console.log(
-  "WHOP WEBHOOK RECEIVED",
-  JSON.stringify(
-    {
-      webhookId,
-      webhookTimestamp,
-      hasSignature: Boolean(webhookSignature),
-      eventType:
-        typeof payload === "object" && payload !== null && "type" in payload
-          ? payload.type
-          : null,
-      payload,
-    },
-    null,
-    2,
-  ),
-);
+  const eventType = getWhopEventType(payload);
+  const email = getWhopCustomerEmail(payload);
+  const productRoute = getWhopProductRoute(payload);
+  const moduleKey = mapWhopProductToModuleKey(productRoute);
+  const planCode = mapWhopPayloadToPlanCode(payload);
 
-  return NextResponse.json({ ok: true });
+  console.log(
+    "WHOP WEBHOOK MAPPED",
+    JSON.stringify(
+      {
+        webhookId,
+        webhookTimestamp,
+        hasSignature: Boolean(webhookSignature),
+        eventType,
+        email,
+        productRoute,
+        moduleKey,
+        planCode,
+      },
+      null,
+      2,
+    ),
+  );
+
+  if (!email || !moduleKey) {
+    return NextResponse.json({
+      ok: true,
+      ignored: true,
+      reason: "missing-email-or-unmapped-product",
+      eventType,
+      productRoute,
+    });
+  }
+
+  if (shouldGrantAccessForWhopEvent(eventType)) {
+    await grantModuleAccessByEmail({
+      email,
+      moduleKey,
+      planCode,
+      provider: "whop",
+    });
+
+    return NextResponse.json({
+      ok: true,
+      action: "grant",
+      email,
+      moduleKey,
+      planCode,
+    });
+  }
+
+  if (shouldRevokeAccessForWhopEvent(eventType)) {
+    await revokeModuleAccessByEmail({
+      email,
+      moduleKey,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      action: "revoke",
+      email,
+      moduleKey,
+    });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    ignored: true,
+    reason: "unsupported-event",
+    eventType,
+  });
 }

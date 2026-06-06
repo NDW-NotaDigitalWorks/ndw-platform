@@ -12,6 +12,10 @@ import {
   grantModuleAccessByEmail,
   revokeModuleAccessByEmail,
 } from "@/modules/billing/server/billing-access";
+import {
+  hasWebhookBeenProcessed,
+  markWebhookProcessed,
+} from "@/modules/billing/server/webhook-events";
 
 export async function POST(request: Request) {
   const bodyText = await request.text();
@@ -39,6 +43,16 @@ export async function POST(request: Request) {
   }
 
   const eventType = getWhopEventType(payload);
+
+  if (await hasWebhookBeenProcessed(webhookId)) {
+    return NextResponse.json({
+      ok: true,
+      ignored: true,
+      reason: "duplicate-event",
+      webhookId,
+    });
+  }
+
   const email = getWhopCustomerEmail(payload);
   const productRoute = getWhopProductRoute(payload);
   const moduleKey = mapWhopProductToModuleKey(productRoute);
@@ -63,6 +77,12 @@ export async function POST(request: Request) {
   );
 
   if (!email || !moduleKey) {
+    await markWebhookProcessed({
+      webhookId,
+      provider: "whop",
+      eventType,
+    });
+
     return NextResponse.json({
       ok: true,
       ignored: true,
@@ -80,6 +100,12 @@ export async function POST(request: Request) {
       provider: "whop",
     });
 
+    await markWebhookProcessed({
+      webhookId,
+      provider: "whop",
+      eventType,
+    });
+
     return NextResponse.json({
       ok: true,
       action: "grant",
@@ -95,6 +121,12 @@ export async function POST(request: Request) {
       moduleKey,
     });
 
+    await markWebhookProcessed({
+      webhookId,
+      provider: "whop",
+      eventType,
+    });
+
     return NextResponse.json({
       ok: true,
       action: "revoke",
@@ -102,6 +134,12 @@ export async function POST(request: Request) {
       moduleKey,
     });
   }
+
+  await markWebhookProcessed({
+    webhookId,
+    provider: "whop",
+    eventType,
+  });
 
   return NextResponse.json({
     ok: true,

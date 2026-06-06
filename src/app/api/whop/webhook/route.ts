@@ -25,12 +25,23 @@ export async function POST(request: Request) {
     );
   }
 
-  console.log("WHOP WEBHOOK RECEIVED", {
-    webhookId,
-    webhookTimestamp,
-    hasSignature: Boolean(webhookSignature),
-    payload,
-  });
+  console.log(
+  "WHOP WEBHOOK RECEIVED",
+  JSON.stringify(
+    {
+      webhookId,
+      webhookTimestamp,
+      hasSignature: Boolean(webhookSignature),
+      eventType:
+        typeof payload === "object" && payload !== null && "type" in payload
+          ? payload.type
+          : null,
+      payload,
+    },
+    null,
+    2,
+  ),
+);
 
   return NextResponse.json({ ok: true });
 }

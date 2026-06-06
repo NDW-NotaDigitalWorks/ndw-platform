@@ -48,10 +48,11 @@ export function mapWhopProductToModuleKey(
   if (!productRoute) return null;
 
   const map: Record<string, string> = {
-    routepro: "routepro",
-    "routepro-driver": "routepro",
-    "ndw-routepro": "routepro",
-  };
+  routepro: "routepro",
+  "routepro-pro-ad": "routepro",
+  "routepro-driver": "routepro",
+  "ndw-routepro": "routepro",
+};
 
   return map[productRoute] ?? null;
 }

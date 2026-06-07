@@ -61,41 +61,84 @@ export default async function RouteProNewRoutePage({ searchParams }: Props) {
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
 
       <form action={createRouteProRoute} style={{ ...ui.card.base, ...formStyle }}>
-        <label style={ui.form.label}>
-          Nome percorso
-          <input
-            name="name"
-            type="text"
-            placeholder="Esempio: Milano mattina"
-            style={ui.form.input}
-          />
-        </label>
+  <label style={ui.form.label}>
+    Nome percorso
+    <input
+      name="name"
+      type="text"
+      placeholder="Esempio: Milano mattina"
+      style={ui.form.input}
+    />
+  </label>
 
-        <label style={ui.form.label}>
-          Data percorso
-          <input name="route_date" type="date" required style={ui.form.input} />
-        </label>
+  <label style={ui.form.label}>
+    Data percorso
+    <input name="route_date" type="date" required style={ui.form.input} />
+  </label>
 
-        <label style={ui.form.label}>
-          Punto di partenza (opzionale)
-          <input
-            name="start_address"
-            type="text"
-            placeholder="Deposito, casa, magazzino..."
-            style={ui.form.input}
-          />
-        </label>
+  <label style={ui.form.label}>
+    Profilo rotta
+    <select name="route_profile" defaultValue="generic" style={ui.form.input}>
+      <option value="generic">Generico</option>
+      <option value="amazon_flex">Amazon Flex</option>
+      <option value="courier">Corriere / multi-drop</option>
+      <option value="technician">Tecnico / appuntamenti</option>
+      <option value="sales">Commerciale / visite clienti</option>
+    </select>
+  </label>
 
-        <div style={actionsStyle}>
-          <button type="submit" style={routeProUi.primaryButton}>
-            Crea percorso
-          </button>
+  <label style={ui.form.label}>
+    Punto di partenza
+    <input
+      name="start_address"
+      type="text"
+      placeholder="Deposito, casa, magazzino..."
+      style={ui.form.input}
+    />
+  </label>
 
-          <Link href="/app/routepro" style={routeProUi.secondaryButton}>
-            Annulla
-          </Link>
-        </div>
-      </form>
+  <label style={ui.form.label}>
+    Punto di rientro
+    <input
+      name="return_address"
+      type="text"
+      placeholder="Stesso deposito, casa, magazzino..."
+      style={ui.form.input}
+    />
+  </label>
+
+  <label style={ui.form.label}>
+    Ora inizio turno
+    <input name="shift_start_time" type="time" style={ui.form.input} />
+  </label>
+
+  <label style={ui.form.label}>
+    Ora fine turno
+    <input name="shift_end_time" type="time" style={ui.form.input} />
+  </label>
+
+  <label style={ui.form.label}>
+    Pausa prevista minuti
+    <input
+      name="break_minutes"
+      type="number"
+      min="0"
+      step="5"
+      defaultValue="30"
+      style={ui.form.input}
+    />
+  </label>
+
+  <div style={actionsStyle}>
+    <button type="submit" style={routeProUi.primaryButton}>
+      Crea percorso
+    </button>
+
+    <Link href="/app/routepro" style={routeProUi.secondaryButton}>
+      Annulla
+    </Link>
+  </div>
+</form>
     </section>
   );
 }

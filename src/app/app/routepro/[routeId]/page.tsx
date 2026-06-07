@@ -62,6 +62,85 @@ const compactCardStyle: React.CSSProperties = {
   padding: 18,
 };
 
+const kpiCardStyle: React.CSSProperties = {
+  ...ui.card.base,
+  padding: 20,
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  boxShadow: "0 14px 30px rgba(15, 23, 42, 0.08)",
+};
+
+const kpiLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "#475569",
+};
+
+const kpiValueStyle: React.CSSProperties = {
+  margin: "10px 0 0",
+  fontSize: 38,
+  lineHeight: 1,
+  fontWeight: 950,
+  letterSpacing: "-0.04em",
+  color: "#0f172a",
+};
+
+const kpiHintStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 13,
+  lineHeight: 1.45,
+  fontWeight: 700,
+  color: "#334155",
+};
+
+const heroCardStyle: React.CSSProperties = {
+  ...ui.card.base,
+  marginTop: 20,
+  marginBottom: 24,
+  padding: 24,
+  border: "1px solid #1e40af",
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,64,175,0.92) 100%)",
+};
+
+const heroTitleStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: "clamp(36px, 5vw, 56px)",
+  lineHeight: 1,
+  fontWeight: 900,
+  letterSpacing: "-0.05em",
+  color: "#ffffff",
+};
+
+const heroSubtitleStyle: React.CSSProperties = {
+  margin: "12px 0 0",
+  fontSize: 16,
+  lineHeight: 1.6,
+  fontWeight: 600,
+  color: "rgba(255,255,255,0.85)",
+};
+
+const heroStatsStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 12,
+  marginTop: 18,
+};
+
+const heroBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "8px 14px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.12)",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 800,
+};
+
 const stopListStyle: React.CSSProperties = {
   display: "grid",
   gap: 12,
@@ -71,6 +150,83 @@ const stopListStyle: React.CSSProperties = {
 const stopRowStyle: React.CSSProperties = {
   ...ui.card.base,
   padding: 16,
+};
+
+const stopCardHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  gap: 14,
+  alignItems: "flex-start",
+  flexWrap: "wrap",
+};
+
+const stopNumberGroupStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  alignItems: "center",
+};
+
+const amazonStopBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "8px 12px",
+  borderRadius: 999,
+  background: "#0f172a",
+  color: "#ffffff",
+  fontSize: 13,
+  fontWeight: 900,
+  letterSpacing: "0.02em",
+};
+
+const optimizedStopBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "8px 12px",
+  borderRadius: 999,
+  background: "#dbeafe",
+  color: "#1d4ed8",
+  fontSize: 13,
+  fontWeight: 900,
+  letterSpacing: "0.02em",
+};
+
+const stopAddressStyle: React.CSSProperties = {
+  margin: "14px 0 0",
+  fontSize: 20,
+  lineHeight: 1.35,
+  fontWeight: 900,
+  color: "#0f172a",
+};
+
+const stopMetaGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 10,
+  marginTop: 12,
+};
+
+const stopMetaItemStyle: React.CSSProperties = {
+  padding: "10px 12px",
+  borderRadius: 12,
+  background: "#f8fafc",
+  border: "1px solid #e2e8f0",
+  color: "#334155",
+  fontSize: 13,
+  fontWeight: 700,
+};
+
+const stopEditPanelStyle: React.CSSProperties = {
+  marginTop: 16,
+  paddingTop: 16,
+  borderTop: "1px solid #e2e8f0",
+};
+
+const stopActionsStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  marginTop: 12,
 };
 
 const badgeStyle: React.CSSProperties = {
@@ -122,6 +278,40 @@ function getErrorMessage(error?: string): string | null {
   return null;
 }
 
+function getTimeMinutes(value?: string | null): number | null {
+  if (!value) return null;
+
+  const [hours, minutes] = value.split(":").map(Number);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function getAvailableShiftMinutes(
+  shiftStartTime?: string | null,
+  shiftEndTime?: string | null,
+  breakMinutes?: number | null,
+): number | null {
+  const start = getTimeMinutes(shiftStartTime);
+  const end = getTimeMinutes(shiftEndTime);
+
+  if (start === null || end === null) return null;
+
+  const rawMinutes = end > start ? end - start : end + 1440 - start;
+  const pause = breakMinutes ?? 0;
+
+  return Math.max(rawMinutes - pause, 0);
+}
+
+function getRequiredStopsPerHour(stops: number, availableMinutes: number | null): number | null {
+  if (availableMinutes === null || availableMinutes <= 0) return null;
+
+  return Math.round((stops / (availableMinutes / 60)) * 10) / 10;
+}
+
 export default async function RouteProRoutePage({ params, searchParams }: Props) {
   const { routeId } = await params;
   const resolvedSearchParams = await searchParams;
@@ -146,6 +336,17 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
   const needsReviewCount = route.stops.filter(
     (stop) => stop.status === "needs_review",
   ).length;
+
+  const availableShiftMinutes = getAvailableShiftMinutes(
+  route.shift_start_time,
+  route.shift_end_time,
+  route.break_minutes,
+);
+
+const requiredStopsPerHour = getRequiredStopsPerHour(
+  validStops,
+  availableShiftMinutes,
+);
 
   return (
     <section style={ui.page.section}>
@@ -178,19 +379,59 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
   ]}
 />
 
-      <p style={ui.page.eyebrow}>RoutePro</p>
-      <h1 style={ui.page.title}>{route.name}</h1>
-      <p style={ui.page.subtitle}>
-        Data: {route.route_date} · Stato: {route.status}
-      </p>
+      <div style={heroCardStyle}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            fontWeight: 900,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "#93c5fd",
+          }}
+        >
+          RoutePro Command Center
+        </p>
+
+        <h1 style={heroTitleStyle}>{route.name}</h1>
+
+        <p style={heroSubtitleStyle}>
+          Review your route. Verify addresses. Optimize stops. Drive smarter.
+        </p>
+
+        <div style={heroStatsStyle}>
+          <div style={heroBadgeStyle}>{totalStops} Stops</div>
+          <div style={heroBadgeStyle}>Status: {route.status}</div>
+          <div style={heroBadgeStyle}>Date: {route.route_date}</div>
+          <div style={heroBadgeStyle}>
+  Profile: {route.route_profile ?? "generic"}
+</div>
+
+{route.shift_start_time || route.shift_end_time ? (
+  <div style={heroBadgeStyle}>
+    Shift: {route.shift_start_time ?? "—"} - {route.shift_end_time ?? "—"}
+  </div>
+) : null}
+
+<div style={heroBadgeStyle}>
+  Break: {route.break_minutes ?? 0} min
+</div>
+
+          {route.is_optimized ? <div style={heroBadgeStyle}>Optimized</div> : null}
+        </div>
+      </div>
 
       <div style={actionsStyle}>
         <Link href="/app/routepro" style={routeProUi.secondaryButton}>
           Rotte
         </Link>
 
-        <Link href={`/app/routepro/${route.id}/execute`} style={routeProUi.primaryButton}>
-          Avvia percorso
+        <Link href={`/app/routepro/routes/${route.id}/review`} style={routeProUi.primaryButton}>
+          Apri Workflow V2
+        </Link>
+
+        <Link href={`/app/routepro/${route.id}/execute`} style={routeProUi.secondaryButton}>
+          Avvia percorso classico
         </Link>
 
         <Link href="/app/routepro/settings" style={routeProUi.secondaryButton}>
@@ -216,20 +457,97 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
         </div>
       ) : null}
 
+      <div style={{ ...ui.card.base, marginBottom: 24, padding: 20 }}>
+  <h2 style={ui.page.sectionTitle}>Route profile</h2>
+
+  <p style={mutedTextStyle}>
+    Start: <strong>{route.start_address ?? "Not set"}</strong>
+  </p>
+
+  <p style={mutedTextStyle}>
+    Return: <strong>{route.return_address ?? "Not set"}</strong>
+  </p>
+
+  <p style={mutedTextStyle}>
+    Shift: <strong>{route.shift_start_time ?? "—"} - {route.shift_end_time ?? "—"}</strong>
+  </p>
+
+  <p style={mutedTextStyle}>
+    Break: <strong>{route.break_minutes ?? 0} min</strong>
+  </p>
+</div>
+
+<div
+  style={{
+    ...ui.card.base,
+    marginTop: 24,
+    marginBottom: 24,
+    padding: 20,
+    border: "1px solid #bfdbfe",
+    background: "#eff6ff",
+  }}
+>
+  <h2 style={ui.page.sectionTitle}>Pace Intelligence</h2>
+
+  <p style={mutedTextStyle}>
+    Tempo utile turno:{" "}
+    <strong>
+      {availableShiftMinutes !== null
+        ? `${Math.floor(availableShiftMinutes / 60)}h ${availableShiftMinutes % 60}m`
+        : "Non impostato"}
+    </strong>
+  </p>
+
+  <p style={mutedTextStyle}>
+    Stop validi da gestire: <strong>{validStops}</strong>
+  </p>
+
+  <p style={mutedTextStyle}>
+    Ritmo richiesto:{" "}
+    <strong>
+      {requiredStopsPerHour !== null
+        ? `${requiredStopsPerHour} stop/ora`
+        : "Imposta inizio e fine turno"}
+    </strong>
+  </p>
+
+  <p style={mutedTextStyle}>
+    Stato operativo:{" "}
+    <strong>
+      {requiredStopsPerHour === null
+        ? "Profilo turno incompleto"
+        : requiredStopsPerHour <= 18
+          ? "Comodo"
+          : requiredStopsPerHour <= 24
+            ? "Impegnativo"
+            : "Critico"}
+    </strong>
+  </p>
+</div>
+
       <div style={pageGridStyle}>
-        <article style={compactCardStyle}>
-          <p style={ui.page.eyebrow}>Totali</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{totalStops}</h2>
+        <article style={kpiCardStyle}>
+          <p style={kpiLabelStyle}>Stop totali</p>
+          <h2 style={kpiValueStyle}>{totalStops}</h2>
+          <p style={kpiHintStyle}>Stop importati nella rotta.</p>
         </article>
 
-        <article style={compactCardStyle}>
-          <p style={ui.page.eyebrow}>Da geocodificare</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{rawStops}</h2>
+        <article style={kpiCardStyle}>
+          <p style={kpiLabelStyle}>Da geocodificare</p>
+          <h2 style={kpiValueStyle}>{rawStops}</h2>
+          <p style={kpiHintStyle}>Stop ancora da trasformare in coordinate.</p>
         </article>
 
-        <article style={compactCardStyle}>
-          <p style={ui.page.eyebrow}>Validi</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{validStops}</h2>
+        <article style={kpiCardStyle}>
+          <p style={kpiLabelStyle}>Validi</p>
+          <h2 style={kpiValueStyle}>{validStops}</h2>
+          <p style={kpiHintStyle}>Stop pronti per ottimizzazione e guida.</p>
+        </article>
+
+        <article style={kpiCardStyle}>
+          <p style={kpiLabelStyle}>Da rivedere</p>
+          <h2 style={kpiValueStyle}>{needsReviewCount}</h2>
+          <p style={kpiHintStyle}>Stop che richiedono controllo manuale.</p>
         </article>
       </div>
 
@@ -382,60 +700,71 @@ Via Torino 5, Milano`}
           <div style={stopListStyle}>
             {route.stops.map((stop) => (
               <article key={stop.id} style={stopRowStyle}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                  }}
-                >
-                  <strong>
-                    #{stop.position} (orig: {stop.original_position}) · {stop.address}
-                  </strong>
+                <div style={stopCardHeaderStyle}>
+                  <div style={stopNumberGroupStyle}>
+                    <span style={amazonStopBadgeStyle}>
+                      STOP #{stop.original_position}
+                    </span>
+
+                    <span style={optimizedStopBadgeStyle}>
+                      OPT #{stop.position}
+                    </span>
+                  </div>
+
                   <span style={badgeStyle}>{stop.status}</span>
                 </div>
 
-                <p style={mutedTextStyle}>Fonte: {stop.source}</p>
+                <div style={stopAddressStyle}>{stop.address}</div>
 
-                {stop.lat && stop.lng ? (
-                  <p style={mutedTextStyle}>
-                    Coordinate: {stop.lat}, {stop.lng}
-                  </p>
-                ) : null}
+                <div style={stopMetaGridStyle}>
+                  <div style={stopMetaItemStyle}>Fonte: {stop.source}</div>
 
-                <form action={updateRouteProStopAddress} style={formStyle}>
-                  <input type="hidden" name="route_id" value={route.id} />
-                  <input type="hidden" name="stop_id" value={stop.id} />
+                  {stop.lat && stop.lng ? (
+                    <div style={stopMetaItemStyle}>
+                      Coordinate: {stop.lat}, {stop.lng}
+                    </div>
+                  ) : (
+                    <div style={stopMetaItemStyle}>
+                      Coordinate: non disponibili
+                    </div>
+                  )}
+                </div>
 
-                  <label style={ui.form.label}>
-                    Modifica indirizzo
-                    <input
-                      name="address"
-                      type="text"
-                      defaultValue={stop.address}
-                      style={ui.form.input}
-                    />
-                  </label>
+                <div style={stopEditPanelStyle}>
+                  <form action={updateRouteProStopAddress} style={formStyle}>
+                    <input type="hidden" name="route_id" value={route.id} />
+                    <input type="hidden" name="stop_id" value={stop.id} />
 
-                  <div style={actionsStyle}>
+                    <label style={ui.form.label}>
+                      Modifica indirizzo
+                      <input
+                        name="address"
+                        type="text"
+                        defaultValue={stop.address}
+                        style={ui.form.input}
+                      />
+                    </label>
+
+                    <div style={stopActionsStyle}>
+                      <RouteProSubmitButton
+                        idleLabel="Aggiorna"
+                        pendingLabel="Aggiornamento..."
+                        variant="secondary"
+                      />
+                    </div>
+                  </form>
+
+                  <form action={deleteRouteProStop} style={{ marginTop: 12 }}>
+                    <input type="hidden" name="route_id" value={route.id} />
+                    <input type="hidden" name="stop_id" value={stop.id} />
+
                     <RouteProSubmitButton
-  idleLabel="Aggiorna"
-  pendingLabel="Aggiornamento..."
-  variant="secondary"
-/>
-                  </div>
-                </form>
-
-                <form action={deleteRouteProStop} style={{ marginTop: 12 }}>
-                  <input type="hidden" name="route_id" value={route.id} />
-                  <input type="hidden" name="stop_id" value={stop.id} />
-
-                  <RouteProSubmitButton
-  idleLabel="Elimina"
-  pendingLabel="Eliminazione..."
-  variant="danger"
-/>
-                </form>
+                      idleLabel="Elimina"
+                      pendingLabel="Eliminazione..."
+                      variant="danger"
+                    />
+                  </form>
+                </div>
               </article>
             ))}
           </div>

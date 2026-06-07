@@ -38,10 +38,24 @@ export async function createRouteProRoute(formData: FormData) {
   const rawName = String(formData.get("name") ?? "").trim();
   const routeDate = String(formData.get("route_date") ?? "").trim();
   const startAddress = String(formData.get("start_address") ?? "").trim();
+  const returnAddress = String(formData.get("return_address") ?? "").trim();
+  const shiftStartTime = String(formData.get("shift_start_time") ?? "").trim();
+  const shiftEndTime = String(formData.get("shift_end_time") ?? "").trim();
+  const breakMinutesRaw = String(formData.get("break_minutes") ?? "30").trim();
+  const routeProfile = String(formData.get("route_profile") ?? "generic").trim();
+
+  const breakMinutes = Number.parseInt(breakMinutesRaw, 10);
 
   if (!routeDate) redirect("/app/routepro/new?error=missing-date");
 
   const name = rawName || getDefaultRouteName(routeDate);
+  const startGeocodeResult = startAddress
+  ? await geocodeAddressWithOpenRouteService(startAddress)
+  : null;
+
+  const returnGeocodeResult = returnAddress
+  ? await geocodeAddressWithOpenRouteService(returnAddress)
+  : null;
 
   const { data, error } = await supabase
     .from("routepro_routes")
@@ -50,6 +64,16 @@ export async function createRouteProRoute(formData: FormData) {
       name,
       route_date: routeDate,
       start_address: startAddress || null,
+      start_lat: startGeocodeResult?.ok ? startGeocodeResult.lat : null,
+      start_lng: startGeocodeResult?.ok ? startGeocodeResult.lng : null,
+
+      return_address: returnAddress || null,
+      return_lat: returnGeocodeResult?.ok ? returnGeocodeResult.lat : null,
+      return_lng: returnGeocodeResult?.ok ? returnGeocodeResult.lng : null,
+      shift_start_time: shiftStartTime || null,
+      shift_end_time: shiftEndTime || null,
+      break_minutes: Number.isFinite(breakMinutes) ? breakMinutes : 30,
+      route_profile: routeProfile || "generic",
       status: "draft",
     })
     .select("id")

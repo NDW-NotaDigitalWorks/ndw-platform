@@ -18,6 +18,13 @@ export type RouteProRouteSummary = {
   start_address: string | null;
   start_lat: number | null;
   start_lng: number | null;
+  return_address: string | null;
+  return_lat: number | null;
+  return_lng: number | null;
+  shift_start_time: string | null;
+  shift_end_time: string | null;
+  break_minutes: number | null;
+  route_profile: string | null;
   status: RouteProRouteStatus;
   is_optimized: boolean;
   optimized_at: string | null;
@@ -59,6 +66,13 @@ export async function getMyRouteProRoutes(): Promise<RouteProRouteSummary[]> {
       start_address,
       start_lat,
       start_lng,
+      return_address,
+      return_lat,
+      return_lng,
+      shift_start_time,
+      shift_end_time,
+      break_minutes,
+      route_profile,
       status,
       is_optimized,
       optimized_at,
@@ -94,6 +108,13 @@ export async function getMyRouteProRouteDetail(
       start_address,
       start_lat,
       start_lng,
+      return_address,
+      return_lat,
+      return_lng,
+      shift_start_time,
+      shift_end_time,
+      break_minutes,
+      route_profile,
       status,
       is_optimized,
       optimized_at,

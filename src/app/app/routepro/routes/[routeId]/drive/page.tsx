@@ -302,7 +302,18 @@ export default async function RouteProDrivePage({ params, searchParams }: Props)
                     background: "#f8fafc",
                   }}
                 >
-                  <p style={ui.page.eyebrow}>Clustered delivery</p>
+                  <p
+  style={{
+    margin: 0,
+    fontSize: 13,
+    fontWeight: 900,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    color: "#1d4ed8",
+  }}
+>
+  📦 Cluster Delivery
+</p>
 
                   <p style={mutedTextStyle}>
                     Original stops:{" "}
@@ -313,9 +324,41 @@ export default async function RouteProDrivePage({ params, searchParams }: Props)
                     </strong>
                   </p>
 
-                  <p style={mutedTextStyle}>
-                    Stops/packages here: <strong>{currentClusterStops.length}</strong>
-                  </p>
+                  <p
+  style={{
+    marginTop: 10,
+    fontSize: 18,
+    fontWeight: 900,
+    color: "#0f172a",
+  }}
+>
+  {currentClusterStops.length} deliveries at this location
+</p>
+
+<div
+  style={{
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 12,
+  }}
+>
+  {currentClusterStops.map((stop) => (
+    <span
+      key={stop.id}
+      style={{
+        padding: "6px 12px",
+        borderRadius: 999,
+        background: "#0f172a",
+        color: "#ffffff",
+        fontWeight: 800,
+        fontSize: 13,
+      }}
+    >
+      STOP #{stop.original_position}
+    </span>
+  ))}
+</div>
                 </div>
               ) : null}
 
@@ -395,9 +438,38 @@ export default async function RouteProDrivePage({ params, searchParams }: Props)
             {nextStop ? (
               <div style={{ ...ui.card.base, marginTop: 18 }}>
                 <p style={ui.page.eyebrow}>Next delivery preview</p>
-                <h3 style={{ margin: "8px 0 0" }}>
-                  #{nextStop.position} · Original stop {nextStop.original_position}
-                </h3>
+                <div
+  style={{
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 10,
+  }}
+>
+  <span
+    style={{
+      padding: "6px 12px",
+      borderRadius: 999,
+      background: "#0f172a",
+      color: "#fff",
+      fontWeight: 800,
+    }}
+  >
+    STOP #{nextStop.original_position}
+  </span>
+
+  <span
+    style={{
+      padding: "6px 12px",
+      borderRadius: 999,
+      background: "#dbeafe",
+      color: "#1d4ed8",
+      fontWeight: 800,
+    }}
+  >
+    OPT #{nextStop.position}
+  </span>
+</div>
                 <p style={mutedTextStyle}>{nextStop.address}</p>
               </div>
             ) : null}

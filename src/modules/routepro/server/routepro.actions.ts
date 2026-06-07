@@ -591,16 +591,32 @@ export async function addCsvRouteProStops(formData: FormData) {
   }
 
   const headers = lines[0].split(",").map((header) => header.trim().toLowerCase());
-  const addressIndex = headers.indexOf("address");
+const addressIndex = headers.indexOf("address");
+const cityIndex = headers.indexOf("city");
+const provinceIndex = headers.indexOf("province");
+const countryIndex = headers.indexOf("country");
+const postalCodeIndex = headers.indexOf("postal_code");
 
-  if (addressIndex === -1) {
-    redirect(`/app/routepro/${routeId}?error=csv-missing-address-column`);
-  }
+if (addressIndex === -1) {
+  redirect(`/app/routepro/${routeId}?error=csv-missing-address-column`);
+}
 
-  const addresses = lines
-    .slice(1)
-    .map((line) => line.split(",")[addressIndex]?.trim() ?? "")
-    .filter((address) => address.length > 0);
+const addresses = lines
+  .slice(1)
+  .map((line) => {
+    const columns = line.split(",");
+
+    const address = columns[addressIndex]?.trim() ?? "";
+    const city = cityIndex >= 0 ? columns[cityIndex]?.trim() ?? "" : "";
+    const province = provinceIndex >= 0 ? columns[provinceIndex]?.trim() ?? "" : "";
+    const country = countryIndex >= 0 ? columns[countryIndex]?.trim() ?? "" : "";
+    const postalCode = postalCodeIndex >= 0 ? columns[postalCodeIndex]?.trim() ?? "" : "";
+
+    return [address, postalCode, city, province, country]
+      .filter((value) => value.length > 0)
+      .join(", ");
+  })
+  .filter((address) => address.length > 0);
 
   if (addresses.length === 0) {
     redirect(`/app/routepro/${routeId}?error=csv-invalid`);

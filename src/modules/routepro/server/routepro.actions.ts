@@ -356,7 +356,7 @@ export async function optimizeRouteProRoute(formData: FormData) {
 
   const { data: route, error: routeError } = await supabase
     .from("routepro_routes")
-    .select("id, start_lat, start_lng")
+    .select("id, start_lat, start_lng, return_lat, return_lng")
     .eq("id", routeId)
     .maybeSingle();
 
@@ -427,11 +427,42 @@ const orsResult = await optimizeStopsWithOpenRouteService(
   startPoint,
 );
 
-const optimizedStops = orsResult.ok
+const sortedByOriginalPosition = [...optimizationStops].sort(
+  (a, b) => a.original_position - b.original_position,
+);
+
+const hasRouteBoundaries =
+  route.start_lat !== null &&
+  route.start_lng !== null &&
+  route.return_lat !== null &&
+  route.return_lng !== null &&
+  sortedByOriginalPosition.length >= 3;
+
+const fixedStartStop = hasRouteBoundaries ? sortedByOriginalPosition[0] : null;
+
+const fixedReturnStop = hasRouteBoundaries
+  ? sortedByOriginalPosition[sortedByOriginalPosition.length - 1]
+  : null;
+
+const stopsToOptimize =
+  fixedStartStop && fixedReturnStop
+    ? optimizationStops.filter(
+        (stop) =>
+          stop.id !== fixedStartStop.id &&
+          stop.id !== fixedReturnStop.id,
+      )
+    : optimizationStops;
+
+const optimizedMiddleStops = orsResult.ok
   ? orsResult.orderedStopIds
-      .map((stopId) => optimizationStops.find((stop) => stop.id === stopId))
+      .map((stopId) => stopsToOptimize.find((stop) => stop.id === stopId))
       .filter((stop): stop is (typeof optimizationStops)[number] => Boolean(stop))
-  : optimizeStopsNearestNeighbor(optimizationStops, startPoint);
+  : optimizeStopsNearestNeighbor(stopsToOptimize, startPoint);
+
+const optimizedStops =
+  fixedStartStop && fixedReturnStop
+    ? [fixedStartStop, ...optimizedMiddleStops, fixedReturnStop]
+    : optimizedMiddleStops;
 
 const optimizationMethod = orsResult.ok
   ? "ors_optimization_v1"

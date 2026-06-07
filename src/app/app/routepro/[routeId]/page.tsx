@@ -55,6 +55,8 @@ const mutedTextStyle: React.CSSProperties = {
   margin: "8px 0 0",
   fontSize: 14,
   lineHeight: 1.6,
+  color: "#334155",
+  fontWeight: 600,
 };
 
 const compactCardStyle: React.CSSProperties = {
@@ -149,7 +151,10 @@ const stopListStyle: React.CSSProperties = {
 
 const stopRowStyle: React.CSSProperties = {
   ...ui.card.base,
-  padding: 16,
+  padding: 18,
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  boxShadow: "0 8px 24px rgba(15,23,42,0.06)",
 };
 
 const stopCardHeaderStyle: React.CSSProperties = {
@@ -310,6 +315,42 @@ function getRequiredStopsPerHour(stops: number, availableMinutes: number | null)
   if (availableMinutes === null || availableMinutes <= 0) return null;
 
   return Math.round((stops / (availableMinutes / 60)) * 10) / 10;
+}
+
+function getStatusBadgeStyle(status: string): React.CSSProperties {
+  if (status === "completed") {
+    return {
+      ...badgeStyle,
+      background: "#dcfce7",
+      color: "#166534",
+    };
+  }
+
+  if (status === "needs_review") {
+    return {
+      ...badgeStyle,
+      background: "#fef3c7",
+      color: "#92400e",
+    };
+  }
+
+  if (status === "valid") {
+    return {
+      ...badgeStyle,
+      background: "#dbeafe",
+      color: "#1d4ed8",
+    };
+  }
+
+  if (status === "skipped") {
+    return {
+      ...badgeStyle,
+      background: "#fee2e2",
+      color: "#991b1b",
+    };
+  }
+
+  return badgeStyle;
 }
 
 export default async function RouteProRoutePage({ params, searchParams }: Props) {
@@ -711,7 +752,9 @@ Via Torino 5, Milano`}
                     </span>
                   </div>
 
-                  <span style={badgeStyle}>{stop.status}</span>
+                  <span style={getStatusBadgeStyle(stop.status)}>
+  {stop.status}
+</span>
                 </div>
 
                 <div style={stopAddressStyle}>{stop.address}</div>

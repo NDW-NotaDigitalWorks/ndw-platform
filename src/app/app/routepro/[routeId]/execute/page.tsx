@@ -22,8 +22,10 @@ type Props = {
 
 const mutedTextStyle: React.CSSProperties = {
   margin: "8px 0 0",
-  fontSize: 14,
+  fontSize: 15,
   lineHeight: 1.6,
+  color: "#334155",
+  fontWeight: 700,
 };
 
 const actionsStyle: React.CSSProperties = {
@@ -37,29 +39,94 @@ const mobileActionsStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
   gap: 12,
-  marginTop: 18,
+  marginTop: 22,
 };
 
 const statGridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: 12,
   marginTop: 20,
 };
 
 const bigStopNumberStyle: React.CSSProperties = {
-  margin: "12px 0 0",
-  fontSize: 56,
+  margin: "16px 0 0",
+  fontSize: "clamp(56px, 9vw, 96px)",
   lineHeight: 1,
-  fontWeight: 900,
-  letterSpacing: "-2px",
+  fontWeight: 950,
+  letterSpacing: "-0.06em",
+  color: "#0f172a",
 };
 
 const addressStyle: React.CSSProperties = {
-  margin: "16px 0 0",
-  fontSize: 24,
-  lineHeight: 1.3,
-  fontWeight: 800,
+  margin: "18px 0 0",
+  fontSize: "clamp(24px, 4vw, 38px)",
+  lineHeight: 1.22,
+  fontWeight: 950,
+  color: "#0f172a",
+};
+
+const statCardStyle: React.CSSProperties = {
+  ...ui.card.base,
+  padding: 20,
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  boxShadow: "0 10px 28px rgba(15,23,42,0.08)",
+};
+
+const statLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "#2563eb",
+};
+
+const statValueStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 42,
+  lineHeight: 1,
+  fontWeight: 950,
+  color: "#0f172a",
+};
+
+const currentStopCardStyle: React.CSSProperties = {
+  ...ui.card.base,
+  marginTop: 24,
+  padding: 28,
+  border: "1px solid #cbd5e1",
+  background: "#ffffff",
+  boxShadow: "0 18px 40px rgba(15,23,42,0.1)",
+};
+
+const stopBadgeRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  marginTop: 16,
+};
+
+const originalStopBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "8px 14px",
+  borderRadius: 999,
+  background: "#0f172a",
+  color: "#ffffff",
+  fontWeight: 900,
+  fontSize: 14,
+};
+
+const optimizedStopBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "8px 14px",
+  borderRadius: 999,
+  background: "#dbeafe",
+  color: "#1d4ed8",
+  fontWeight: 900,
+  fontSize: 14,
 };
 
 const successStyle: React.CSSProperties = {
@@ -166,9 +233,9 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
     <section style={{ ...ui.page.section, paddingBottom: showBottomBar ? 110 : 0 }}>
       <RouteProHeader subtitle="Driver execution mode" />
 
-      <p style={ui.page.eyebrow}>Percorso attivo</p>
-      <h1 style={ui.page.title}>{route.name}</h1>
-      <p style={ui.page.subtitle}>
+      <p style={statLabelStyle}>Percorso attivo</p>
+      <h1 style={{ ...ui.page.title, color: "#ffffff" }}>{route.name}</h1>
+      <p style={{ ...ui.page.subtitle, color: "#94a3b8" }}>
         Segui la rotta stop dopo stop con Maps, Waze, complete e skip.
       </p>
 
@@ -183,23 +250,23 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
       </div>
 
       <div style={statGridStyle}>
-        <article style={{ ...ui.card.base, padding: 16 }}>
-          <p style={ui.page.eyebrow}>Gestiti</p>
-          <h2 style={{ margin: "6px 0 0", fontSize: 28 }}>
+        <article style={statCardStyle}>
+          <p style={statLabelStyle}>Gestiti</p>
+          <h2 style={statValueStyle}>
             {doneCount}/{totalStops}
           </h2>
         </article>
 
-        <article style={{ ...ui.card.base, padding: 16 }}>
-          <p style={ui.page.eyebrow}>Rimanenti</p>
-          <h2 style={{ margin: "6px 0 0", fontSize: 28 }}>
+        <article style={statCardStyle}>
+          <p style={statLabelStyle}>Rimanenti</p>
+          <h2 style={statValueStyle}>
             {remainingCount}
           </h2>
         </article>
 
-        <article style={{ ...ui.card.base, padding: 16 }}>
-          <p style={ui.page.eyebrow}>Saltati</p>
-          <h2 style={{ margin: "6px 0 0", fontSize: 28 }}>
+        <article style={statCardStyle}>
+          <p style={statLabelStyle}>Saltati</p>
+          <h2 style={statValueStyle}>
             {skippedStops.length}
           </h2>
         </article>
@@ -211,14 +278,14 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
       {routeCompleted === "1" ? <div style={successStyle}>Rotta terminata correttamente.</div> : null}
 
       {isRouteCompleted ? (
-        <div style={{ ...ui.card.base, marginTop: 24 }}>
+        <div style={currentStopCardStyle}>
           <h2 style={ui.page.sectionTitle}>Rotta completata</h2>
           <p style={mutedTextStyle}>
             Hai gestito {doneCount} stop su {totalStops}.
           </p>
         </div>
       ) : !currentStop || currentStopLat === null || currentStopLng === null ? (
-        <div style={{ ...ui.card.base, marginTop: 24 }}>
+        <div style={currentStopCardStyle}>
           <h2 style={ui.page.sectionTitle}>Fine rotta</h2>
 
           <form action={completeRouteProRoute}>
@@ -239,14 +306,22 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
           </form>
         </div>
       ) : (
-        <div style={{ ...ui.card.base, marginTop: 24 }}>
-          <p style={ui.page.eyebrow}>Stop corrente</p>
+        <div style={currentStopCardStyle}>
+          <p style={statLabelStyle}>Stop corrente</p>
 
-          <div style={bigStopNumberStyle}>#{currentStop.position}</div>
+          <div style={bigStopNumberStyle}>
+            #{currentStop.position}
+          </div>
 
-          <p style={mutedTextStyle}>
-            Stop originale: <strong>{currentStop.original_position}</strong>
-          </p>
+          <div style={stopBadgeRowStyle}>
+            <span style={optimizedStopBadgeStyle}>
+              OPT #{currentStop.position}
+            </span>
+
+            <span style={originalStopBadgeStyle}>
+              STOP #{currentStop.original_position}
+            </span>
+          </div>
 
           <div style={addressStyle}>{currentStop.address}</div>
 

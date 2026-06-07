@@ -61,15 +61,19 @@ const mutedTextStyle: React.CSSProperties = {
 
 const compactCardStyle: React.CSSProperties = {
   ...ui.card.base,
-  padding: 18,
+  padding: 20,
+  border: "1px solid #cbd5e1",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+  boxShadow: "0 12px 28px rgba(15,23,42,0.08)",
 };
 
 const kpiCardStyle: React.CSSProperties = {
   ...ui.card.base,
-  padding: 20,
-  border: "1px solid #cbd5e1",
-  background: "#ffffff",
-  boxShadow: "0 14px 30px rgba(15, 23, 42, 0.08)",
+  padding: 22,
+  border: "1px solid rgba(147,197,253,0.28)",
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,64,175,0.9) 100%)",
+  boxShadow: "0 16px 34px rgba(15,23,42,0.18)",
 };
 
 const kpiLabelStyle: React.CSSProperties = {
@@ -78,16 +82,16 @@ const kpiLabelStyle: React.CSSProperties = {
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: "0.08em",
-  color: "#475569",
+  color: "#93c5fd",
 };
 
 const kpiValueStyle: React.CSSProperties = {
   margin: "10px 0 0",
-  fontSize: 38,
+  fontSize: 42,
   lineHeight: 1,
   fontWeight: 950,
   letterSpacing: "-0.04em",
-  color: "#0f172a",
+  color: "#ffffff",
 };
 
 const kpiHintStyle: React.CSSProperties = {
@@ -95,7 +99,7 @@ const kpiHintStyle: React.CSSProperties = {
   fontSize: 13,
   lineHeight: 1.45,
   fontWeight: 700,
-  color: "#334155",
+  color: "rgba(255,255,255,0.78)",
 };
 
 const heroCardStyle: React.CSSProperties = {
@@ -143,6 +147,203 @@ const heroBadgeStyle: React.CSSProperties = {
   fontWeight: 800,
 };
 
+const premiumPanelStyle: React.CSSProperties = {
+  ...ui.card.base,
+  marginTop: 24,
+  marginBottom: 24,
+  padding: 24,
+  border: "1px solid #1e40af",
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,64,175,0.9) 100%)",
+  boxShadow: "0 18px 42px rgba(15,23,42,0.18)",
+};
+
+const premiumPanelTitleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 12,
+  fontWeight: 950,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase",
+  color: "#93c5fd",
+};
+
+const premiumGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: 12,
+  marginTop: 18,
+};
+
+const premiumMiniCardStyle: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.1)",
+  border: "1px solid rgba(255,255,255,0.14)",
+};
+
+const premiumMiniLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 11,
+  lineHeight: 1.2,
+  fontWeight: 950,
+  letterSpacing: "0.09em",
+  textTransform: "uppercase",
+  color: "#bfdbfe",
+};
+
+const premiumMiniValueStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 18,
+  lineHeight: 1.25,
+  fontWeight: 900,
+  color: "#ffffff",
+};
+
+const premiumMiniHintStyle: React.CSSProperties = {
+  margin: "6px 0 0",
+  fontSize: 12,
+  lineHeight: 1.35,
+  fontWeight: 700,
+  color: "rgba(255,255,255,0.68)",
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  margin: "0 0 14px",
+  fontSize: 15,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#f97316",
+};
+
+const actionCardHeaderStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 16,
+  fontWeight: 950,
+  letterSpacing: "0.03em",
+  textTransform: "uppercase",
+  color: "#0f172a",
+};
+
+const actionCardIconStyle: React.CSSProperties = {
+  width: 42,
+  height: 42,
+  borderRadius: 14,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "#ffedd5",
+  color: "#f97316",
+  fontSize: 20,
+  fontWeight: 950,
+  marginBottom: 12,
+};
+
+const darkActionCardStyle: React.CSSProperties = {
+  padding: 22,
+  borderRadius: 22,
+  background: "rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.16)",
+  boxShadow: "0 14px 34px rgba(15,23,42,0.16)",
+};
+
+const darkActionIconStyle: React.CSSProperties = {
+  width: 46,
+  height: 46,
+  borderRadius: 15,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  background: "rgba(255,122,0,0.16)",
+  color: "#ff7a00",
+  fontSize: 22,
+  fontWeight: 950,
+  marginBottom: 14,
+};
+
+const darkActionTitleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 18,
+  lineHeight: 1,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+  color: "#ffffff",
+};
+
+const darkActionTextStyle: React.CSSProperties = {
+  margin: "10px 0 0",
+  fontSize: 14,
+  lineHeight: 1.55,
+  color: "#cbd5e1",
+  fontWeight: 700,
+};
+
+const darkActionLabelStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 8,
+  marginTop: 16,
+  fontSize: 13,
+  fontWeight: 900,
+  color: "#dbeafe",
+};
+
+const darkActionInputStyle: React.CSSProperties = {
+  ...ui.form.input,
+  background: "#ffffff",
+  color: "#0f172a",
+  border: "1px solid rgba(255,255,255,0.2)",
+};
+
+const darkActionTextareaStyle: React.CSSProperties = {
+  ...ui.form.input,
+  resize: "vertical",
+  background: "#ffffff",
+  color: "#0f172a",
+  border: "1px solid rgba(255,255,255,0.2)",
+};
+
+const workflowStatusBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "6px 10px",
+  borderRadius: 999,
+  background: "rgba(34,197,94,0.16)",
+  color: "#bbf7d0",
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  marginTop: 12,
+};
+
+const stopBadgeLabelStyle: React.CSSProperties = {
+  display: "block",
+  marginTop: 2,
+  fontSize: 10,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  opacity: 0.72,
+};
+
+const dangerZoneStyle: React.CSSProperties = {
+  ...ui.card.base,
+  marginTop: 32,
+  padding: 22,
+  border: "1px solid #dc2626",
+  background: "linear-gradient(135deg, #450a0a 0%, #7f1d1d 100%)",
+  boxShadow: "0 18px 36px rgba(127,29,29,0.22)",
+};
+
+const dangerTextStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 14,
+  lineHeight: 1.6,
+  color: "#fecaca",
+  fontWeight: 700,
+};
+
 const stopListStyle: React.CSSProperties = {
   display: "grid",
   gap: 12,
@@ -174,8 +375,9 @@ const stopNumberGroupStyle: React.CSSProperties = {
 
 const amazonStopBadgeStyle: React.CSSProperties = {
   display: "inline-flex",
-  alignItems: "center",
-  padding: "8px 12px",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  padding: "8px 14px",
   borderRadius: 999,
   background: "#0f172a",
   color: "#ffffff",
@@ -186,8 +388,9 @@ const amazonStopBadgeStyle: React.CSSProperties = {
 
 const optimizedStopBadgeStyle: React.CSSProperties = {
   display: "inline-flex",
-  alignItems: "center",
-  padding: "8px 12px",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  padding: "8px 14px",
   borderRadius: 999,
   background: "#dbeafe",
   color: "#1d4ed8",
@@ -237,10 +440,12 @@ const stopActionsStyle: React.CSSProperties = {
 const badgeStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  padding: "4px 8px",
+  padding: "7px 12px",
   borderRadius: 999,
   fontSize: 12,
-  fontWeight: 700,
+  fontWeight: 900,
+  letterSpacing: "0.04em",
+  textTransform: "uppercase",
   background: "#f1f5f9",
   color: "#334155",
 };
@@ -317,6 +522,12 @@ function getRequiredStopsPerHour(stops: number, availableMinutes: number | null)
   return Math.round((stops / (availableMinutes / 60)) * 10) / 10;
 }
 
+function getMinutesPerStop(requiredStopsPerHour: number | null): number | null {
+  if (requiredStopsPerHour === null || requiredStopsPerHour <= 0) return null;
+
+  return Math.round((60 / requiredStopsPerHour) * 10) / 10;
+}
+
 function getStatusBadgeStyle(status: string): React.CSSProperties {
   if (status === "completed") {
     return {
@@ -388,6 +599,8 @@ const requiredStopsPerHour = getRequiredStopsPerHour(
   validStops,
   availableShiftMinutes,
 );
+
+const minutesPerStop = getMinutesPerStop(requiredStopsPerHour);
 
   return (
     <section style={ui.page.section}>
@@ -498,73 +711,85 @@ const requiredStopsPerHour = getRequiredStopsPerHour(
         </div>
       ) : null}
 
-      <div style={{ ...ui.card.base, marginBottom: 24, padding: 20 }}>
-  <h2 style={ui.page.sectionTitle}>Route profile</h2>
+      <div style={premiumPanelStyle}>
+        <p style={premiumPanelTitleStyle}>Route Profile</p>
 
-  <p style={mutedTextStyle}>
-    Start: <strong>{route.start_address ?? "Not set"}</strong>
-  </p>
+        <div style={premiumGridStyle}>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Start</p>
+            <p style={premiumMiniValueStyle}>{route.start_address ?? "Not set"}</p>
+            <p style={premiumMiniHintStyle}>Punto di partenza operativo.</p>
+          </article>
 
-  <p style={mutedTextStyle}>
-    Return: <strong>{route.return_address ?? "Not set"}</strong>
-  </p>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Return</p>
+            <p style={premiumMiniValueStyle}>{route.return_address ?? "Not set"}</p>
+            <p style={premiumMiniHintStyle}>Punto di rientro finale.</p>
+          </article>
 
-  <p style={mutedTextStyle}>
-    Shift: <strong>{route.shift_start_time ?? "—"} - {route.shift_end_time ?? "—"}</strong>
-  </p>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Shift</p>
+            <p style={premiumMiniValueStyle}>
+              {route.shift_start_time ?? "—"} → {route.shift_end_time ?? "—"}
+            </p>
+            <p style={premiumMiniHintStyle}>Finestra operativa della rotta.</p>
+          </article>
 
-  <p style={mutedTextStyle}>
-    Break: <strong>{route.break_minutes ?? 0} min</strong>
-  </p>
-</div>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Break</p>
+            <p style={premiumMiniValueStyle}>{route.break_minutes ?? 0} min</p>
+            <p style={premiumMiniHintStyle}>Pausa considerata nel ritmo.</p>
+          </article>
+        </div>
+      </div>
 
-<div
-  style={{
-    ...ui.card.base,
-    marginTop: 24,
-    marginBottom: 24,
-    padding: 20,
-    border: "1px solid #bfdbfe",
-    background: "#eff6ff",
-  }}
->
-  <h2 style={ui.page.sectionTitle}>Pace Intelligence</h2>
+      <div style={premiumPanelStyle}>
+        <p style={premiumPanelTitleStyle}>Pace Intelligence</p>
 
-  <p style={mutedTextStyle}>
-    Tempo utile turno:{" "}
-    <strong>
-      {availableShiftMinutes !== null
-        ? `${Math.floor(availableShiftMinutes / 60)}h ${availableShiftMinutes % 60}m`
-        : "Non impostato"}
-    </strong>
-  </p>
+        <div style={premiumGridStyle}>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Tempo utile</p>
+            <p style={premiumMiniValueStyle}>
+              {availableShiftMinutes !== null
+                ? `${Math.floor(availableShiftMinutes / 60)}h ${availableShiftMinutes % 60}m`
+                : "Non impostato"}
+            </p>
+            <p style={premiumMiniHintStyle}>Turno al netto della pausa.</p>
+          </article>
 
-  <p style={mutedTextStyle}>
-    Stop validi da gestire: <strong>{validStops}</strong>
-  </p>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Pace richiesto</p>
+            <p style={premiumMiniValueStyle}>
+              {requiredStopsPerHour !== null
+                ? `${requiredStopsPerHour} stop/h`
+                : "Da impostare"}
+            </p>
+            <p style={premiumMiniHintStyle}>Media necessaria per completare.</p>
+          </article>
 
-  <p style={mutedTextStyle}>
-    Ritmo richiesto:{" "}
-    <strong>
-      {requiredStopsPerHour !== null
-        ? `${requiredStopsPerHour} stop/ora`
-        : "Imposta inizio e fine turno"}
-    </strong>
-  </p>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Target medio</p>
+            <p style={premiumMiniValueStyle}>
+              {minutesPerStop !== null ? `1 ogni ${minutesPerStop} min` : "—"}
+            </p>
+            <p style={premiumMiniHintStyle}>Tempo medio disponibile per stop.</p>
+          </article>
 
-  <p style={mutedTextStyle}>
-    Stato operativo:{" "}
-    <strong>
-      {requiredStopsPerHour === null
-        ? "Profilo turno incompleto"
-        : requiredStopsPerHour <= 18
-          ? "Comodo"
-          : requiredStopsPerHour <= 24
-            ? "Impegnativo"
-            : "Critico"}
-    </strong>
-  </p>
-</div>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Livello</p>
+            <p style={premiumMiniValueStyle}>
+              {requiredStopsPerHour === null
+                ? "Incompleto"
+                : requiredStopsPerHour <= 18
+                  ? "Comodo"
+                  : requiredStopsPerHour <= 24
+                    ? "Impegnativo"
+                    : "Critico"}
+            </p>
+            <p style={premiumMiniHintStyle}>Valutazione operativa del turno.</p>
+          </article>
+        </div>
+      </div>
 
       <div style={pageGridStyle}>
         <article style={kpiCardStyle}>
@@ -594,23 +819,27 @@ const requiredStopsPerHour = getRequiredStopsPerHour(
 
       <RouteProOcrBatchUploader routeId={route.id} />
 
-      <div style={{ marginTop: 28 }}>
-        <h2 style={ui.page.sectionTitle}>Altri metodi di import</h2>
+      <section style={premiumPanelStyle}>
+        <p style={premiumPanelTitleStyle}>Import Methods</p>
 
-        <div style={pageGridStyle}>
-          <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>Manuale</h3>
+        <div style={premiumGridStyle}>
+          <div style={darkActionCardStyle}>
+            <div style={darkActionIconStyle}>📍</div>
+            <h3 style={darkActionTitleStyle}>Manuale</h3>
+            <p style={darkActionTextStyle}>
+              Aggiungi uno stop singolo quando devi correggere o integrare la rotta.
+            </p>
 
             <form action={addManualRouteProStop} style={formStyle}>
               <input type="hidden" name="route_id" value={route.id} />
 
-              <label style={ui.form.label}>
+              <label style={darkActionLabelStyle}>
                 Indirizzo
                 <input
                   name="address"
                   type="text"
                   placeholder="Via Roma 10, Milano"
-                  style={ui.form.input}
+                  style={darkActionInputStyle}
                 />
               </label>
 
@@ -620,20 +849,24 @@ const requiredStopsPerHour = getRequiredStopsPerHour(
             </form>
           </div>
 
-          <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>Lista</h3>
+          <div style={darkActionCardStyle}>
+            <div style={darkActionIconStyle}>📋</div>
+            <h3 style={darkActionTitleStyle}>Lista</h3>
+            <p style={darkActionTextStyle}>
+              Incolla più indirizzi insieme, uno per riga, e crea velocemente una rotta.
+            </p>
 
             <form action={addBulkRouteProStops} style={formStyle}>
               <input type="hidden" name="route_id" value={route.id} />
 
-              <label style={ui.form.label}>
+              <label style={darkActionLabelStyle}>
                 Uno per riga
                 <textarea
                   name="bulk_addresses"
                   rows={5}
                   placeholder={`Via Roma 10, Milano
 Via Torino 5, Milano`}
-                  style={{ ...ui.form.input, resize: "vertical" }}
+                  style={darkActionTextareaStyle}
                 />
               </label>
 
@@ -643,81 +876,97 @@ Via Torino 5, Milano`}
             </form>
           </div>
 
-          <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>CSV</h3>
-            <p style={mutedTextStyle}>
-              Colonna obbligatoria <strong>address</strong>.
+          <div style={darkActionCardStyle}>
+            <div style={darkActionIconStyle}>📄</div>
+            <h3 style={darkActionTitleStyle}>CSV</h3>
+            <p style={darkActionTextStyle}>
+              Importa file con colonna <strong>address</strong>. Se presenti, RoutePro usa anche city, province e country.
             </p>
 
             <form action={addCsvRouteProStops} style={formStyle}>
               <input type="hidden" name="route_id" value={route.id} />
 
-              <label style={ui.form.label}>
+              <label style={darkActionLabelStyle}>
                 File CSV
                 <input
                   name="csv_file"
                   type="file"
                   accept=".csv,text/csv"
-                  style={ui.form.input}
+                  style={darkActionInputStyle}
                 />
               </label>
 
               <RouteProSubmitButton
-  idleLabel="Importa CSV"
-  pendingLabel="Import CSV in corso..."
-/>
+                idleLabel="Importa CSV"
+                pendingLabel="Import CSV in corso..."
+              />
             </form>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div style={{ marginTop: 28 }}>
-        <h2 style={ui.page.sectionTitle}>Route workflow</h2>
+      <section style={premiumPanelStyle}>
+        <p style={premiumPanelTitleStyle}>Route Workflow</p>
 
-        <div style={pageGridStyle}>
-          <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>Verify addresses</h3>
-            <p style={mutedTextStyle}>
+        <div style={premiumGridStyle}>
+          <div style={darkActionCardStyle}>
+            <div style={darkActionIconStyle}>✓</div>
+            <h3 style={darkActionTitleStyle}>Verify</h3>
+            <p style={darkActionTextStyle}>
               Trasforma gli indirizzi in coordinate e segnala gli stop da rivedere.
             </p>
+
+            <span style={workflowStatusBadgeStyle}>
+              {rawStops > 0 ? "Da verificare" : "Verificato"}
+            </span>
 
             <form action={geocodeRouteProStops} style={{ marginTop: 16 }}>
               <input type="hidden" name="route_id" value={route.id} />
 
               <RouteProSubmitButton
-  idleLabel="Riconosci indirizzi"
-  pendingLabel="Riconoscimento in corso..."
-/>
+                idleLabel="Riconosci indirizzi"
+                pendingLabel="Riconoscimento in corso..."
+              />
             </form>
           </div>
 
-          <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>Optimize route</h3>
-            <p style={mutedTextStyle}>
+          <div style={darkActionCardStyle}>
+            <div style={darkActionIconStyle}>⚡</div>
+            <h3 style={darkActionTitleStyle}>Optimize</h3>
+            <p style={darkActionTextStyle}>
               Riordina gli stop validi mantenendo sempre il numero originale.
             </p>
+
+            <span style={workflowStatusBadgeStyle}>
+              {route.is_optimized ? "Ottimizzata" : "Pronta"}
+            </span>
 
             <form action={optimizeRouteProRoute} style={{ marginTop: 16 }}>
               <input type="hidden" name="route_id" value={route.id} />
 
               <RouteProSubmitButton
-  idleLabel="Ottimizza"
-  pendingLabel="Ottimizzazione in corso..."
-/>
+                idleLabel="Ottimizza"
+                pendingLabel="Ottimizzazione in corso..."
+              />
             </form>
 
             {route.is_optimized ? (
-              <p style={mutedTextStyle}>
+              <p style={darkActionTextStyle}>
                 Ultima ottimizzazione: {route.optimized_at ?? "completata"}
               </p>
             ) : null}
           </div>
 
-          <div style={compactCardStyle}>
-            <h3 style={{ marginTop: 0 }}>Drive route</h3>
-            <p style={mutedTextStyle}>
+          <div style={darkActionCardStyle}>
+            <div style={darkActionIconStyle}>▶</div>
+            <h3 style={darkActionTitleStyle}>Drive</h3>
+            <p style={darkActionTextStyle}>
               Apri la modalità driver con Maps/Waze, complete e skip.
             </p>
+
+            <span style={workflowStatusBadgeStyle}>
+              {route.is_optimized ? "Disponibile" : "Ottimizza prima"}
+            </span>
 
             <div style={actionsStyle}>
               <Link href={`/app/routepro/${route.id}/execute`} style={routeProUi.primaryButton}>
@@ -726,10 +975,10 @@ Via Torino 5, Milano`}
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       <div style={{ marginTop: 28 }}>
-        <h2 style={ui.page.sectionTitle}>Stop importati</h2>
+        <h2 style={sectionTitleStyle}>Stop Importati</h2>
 
         {route.stops.length === 0 ? (
           <div style={{ ...ui.card.base, marginTop: 18 }}>
@@ -745,10 +994,12 @@ Via Torino 5, Milano`}
                   <div style={stopNumberGroupStyle}>
                     <span style={amazonStopBadgeStyle}>
                       STOP #{stop.original_position}
+                      <span style={stopBadgeLabelStyle}>Originale</span>
                     </span>
 
                     <span style={optimizedStopBadgeStyle}>
                       OPT #{stop.position}
+                      <span style={stopBadgeLabelStyle}>Ottimizzato</span>
                     </span>
                   </div>
 
@@ -814,9 +1065,9 @@ Via Torino 5, Milano`}
         )}
       </div>
 
-      <div style={{ ...ui.card.base, marginTop: 32 }}>
-        <h2 style={ui.page.sectionTitle}>Zona pericolosa</h2>
-        <p style={mutedTextStyle}>
+      <div style={dangerZoneStyle}>
+        <h2 style={{ ...ui.page.sectionTitle, color: "#ffffff" }}>Zona pericolosa</h2>
+        <p style={dangerTextStyle}>
           Cancella definitivamente questa rotta e tutti gli stop collegati.
         </p>
 

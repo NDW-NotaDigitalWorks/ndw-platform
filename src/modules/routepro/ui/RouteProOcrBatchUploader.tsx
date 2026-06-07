@@ -283,18 +283,64 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
   }
 
   return (
-    <div style={{ ...ui.card.base, marginTop: 24 }}>
-      <p style={ui.page.eyebrow}>Import principale</p>
-      <h2 style={ui.page.sectionTitle}>Importa screenshot automatico</h2>
+  <div
+    style={{
+      marginTop: 24,
+      padding: 28,
+      borderRadius: 28,
+      border: "1px solid rgba(59,130,246,.35)",
+      background:
+        "linear-gradient(180deg,#16255f 0%,#203b9b 100%)",
+      boxShadow:
+        "0 24px 60px rgba(0,0,0,.25)",
+    }}
+  >
+      <p
+  style={{
+    color: "#ff8a00",
+    fontWeight: 900,
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    margin: 0,
+  }}
+>
+  OCR ROUTE IMPORT
+</p>
+      <h2
+  style={{
+    marginTop: 12,
+    marginBottom: 12,
+    color: "#fff",
+    fontSize: 34,
+    fontWeight: 900,
+  }}
+>
+  Multi Screenshot Recognition
+</h2>
 
-      <p style={mutedTextStyle}>
-        Seleziona tutti gli screenshot insieme. RoutePro li leggerà a blocchi da{" "}
-        {BATCH_SIZE}, mostrando il progresso e creando una preview ordinata.
+      <p
+  style={{
+    color: "rgba(255,255,255,.85)",
+    lineHeight: 1.7,
+    marginBottom: 24,
+  }}
+>
+        Import screenshots and automatically create a route. RoutePro extracts
+addresses, stop order and route data, preparing the workflow for
+verification and optimization.
       </p>
 
       <div style={formStyle}>
-        <label style={ui.form.label}>
-          Screenshot
+        <label
+  style={{
+    ...ui.form.label,
+    color: "#dbeafe",
+    fontWeight: 900,
+    fontSize: 13,
+    letterSpacing: "0.04em",
+  }}
+>
+  Route screenshots
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp"
@@ -318,8 +364,7 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
 
         {files.length > 0 ? (
           <p style={mutedTextStyle}>
-            Screenshot selezionati: <strong>{files.length}</strong> · Batch
-            previsti: <strong>{totalBatches}</strong>
+            Files selected: <strong>{files.length}</strong> · OCR batches: <strong>{totalBatches}</strong>
           </p>
         ) : null}
 
@@ -328,12 +373,17 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
           onClick={handleProcessScreenshots}
           disabled={isProcessing || files.length === 0}
           style={{
-            ...routeProUi.primaryButton,
-            opacity: isProcessing || files.length === 0 ? 0.65 : 1,
-            cursor: isProcessing || files.length === 0 ? "not-allowed" : "pointer",
-          }}
+  ...routeProUi.primaryButton,
+  minHeight: 52,
+  background: "#ff7a00",
+  borderColor: "#ff7a00",
+  color: "#ffffff",
+  boxShadow: "0 14px 34px rgba(255,122,0,0.32)",
+  opacity: isProcessing || files.length === 0 ? 0.65 : 1,
+  cursor: isProcessing || files.length === 0 ? "not-allowed" : "pointer",
+}}
         >
-          {isProcessing ? "Lettura screenshot in corso..." : "Leggi screenshot selezionati"}
+          {isProcessing ? "Lettura screenshot in corso..." : "Start OCR Analysis"}
         </button>
       </div>
 

@@ -24,6 +24,14 @@ const mutedTextStyle: React.CSSProperties = {
   margin: "8px 0 0",
   fontSize: 15,
   lineHeight: 1.6,
+  color: "#cbd5e1",
+  fontWeight: 700,
+};
+
+const lightMutedTextStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 15,
+  lineHeight: 1.6,
   color: "#334155",
   fontWeight: 700,
 };
@@ -39,7 +47,7 @@ const mobileActionsStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
   gap: 12,
-  marginTop: 22,
+  marginTop: 16,
 };
 
 const statGridStyle: React.CSSProperties = {
@@ -51,27 +59,63 @@ const statGridStyle: React.CSSProperties = {
 
 const bigStopNumberStyle: React.CSSProperties = {
   margin: "16px 0 0",
-  fontSize: "clamp(56px, 9vw, 96px)",
-  lineHeight: 1,
+  fontSize: "clamp(38px, 5vw, 62px)",
+  lineHeight: 0.92,
   fontWeight: 950,
-  letterSpacing: "-0.06em",
+  letterSpacing: "-0.08em",
   color: "#0f172a",
 };
 
 const addressStyle: React.CSSProperties = {
-  margin: "18px 0 0",
-  fontSize: "clamp(24px, 4vw, 38px)",
-  lineHeight: 1.22,
+  margin: "20px 0 0",
+  fontSize: "clamp(18px, 2.2vw, 26px)",
+  lineHeight: 1.18,
   fontWeight: 950,
   color: "#0f172a",
 };
 
+const cockpitHeroStyle: React.CSSProperties = {
+  marginTop: 20,
+  padding: 26,
+  borderRadius: 28,
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,64,175,0.92) 100%)",
+  border: "1px solid rgba(96,165,250,0.30)",
+  boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
+};
+
+const cockpitEyebrowStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  color: "#ff7a00",
+};
+
+const cockpitTitleStyle: React.CSSProperties = {
+  margin: "10px 0 0",
+  fontSize: "clamp(34px, 5vw, 58px)",
+  lineHeight: 1,
+  fontWeight: 950,
+  letterSpacing: "-0.05em",
+  color: "#ffffff",
+};
+
+const cockpitSubtitleStyle: React.CSSProperties = {
+  margin: "12px 0 0",
+  fontSize: 16,
+  lineHeight: 1.6,
+  fontWeight: 700,
+  color: "#cbd5e1",
+};
+
 const statCardStyle: React.CSSProperties = {
-  ...ui.card.base,
-  padding: 20,
-  border: "1px solid #cbd5e1",
-  background: "#ffffff",
-  boxShadow: "0 10px 28px rgba(15,23,42,0.08)",
+  padding: 22,
+  borderRadius: 24,
+  background: "linear-gradient(180deg,#16255f 0%,#203b9b 100%)",
+  border: "1px solid rgba(96,165,250,.25)",
+  boxShadow: "0 18px 42px rgba(15,23,42,.15)",
 };
 
 const statLabelStyle: React.CSSProperties = {
@@ -80,7 +124,7 @@ const statLabelStyle: React.CSSProperties = {
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: "0.08em",
-  color: "#2563eb",
+  color: "#93c5fd",
 };
 
 const statValueStyle: React.CSSProperties = {
@@ -88,45 +132,117 @@ const statValueStyle: React.CSSProperties = {
   fontSize: 42,
   lineHeight: 1,
   fontWeight: 950,
-  color: "#0f172a",
+  color: "#ffffff",
+};
+
+const progressTrackStyle: React.CSSProperties = {
+  marginTop: 20,
+  height: 12,
+  borderRadius: 999,
+  background: "rgba(255,255,255,.10)",
+  overflow: "hidden",
+};
+
+const progressFillStyle: React.CSSProperties = {
+  height: "100%",
+  borderRadius: 999,
+  background: "linear-gradient(90deg,#ff7a00,#ffb347)",
+};
+
+const intelligenceGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: 12,
+  marginTop: 18,
+};
+
+const intelligenceCardStyle: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.16)",
+};
+
+const intelligenceLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 11,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "#93c5fd",
+};
+
+const intelligenceValueStyle: React.CSSProperties = {
+  margin: "7px 0 0",
+  fontSize: 24,
+  lineHeight: 1,
+  fontWeight: 950,
+  color: "#ffffff",
+};
+
+const intelligenceBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  marginTop: 8,
+  padding: "7px 11px",
+  borderRadius: 999,
+  background: "rgba(255,122,0,0.16)",
+  color: "#fed7aa",
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
 };
 
 const currentStopCardStyle: React.CSSProperties = {
-  ...ui.card.base,
-  marginTop: 24,
-  padding: 28,
+  marginTop: 18,
+  padding: "20px 24px",
+  borderRadius: 28,
+  background: "linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)",
   border: "1px solid #cbd5e1",
-  background: "#ffffff",
-  boxShadow: "0 18px 40px rgba(15,23,42,0.1)",
+  boxShadow: "0 24px 60px rgba(15,23,42,.12)",
 };
 
 const stopBadgeRowStyle: React.CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: 10,
-  marginTop: 16,
+  marginTop: 18,
 };
 
 const originalStopBadgeStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  padding: "8px 14px",
+  padding: "9px 15px",
   borderRadius: 999,
   background: "#0f172a",
   color: "#ffffff",
-  fontWeight: 900,
+  fontWeight: 950,
   fontSize: 14,
 };
 
 const optimizedStopBadgeStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  padding: "8px 14px",
+  padding: "9px 15px",
   borderRadius: 999,
   background: "#dbeafe",
   color: "#1d4ed8",
-  fontWeight: 900,
+  fontWeight: 950,
   fontSize: 14,
+};
+
+const primaryNavigateStyle: React.CSSProperties = {
+  ...routeProUi.primaryButton,
+  width: "100%",
+  minHeight: 52,
+  padding: "14px",
+  fontSize: 20,
+  borderRadius: 18,
+  background: "#ff7a00",
+  borderColor: "#ff7a00",
+  color: "#ffffff",
+  boxShadow: "0 16px 36px rgba(255,122,0,0.30)",
 };
 
 const successStyle: React.CSSProperties = {
@@ -135,7 +251,7 @@ const successStyle: React.CSSProperties = {
   borderRadius: 12,
   background: "#ecfdf5",
   color: "#047857",
-  fontWeight: 600,
+  fontWeight: 700,
 };
 
 const errorStyle: React.CSSProperties = {
@@ -144,7 +260,7 @@ const errorStyle: React.CSSProperties = {
   borderRadius: 12,
   background: "#fff1f2",
   color: "#be123c",
-  fontWeight: 600,
+  fontWeight: 700,
 };
 
 const bottomBarStyle: React.CSSProperties = {
@@ -154,9 +270,9 @@ const bottomBarStyle: React.CSSProperties = {
   bottom: 0,
   zIndex: 50,
   padding: "12px 16px",
-  background: "rgba(255, 255, 255, 0.96)",
-  borderTop: "1px solid #e5e7eb",
-  boxShadow: "0 -10px 30px rgba(15, 23, 42, 0.12)",
+  background: "rgba(15,23,42,0.96)",
+  borderTop: "1px solid rgba(96,165,250,0.22)",
+  boxShadow: "0 -10px 30px rgba(15, 23, 42, 0.30)",
 };
 
 const bottomBarInnerStyle: React.CSSProperties = {
@@ -191,6 +307,64 @@ function getErrorMessage(error?: string): string | null {
   return null;
 }
 
+function getTimeMinutes(value?: string | null): number | null {
+  if (!value) return null;
+
+  const [hours, minutes] = value.split(":").map(Number);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function getShiftMinutes(
+  shiftStartTime?: string | null,
+  shiftEndTime?: string | null,
+  breakMinutes?: number | null,
+): number | null {
+  const start = getTimeMinutes(shiftStartTime);
+  const end = getTimeMinutes(shiftEndTime);
+
+  if (start === null || end === null) return null;
+
+  const rawMinutes = end > start ? end - start : end + 1440 - start;
+  return Math.max(rawMinutes - (breakMinutes ?? 0), 0);
+}
+
+function getRequiredStopsPerHour(
+  stops: number,
+  availableMinutes: number | null,
+): number | null {
+  if (availableMinutes === null || availableMinutes <= 0) return null;
+
+  return Math.round((stops / (availableMinutes / 60)) * 10) / 10;
+}
+
+function getMinutesPerStop(requiredStopsPerHour: number | null): number | null {
+  if (requiredStopsPerHour === null || requiredStopsPerHour <= 0) return null;
+
+  return Math.round((60 / requiredStopsPerHour) * 10) / 10;
+}
+
+function getOperationalStatus(requiredStopsPerHour: number | null): string {
+  if (requiredStopsPerHour === null) return "Profilo incompleto";
+  if (requiredStopsPerHour <= 18) return "Nei tempi";
+  if (requiredStopsPerHour <= 24) return "Ritmo alto";
+  return "Critico";
+}
+
+function formatMinutes(minutes: number | null): string {
+  if (minutes === null) return "—";
+
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  if (hours <= 0) return `${mins}m`;
+  return `${hours}h ${mins}m`;
+}
+
 export default async function RouteProExecutePage({ params, searchParams }: Props) {
   const { routeId } = await params;
   const resolvedSearchParams = await searchParams;
@@ -221,6 +395,19 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
   const totalStops = route.stops.length;
   const doneCount = completedStops.length + skippedStops.length;
   const remainingCount = executableStops.length;
+  const shiftMinutes = getShiftMinutes(
+    route.shift_start_time,
+    route.shift_end_time,
+    route.break_minutes,
+  );
+  const requiredStopsPerHour = getRequiredStopsPerHour(
+    remainingCount,
+    shiftMinutes,
+  );
+  const minutesPerStop = getMinutesPerStop(requiredStopsPerHour);
+  const operationalStatus = getOperationalStatus(requiredStopsPerHour);
+  const progressPercent =
+    totalStops > 0 ? Math.round((doneCount / totalStops) * 100) : 0;
   const isRouteCompleted = route.status === "completed";
 
   const showBottomBar =
@@ -230,46 +417,84 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
     currentStopLng !== null;
 
   return (
-    <section style={{ ...ui.page.section, paddingBottom: showBottomBar ? 110 : 0 }}>
+    <section style={{ ...ui.page.section, paddingBottom: showBottomBar ? 112 : 0 }}>
       <RouteProHeader subtitle="Driver execution mode" />
 
-      <p style={statLabelStyle}>Percorso attivo</p>
-      <h1 style={{ ...ui.page.title, color: "#ffffff" }}>{route.name}</h1>
-      <p style={{ ...ui.page.subtitle, color: "#94a3b8" }}>
-        Segui la rotta stop dopo stop con Maps, Waze, complete e skip.
-      </p>
+      <div style={cockpitHeroStyle}>
+        <p style={cockpitEyebrowStyle}>Driver Cockpit</p>
 
-      <div style={actionsStyle}>
-        <Link href={`/app/routepro/${route.id}`} style={routeProUi.secondaryButton}>
-          Torna alla rotta
-        </Link>
+        <h1 style={cockpitTitleStyle}>{route.name}</h1>
 
-        <Link href="/app/routepro" style={routeProUi.secondaryButton}>
-          Storico rotte
-        </Link>
-      </div>
+        <p style={cockpitSubtitleStyle}>
+          Follow the route stop by stop. Navigate, complete, skip and keep your day under control.
+        </p>
 
-      <div style={statGridStyle}>
-        <article style={statCardStyle}>
-          <p style={statLabelStyle}>Gestiti</p>
-          <h2 style={statValueStyle}>
-            {doneCount}/{totalStops}
-          </h2>
-        </article>
+        <div style={actionsStyle}>
+          <Link href={`/app/routepro/${route.id}`} style={routeProUi.secondaryButton}>
+            Torna alla rotta
+          </Link>
 
-        <article style={statCardStyle}>
-          <p style={statLabelStyle}>Rimanenti</p>
-          <h2 style={statValueStyle}>
-            {remainingCount}
-          </h2>
-        </article>
+          <Link href="/app/routepro" style={routeProUi.secondaryButton}>
+            Storico rotte
+          </Link>
+        </div>
 
-        <article style={statCardStyle}>
-          <p style={statLabelStyle}>Saltati</p>
-          <h2 style={statValueStyle}>
-            {skippedStops.length}
-          </h2>
-        </article>
+        <div style={statGridStyle}>
+          <article style={statCardStyle}>
+            <p style={statLabelStyle}>Gestiti</p>
+            <h2 style={statValueStyle}>
+              {doneCount}/{totalStops}
+            </h2>
+          </article>
+
+          <article style={statCardStyle}>
+            <p style={statLabelStyle}>Rimanenti</p>
+            <h2 style={statValueStyle}>
+              {remainingCount}
+            </h2>
+          </article>
+
+          <article style={statCardStyle}>
+            <p style={statLabelStyle}>Saltati</p>
+            <h2 style={statValueStyle}>
+              {skippedStops.length}
+            </h2>
+          </article>
+        </div>
+
+        <div style={progressTrackStyle}>
+          <div style={{ ...progressFillStyle, width: `${progressPercent}%` }} />
+        </div>
+
+        <p style={mutedTextStyle}>
+          Progress: <strong>{progressPercent}%</strong> · Stop {currentStop?.position ?? doneCount} / {totalStops}
+        </p>
+
+        <div style={intelligenceGridStyle}>
+          <article style={intelligenceCardStyle}>
+            <p style={intelligenceLabelStyle}>Tempo turno</p>
+            <h3 style={intelligenceValueStyle}>{formatMinutes(shiftMinutes)}</h3>
+          </article>
+
+          <article style={intelligenceCardStyle}>
+            <p style={intelligenceLabelStyle}>Ritmo richiesto</p>
+            <h3 style={intelligenceValueStyle}>
+              {requiredStopsPerHour !== null ? `${requiredStopsPerHour}/h` : "—"}
+            </h3>
+          </article>
+
+          <article style={intelligenceCardStyle}>
+            <p style={intelligenceLabelStyle}>Media stop</p>
+            <h3 style={intelligenceValueStyle}>
+              {minutesPerStop !== null ? `${minutesPerStop} min` : "—"}
+            </h3>
+          </article>
+
+          <article style={intelligenceCardStyle}>
+            <p style={intelligenceLabelStyle}>Stato operativo</p>
+            <span style={intelligenceBadgeStyle}>{operationalStatus}</span>
+          </article>
+        </div>
       </div>
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
@@ -280,15 +505,18 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
       {isRouteCompleted ? (
         <div style={currentStopCardStyle}>
           <h2 style={ui.page.sectionTitle}>Rotta completata</h2>
-          <p style={mutedTextStyle}>
+          <p style={lightMutedTextStyle}>
             Hai gestito {doneCount} stop su {totalStops}.
           </p>
         </div>
       ) : !currentStop || currentStopLat === null || currentStopLng === null ? (
         <div style={currentStopCardStyle}>
           <h2 style={ui.page.sectionTitle}>Fine rotta</h2>
+          <p style={lightMutedTextStyle}>
+            Non ci sono altri stop validi da eseguire. Puoi terminare la rotta.
+          </p>
 
-          <form action={completeRouteProRoute}>
+          <form action={completeRouteProRoute} style={{ marginTop: 18 }}>
             <input type="hidden" name="route_id" value={route.id} />
 
             <button
@@ -323,21 +551,36 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
             </span>
           </div>
 
-          <div style={addressStyle}>{currentStop.address}</div>
+          <div style={addressStyle}>📍 {currentStop.address}</div>
 
-          <div style={mobileActionsStyle}>
+          <div style={{ marginTop: 16 }}>
+            <a
+              href={getGoogleMapsUrl(currentStopLat, currentStopLng)}
+              target="_blank"
+              rel="noreferrer"
+              style={primaryNavigateStyle}
+            >
+              🧭 NAVIGA ORA
+            </a>
+          </div>
+
+                    <div style={mobileActionsStyle}>
             <a
               href={getGoogleMapsUrl(currentStopLat, currentStopLng)}
               target="_blank"
               rel="noreferrer"
               style={{
-                ...routeProUi.primaryButton,
-                padding: "16px 18px",
-                fontSize: 16,
+                ...routeProUi.secondaryButton,
+                minHeight: 46,
+                padding: "12px 14px",
+                fontSize: 14,
                 borderRadius: 14,
+                background: "#0f2345",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#ffffff",
               }}
             >
-              Google Maps
+              🗺 Google Maps
             </a>
 
             <a
@@ -346,12 +589,16 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               rel="noreferrer"
               style={{
                 ...routeProUi.secondaryButton,
-                padding: "16px 18px",
-                fontSize: 16,
+                minHeight: 46,
+                padding: "12px 14px",
+                fontSize: 14,
                 borderRadius: 14,
+                background: "#0f2345",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#ffffff",
               }}
             >
-              Waze
+              🚘 Waze
             </a>
           </div>
         </div>
@@ -372,9 +619,12 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
                   padding: "18px",
                   fontSize: 17,
                   borderRadius: 14,
+                  background: "#ff7a00",
+                  borderColor: "#ff7a00",
+                  color: "#ffffff",
                 }}
               >
-                Completa
+                ✓ COMPLETE STOP
               </button>
             </form>
 
@@ -390,9 +640,11 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
                   padding: "18px",
                   fontSize: 17,
                   borderRadius: 14,
+                  background: "#ffffff",
+                  color: "#0f172a",
                 }}
               >
-                Salta
+                ↷ SKIP STOP
               </button>
             </form>
           </div>

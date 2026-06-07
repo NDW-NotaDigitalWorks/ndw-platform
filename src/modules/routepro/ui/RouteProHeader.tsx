@@ -10,26 +10,46 @@ const headerStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 12,
-  marginBottom: 18,
+  marginBottom: 22,
 };
 
 const brandStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 10,
+  gap: 14,
 };
 
 const logoStyle: CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: 12,
-  background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
+  width: 46,
+  height: 46,
+  borderRadius: 16,
+  background:
+    "linear-gradient(135deg, #ff7a00 0%, #f97316 45%, #0ea5e9 100%)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: "white",
-  fontWeight: 900,
-  boxShadow: "0 10px 24px rgba(14, 165, 233, 0.25)",
+  color: "#ffffff",
+  fontWeight: 950,
+  fontSize: 16,
+  letterSpacing: "-0.03em",
+  boxShadow: "0 14px 30px rgba(255, 122, 0, 0.28)",
+  border: "1px solid rgba(255,255,255,0.2)",
+};
+
+const titleStyle: CSSProperties = {
+  display: "block",
+  fontSize: 24,
+  lineHeight: 1,
+  fontWeight: 950,
+  letterSpacing: "-0.04em",
+  color: "#ff7a00",
+};
+
+const subtitleStyle: CSSProperties = {
+  fontSize: 13,
+  margin: "6px 0 0",
+  color: "#94a3b8",
+  fontWeight: 700,
 };
 
 export function RouteProHeader({
@@ -42,10 +62,8 @@ export function RouteProHeader({
         <div style={logoStyle}>RP</div>
 
         <div>
-          <strong style={{ fontSize: 18 }}>{title}</strong>
-          <p style={{ fontSize: 12, margin: 0, opacity: 0.65 }}>
-            {subtitle}
-          </p>
+          <strong style={titleStyle}>{title}</strong>
+          <p style={subtitleStyle}>{subtitle}</p>
         </div>
       </div>
     </div>

@@ -511,18 +511,67 @@ export async function completeRouteProStop(formData: FormData) {
   const stopId = String(formData.get("stop_id") ?? "").trim();
 
   if (!routeId) redirect("/app/routepro");
-  if (!stopId) redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  if (!stopId) {
+    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  }
+
+  const now = new Date().toISOString();
+
+  const { data: currentStop, error: currentStopError } = await supabase
+    .from("routepro_stops")
+    .select("id,address,status")
+    .eq("id", stopId)
+    .maybeSingle();
+
+  if (currentStopError || !currentStop) {
+    console.error(
+      "RoutePro current stop fetch error:",
+      currentStopError?.message,
+    );
+
+    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  }
+
+  const normalizedAddress = currentStop.address.trim().toLowerCase();
+
+  const { data: duplicateStops, error: duplicateStopsError } = await supabase
+    .from("routepro_stops")
+    .select("id,address,status")
+    .eq("route_id", routeId);
+
+  if (duplicateStopsError) {
+    console.error(
+      "RoutePro duplicate stop fetch error:",
+      duplicateStopsError.message,
+    );
+
+    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  }
+
+  const duplicateIds = (duplicateStops ?? [])
+    .filter((stop) => {
+      const sameAddress =
+        stop.address?.trim().toLowerCase() === normalizedAddress;
+
+      const stillOpen =
+        stop.status !== "completed" &&
+        stop.status !== "skipped";
+
+      return sameAddress && stillOpen;
+    })
+    .map((stop) => stop.id);
 
   const { error } = await supabase
     .from("routepro_stops")
     .update({
       status: "completed",
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     })
-    .eq("id", stopId);
+    .in("id", duplicateIds);
 
   if (error) {
     console.error("RoutePro complete stop error:", error.message);
+
     redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
   }
 
@@ -530,11 +579,25 @@ export async function completeRouteProStop(formData: FormData) {
     .from("routepro_routes")
     .update({
       status: "in_progress",
-      updated_at: new Date().toISOString(),
+      started_at: now,
+      last_activity_at: now,
+      updated_at: now,
     })
-    .eq("id", routeId);
+    .eq("id", routeId)
+    .is("started_at", null);
+
+  await supabase
+    .from("routepro_routes")
+    .update({
+      status: "in_progress",
+      last_activity_at: now,
+      updated_at: now,
+    })
+    .eq("id", routeId)
+    .not("started_at", "is", null);
 
   revalidatePath(`/app/routepro/${routeId}/execute`);
+
   redirect(`/app/routepro/${routeId}/execute?completed=1`);
 }
 
@@ -547,11 +610,13 @@ export async function skipRouteProStop(formData: FormData) {
   if (!routeId) redirect("/app/routepro");
   if (!stopId) redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
 
+  const now = new Date().toISOString();
+
   const { error } = await supabase
     .from("routepro_stops")
     .update({
       status: "skipped",
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     })
     .eq("id", stopId);
 
@@ -564,9 +629,22 @@ export async function skipRouteProStop(formData: FormData) {
     .from("routepro_routes")
     .update({
       status: "in_progress",
-      updated_at: new Date().toISOString(),
+      started_at: now,
+      last_activity_at: now,
+      updated_at: now,
     })
-    .eq("id", routeId);
+    .eq("id", routeId)
+    .is("started_at", null);
+
+  await supabase
+    .from("routepro_routes")
+    .update({
+      status: "in_progress",
+      last_activity_at: now,
+      updated_at: now,
+    })
+    .eq("id", routeId)
+    .not("started_at", "is", null);
 
   revalidatePath(`/app/routepro/${routeId}/execute`);
   redirect(`/app/routepro/${routeId}/execute?skipped=1`);
@@ -579,11 +657,15 @@ export async function completeRouteProRoute(formData: FormData) {
 
   if (!routeId) redirect("/app/routepro");
 
+  const now = new Date().toISOString();
+
   const { error } = await supabase
     .from("routepro_routes")
     .update({
       status: "completed",
-      updated_at: new Date().toISOString(),
+      completed_at: now,
+      last_activity_at: now,
+      updated_at: now,
     })
     .eq("id", routeId);
 

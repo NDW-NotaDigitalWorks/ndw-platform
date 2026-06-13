@@ -283,6 +283,36 @@ const bottomBarInnerStyle: React.CSSProperties = {
   margin: "0 auto",
 };
 
+const nextStopsCardStyle: React.CSSProperties = {
+  marginTop: 18,
+  padding: 20,
+  borderRadius: 20,
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 8px 24px rgba(15,23,42,.06)",
+};
+
+const nextStopRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "10px 0",
+  borderBottom: "1px solid #f1f5f9",
+};
+
+const nextStopNumberStyle: React.CSSProperties = {
+  fontWeight: 900,
+  color: "#ff7a00",
+  minWidth: 60,
+};
+
+const nextStopAddressStyle: React.CSSProperties = {
+  flex: 1,
+  marginLeft: 12,
+  color: "#0f172a",
+  fontWeight: 600,
+};
+
 function getGoogleMapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 }
@@ -365,6 +395,40 @@ function formatMinutes(minutes: number | null): string {
   return `${hours}h ${mins}m`;
 }
 
+function getEstimatedRemainingMinutes(
+  remainingStops: number,
+  minutesPerStop: number | null,
+): number | null {
+  if (minutesPerStop === null) return null;
+  return Math.round(remainingStops * minutesPerStop);
+}
+
+function getEstimatedEndTime(remainingMinutes: number | null): string {
+  if (remainingMinutes === null) return "—";
+
+  const end = new Date(Date.now() + remainingMinutes * 60 * 1000);
+
+  return end.toLocaleTimeString("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function normalizeAddress(address: string): string {
+  return address.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function getDuplicateStopsForAddress(
+  stops: Array<{ address: string; original_position: number }>,
+  address: string,
+) {
+  const normalizedAddress = normalizeAddress(address);
+
+  return stops.filter(
+    (stop) => normalizeAddress(stop.address) === normalizedAddress,
+  );
+}
+
 export default async function RouteProExecutePage({ params, searchParams }: Props) {
   const { routeId } = await params;
   const resolvedSearchParams = await searchParams;
@@ -389,8 +453,16 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
   );
 
   const currentStop = executableStops[0];
+  const nextStops = executableStops.slice(1, 4);
   const currentStopLat = currentStop?.lat ?? null;
   const currentStopLng = currentStop?.lng ?? null;
+  const currentDuplicateStops = currentStop
+  ? getDuplicateStopsForAddress(executableStops, currentStop.address)
+  : [];
+
+const currentDuplicateOriginalStops = currentDuplicateStops
+  .map((stop) => `#${stop.original_position}`)
+  .join(", ");
 
   const totalStops = route.stops.length;
   const doneCount = completedStops.length + skippedStops.length;
@@ -406,8 +478,69 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
   );
   const minutesPerStop = getMinutesPerStop(requiredStopsPerHour);
   const operationalStatus = getOperationalStatus(requiredStopsPerHour);
+  const estimatedRemainingMinutes = getEstimatedRemainingMinutes(
+  remainingCount,
+  minutesPerStop,
+);
+const estimatedEndTime = getEstimatedEndTime(estimatedRemainingMinutes);
+
   const progressPercent =
     totalStops > 0 ? Math.round((doneCount / totalStops) * 100) : 0;
+  const routeStartedAt = route.started_at
+  ? new Date(route.started_at)
+  : null;
+
+const elapsedMinutes =
+  routeStartedAt
+    ? Math.max(
+        1,
+        Math.round(
+          (Date.now() - routeStartedAt.getTime()) / 60000,
+        ),
+      )
+    : null;
+
+const realStopsPerHour =
+  elapsedMinutes && completedStops.length > 0
+    ? Math.round(
+        ((completedStops.length / elapsedMinutes) * 60) * 10,
+      ) / 10
+    : null;
+
+const realMinutesPerStop =
+  realStopsPerHour && realStopsPerHour > 0
+    ? Math.round((60 / realStopsPerHour) * 10) / 10
+    : null;
+
+const realRemainingMinutes =
+  realMinutesPerStop
+    ? Math.round(realMinutesPerStop * remainingCount)
+    : null;
+
+const realEta =
+  realRemainingMinutes
+    ? new Date(Date.now() + realRemainingMinutes * 60000)
+    : null;
+  
+   const paceDelta =
+  realStopsPerHour !== null &&
+  requiredStopsPerHour !== null &&
+  requiredStopsPerHour > 0
+    ? Math.round(
+        ((realStopsPerHour - requiredStopsPerHour) / requiredStopsPerHour) *
+          100,
+      )
+    : null;
+
+const paceStatus =
+  paceDelta === null
+    ? "In attesa dati"
+    : paceDelta >= 10
+      ? "In anticipo"
+      : paceDelta >= -10
+        ? "Nei tempi"
+        : "In ritardo";
+
   const isRouteCompleted = route.status === "completed";
 
   const showBottomBar =
@@ -415,6 +548,29 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
     currentStop &&
     currentStopLat !== null &&
     currentStopLng !== null;
+
+    const completionRate =
+  totalStops > 0
+    ? Math.round((completedStops.length / totalStops) * 100)
+    : 0;
+
+const performanceScore =
+  completionRate >= 98
+    ? "A+"
+    : completionRate >= 95
+      ? "A"
+      : completionRate >= 90
+        ? "B"
+        : "C";
+
+const performanceLabel =
+  performanceScore === "A+"
+    ? "Elite"
+    : performanceScore === "A"
+      ? "Excellent"
+      : performanceScore === "B"
+        ? "Good"
+        : "Needs Improvement";
 
   return (
     <section style={{ ...ui.page.section, paddingBottom: showBottomBar ? 112 : 0 }}>
@@ -494,6 +650,76 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
             <p style={intelligenceLabelStyle}>Stato operativo</p>
             <span style={intelligenceBadgeStyle}>{operationalStatus}</span>
           </article>
+
+          <article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>Tempo residuo stimato</p>
+  <h3 style={intelligenceValueStyle}>
+    {formatMinutes(estimatedRemainingMinutes)}
+  </h3>
+</article>
+
+<article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>ETA fine rotta</p>
+  <h3 style={intelligenceValueStyle}>{estimatedEndTime}</h3>
+</article>
+
+<article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>Ritmo reale</p>
+
+  <h3 style={intelligenceValueStyle}>
+    {realStopsPerHour !== null
+      ? `${realStopsPerHour}/h`
+      : "—"}
+  </h3>
+</article>
+
+<article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>ETA reale</p>
+
+  <h3 style={intelligenceValueStyle}>
+    {realEta
+      ? realEta.toLocaleTimeString("it-IT", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "—"}
+  </h3>
+</article>
+
+<article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>Pace Status</p>
+
+  <span
+    style={{
+      ...intelligenceBadgeStyle,
+      background:
+        paceStatus === "In anticipo"
+          ? "rgba(34,197,94,0.16)"
+          : paceStatus === "In ritardo"
+            ? "rgba(239,68,68,0.16)"
+            : "rgba(255,122,0,0.16)",
+      color:
+        paceStatus === "In anticipo"
+          ? "#bbf7d0"
+          : paceStatus === "In ritardo"
+            ? "#fecaca"
+            : "#fed7aa",
+    }}
+  >
+    {paceStatus}
+  </span>
+
+  <p
+    style={{
+      margin: "8px 0 0",
+      fontSize: 12,
+      fontWeight: 700,
+      color: "rgba(255,255,255,0.72)",
+    }}
+  >
+    {paceDelta !== null ? `${paceDelta >= 0 ? "+" : ""}${paceDelta}% vs target` : "Completa almeno uno stop"}
+  </p>
+</article>
         </div>
       </div>
 
@@ -503,13 +729,91 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
       {routeCompleted === "1" ? <div style={successStyle}>Rotta terminata correttamente.</div> : null}
 
       {isRouteCompleted ? (
-        <div style={currentStopCardStyle}>
-          <h2 style={ui.page.sectionTitle}>Rotta completata</h2>
-          <p style={lightMutedTextStyle}>
-            Hai gestito {doneCount} stop su {totalStops}.
-          </p>
-        </div>
-      ) : !currentStop || currentStopLat === null || currentStopLng === null ? (
+  <div style={cockpitHeroStyle}>
+    <p style={cockpitEyebrowStyle}>
+      Mission Completed
+    </p>
+
+    <h2 style={cockpitTitleStyle}>
+      Route Completed
+    </h2>
+
+    <p style={cockpitSubtitleStyle}>
+      Great job. All route operations have been completed.
+    </p>
+
+    <div style={intelligenceGridStyle}>
+      <article style={intelligenceCardStyle}>
+        <p style={intelligenceLabelStyle}>
+          Stop Totali
+        </p>
+
+        <h3 style={intelligenceValueStyle}>
+          {totalStops}
+        </h3>
+      </article>
+
+      <article style={intelligenceCardStyle}>
+        <p style={intelligenceLabelStyle}>
+          Completati
+        </p>
+
+        <h3 style={intelligenceValueStyle}>
+          {completedStops.length}
+        </h3>
+      </article>
+
+      <article style={intelligenceCardStyle}>
+        <p style={intelligenceLabelStyle}>
+          Saltati
+        </p>
+
+        <h3 style={intelligenceValueStyle}>
+          {skippedStops.length}
+        </h3>
+      </article>
+
+      <article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>
+    Score
+  </p>
+
+  <h3
+    style={{
+      ...intelligenceValueStyle,
+      color: "#ff7a00",
+    }}
+  >
+    {performanceScore}
+  </h3>
+
+  <p
+    style={{
+      margin: "6px 0 0",
+      fontSize: 12,
+      fontWeight: 700,
+      color: "rgba(255,255,255,0.75)",
+    }}
+  >
+    {performanceLabel}
+  </p>
+</article>
+    </div>
+
+    <div style={progressTrackStyle}>
+      <div
+        style={{
+          ...progressFillStyle,
+          width: "100%",
+        }}
+      />
+    </div>
+
+    <p style={mutedTextStyle}>
+  Completion Rate: {completionRate}%
+</p>
+  </div>
+) : !currentStop || currentStopLat === null || currentStopLng === null ? (
         <div style={currentStopCardStyle}>
           <h2 style={ui.page.sectionTitle}>Fine rotta</h2>
           <p style={lightMutedTextStyle}>
@@ -550,6 +854,18 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
               STOP #{currentStop.original_position}
             </span>
           </div>
+
+          {currentDuplicateStops.length > 1 ? (
+  <div style={stopBadgeRowStyle}>
+    <span style={originalStopBadgeStyle}>
+      {currentDuplicateStops.length} STOPS
+    </span>
+
+    <span style={optimizedStopBadgeStyle}>
+      Originali: {currentDuplicateOriginalStops}
+    </span>
+  </div>
+) : null}
 
           <div style={addressStyle}>📍 {currentStop.address}</div>
 
@@ -603,6 +919,32 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
           </div>
         </div>
       )}
+
+      {nextStops.length > 0 ? (
+  <div style={nextStopsCardStyle}>
+    <p style={statLabelStyle}>Prossimi Stop</p>
+
+    {nextStops.map((stop) => {
+  const duplicateStops = getDuplicateStopsForAddress(
+    executableStops,
+    stop.address,
+  );
+
+  return (
+    <div key={stop.id} style={nextStopRowStyle}>
+      <span style={nextStopNumberStyle}>
+        #{stop.position}
+      </span>
+
+      <span style={nextStopAddressStyle}>
+        {stop.address}
+        {duplicateStops.length > 1 ? ` (${duplicateStops.length}x)` : ""}
+      </span>
+    </div>
+  );
+})}
+  </div>
+) : null}
 
       {showBottomBar ? (
         <div style={bottomBarStyle}>

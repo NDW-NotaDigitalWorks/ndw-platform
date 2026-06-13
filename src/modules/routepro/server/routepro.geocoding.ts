@@ -8,6 +8,8 @@ type OrsFeature = {
   properties?: {
     confidence?: number;
     label?: string;
+    country?: string;
+    country_a?: string;
   };
 };
 
@@ -31,6 +33,30 @@ export type RouteProGeocodeResult =
       provider: "openrouteservice";
     };
 
+    type GeocodingCountryConfig = {
+  countryCode: string;
+  focusLat: string;
+  focusLng: string;
+  bounds: {
+    minLng: number;
+    minLat: number;
+    maxLng: number;
+    maxLat: number;
+  };
+};
+
+const DEFAULT_GEOCODING_COUNTRY: GeocodingCountryConfig = {
+  countryCode: "IT",
+  focusLat: "45.7",
+  focusLng: "9.2",
+  bounds: {
+    minLng: 6.0,
+    minLat: 35.0,
+    maxLng: 19.0,
+    maxLat: 47.5,
+  },
+};
+
 async function getMyOpenRouteServiceKey(): Promise<string | null> {
   const supabase = await createClient();
 
@@ -49,6 +75,37 @@ async function getMyOpenRouteServiceKey(): Promise<string | null> {
   return data?.encrypted_key ? decryptRouteProSecret(data.encrypted_key) : null;
 }
 
+function isInsideCountryBounds(
+  lat: number,
+  lng: number,
+  config: GeocodingCountryConfig,
+): boolean {
+  return (
+    lng >= config.bounds.minLng &&
+    lng <= config.bounds.maxLng &&
+    lat >= config.bounds.minLat &&
+    lat <= config.bounds.maxLat
+  );
+}
+
+function normalizeAddressForGeocoding(address: string): string {
+  return address
+    .replaceAll('"', "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isLikelyItalyResult(feature: OrsFeature): boolean {
+  const country = feature.properties?.country?.toLowerCase() ?? "";
+  const countryCode = feature.properties?.country_a?.toLowerCase() ?? "";
+
+  return (
+    country.includes("ital") ||
+    countryCode === "ita" ||
+    countryCode === "it"
+  );
+}
+
 export async function geocodeAddressWithOpenRouteService(
   address: string,
 ): Promise<RouteProGeocodeResult> {
@@ -63,10 +120,17 @@ export async function geocodeAddressWithOpenRouteService(
     };
   }
 
+  const cleanAddress = normalizeAddressForGeocoding(address);
+  const countryConfig = DEFAULT_GEOCODING_COUNTRY;
+
   const url = new URL("https://api.openrouteservice.org/geocode/search");
   url.searchParams.set("api_key", apiKey);
-  url.searchParams.set("text", address);
-  url.searchParams.set("size", "1");
+  url.searchParams.set("text", cleanAddress);
+  url.searchParams.set("size", "5");
+
+  url.searchParams.set("boundary.country", countryConfig.countryCode);
+  url.searchParams.set("focus.point.lat", countryConfig.focusLat);
+  url.searchParams.set("focus.point.lon", countryConfig.focusLng);
 
   try {
     const response = await fetch(url.toString(), {
@@ -87,27 +151,43 @@ export async function geocodeAddressWithOpenRouteService(
     }
 
     const json = (await response.json()) as OrsGeocodeResponse;
-    const first = json.features?.[0];
+    const features = json.features ?? [];
 
-    const coordinates = first?.geometry?.coordinates;
+    const validFeature = features.find((feature) => {
+      const coordinates = feature.geometry?.coordinates;
 
-    if (!coordinates) {
+      if (!coordinates) return false;
+
+      const [lng, lat] = coordinates;
+      const confidence = feature.properties?.confidence ?? 0;
+
+      return (
+        Number.isFinite(lat) &&
+        Number.isFinite(lng) &&
+        isInsideCountryBounds(lat, lng, countryConfig) &&
+        isLikelyItalyResult(feature) &&
+        confidence >= 0.6
+      );
+    });
+
+    if (!validFeature?.geometry?.coordinates) {
       return {
         ok: false,
         reason: "not_found",
-        message: "No geocoding result found.",
+        message:
+          "No reliable Italian geocoding result found. Please review the address.",
         provider: "openrouteservice",
       };
     }
 
-    const [lng, lat] = coordinates;
+    const [lng, lat] = validFeature.geometry.coordinates;
 
     return {
       ok: true,
       lat,
       lng,
-      label: first?.properties?.label ?? null,
-      confidence: first?.properties?.confidence ?? null,
+      label: validFeature.properties?.label ?? null,
+      confidence: validFeature.properties?.confidence ?? null,
       provider: "openrouteservice",
     };
   } catch (error) {

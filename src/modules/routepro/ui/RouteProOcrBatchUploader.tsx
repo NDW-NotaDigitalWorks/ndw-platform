@@ -150,17 +150,17 @@ function detectSuspiciousStops(stops: ParsedStop[]): SuspiciousStop[] {
     const address = stop.address.trim();
     const lower = address.toLowerCase();
 
-    if (address.length < 8) {
-      reasons.push("indirizzo molto corto");
-    }
+    if (address.length < 6) {
+  reasons.push("indirizzo molto corto");
+}
 
-    if (!/\d/.test(address)) {
-      reasons.push("manca numero civico");
-    }
+    if (!/\d/.test(address) && !lower.includes("snc")) {
+  reasons.push("manca numero civico");
+}
 
-    if (!stop.city) {
-      reasons.push("città non rilevata");
-    }
+    if (!stop.city && !/\d/.test(address)) {
+  reasons.push("città non rilevata");
+}
 
     if (
       address.includes("...") ||

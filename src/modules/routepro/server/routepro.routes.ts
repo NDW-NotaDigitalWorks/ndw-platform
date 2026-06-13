@@ -25,6 +25,9 @@ export type RouteProRouteSummary = {
   shift_end_time: string | null;
   break_minutes: number | null;
   route_profile: string | null;
+  started_at: string | null;
+  last_activity_at: string | null;
+  completed_at: string | null;
   status: RouteProRouteStatus;
   is_optimized: boolean;
   optimized_at: string | null;
@@ -52,6 +55,17 @@ export type RouteProRouteDetail = RouteProRouteSummary & {
   stops: RouteProStopSummary[];
 };
 
+function withSessionFallback<T extends Omit<RouteProRouteSummary, "started_at" | "last_activity_at" | "completed_at">>(
+  route: T,
+): T & Pick<RouteProRouteSummary, "started_at" | "last_activity_at" | "completed_at"> {
+  return {
+    ...route,
+    started_at: null,
+    last_activity_at: null,
+    completed_at: null,
+  };
+}
+
 export async function getMyRouteProRoutes(): Promise<RouteProRouteSummary[]> {
   const supabase = await createClient();
 
@@ -73,6 +87,9 @@ export async function getMyRouteProRoutes(): Promise<RouteProRouteSummary[]> {
       shift_end_time,
       break_minutes,
       route_profile,
+      started_at,
+      last_activity_at,
+      completed_at,
       status,
       is_optimized,
       optimized_at,
@@ -115,6 +132,9 @@ export async function getMyRouteProRouteDetail(
       shift_end_time,
       break_minutes,
       route_profile,
+      started_at,
+      last_activity_at,
+      completed_at,
       status,
       is_optimized,
       optimized_at,
@@ -127,13 +147,18 @@ export async function getMyRouteProRouteDetail(
     .maybeSingle();
 
   if (routeError) {
-    console.error("RoutePro route detail fetch error:", routeError.message);
-    return null;
-  }
+  console.error(
+    "RoutePro route detail fetch error:",
+    JSON.stringify(routeError, null, 2),
+  );
+  return null;
+}
 
   if (!route) {
     return null;
   }
+
+  const routeWithSessionFallback = withSessionFallback(route);
 
   const { data: stops, error: stopsError } = await supabase
     .from("routepro_stops")
@@ -159,13 +184,81 @@ export async function getMyRouteProRouteDetail(
   if (stopsError) {
     console.error("RoutePro stops fetch error:", stopsError.message);
     return {
-      ...route,
+      ...routeWithSessionFallback,
       stops: [],
     };
   }
 
   return {
-    ...route,
+    ...routeWithSessionFallback,
     stops: stops ?? [],
+  };
+}
+
+export async function getRouteProHistoryStats() {
+  const supabase = await createClient();
+
+  const { data: routes } = await supabase
+    .from("routepro_routes")
+    .select(`
+      id,
+      status,
+      started_at,
+      completed_at
+    `);
+
+  const { data: stops } = await supabase
+    .from("routepro_stops")
+    .select(`
+      route_id,
+      status
+    `);
+
+  const completedRoutes =
+    routes?.filter((route) => route.status === "completed") ?? [];
+
+  const totalStops = stops?.length ?? 0;
+
+  const stopsPerRoute = new Map<string, number>();
+
+  (stops ?? []).forEach((stop) => {
+    stopsPerRoute.set(
+      stop.route_id,
+      (stopsPerRoute.get(stop.route_id) ?? 0) + 1,
+    );
+  });
+
+  const bestDay = completedRoutes.reduce(
+    (best, route) => {
+      const count = stopsPerRoute.get(route.id) ?? 0;
+
+      if (count > best.stopCount) {
+        return {
+          routeName: route.id,
+          stopCount: count,
+        };
+      }
+
+      return best;
+    },
+    {
+      routeName: "",
+      stopCount: 0,
+    },
+  );
+
+  const avgStopsPerRoute =
+    completedRoutes.length > 0
+      ? Math.round(
+          totalStops /
+            Math.max(1, completedRoutes.length),
+        )
+      : 0;
+
+  return {
+    routesCompleted: completedRoutes.length,
+    stopsManaged: totalStops,
+    avgStopsPerRoute,
+    bestDayStops: bestDay.stopCount,
   };
 }

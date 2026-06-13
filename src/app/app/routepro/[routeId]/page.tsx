@@ -102,6 +102,56 @@ const kpiHintStyle: React.CSSProperties = {
   color: "rgba(255,255,255,0.78)",
 };
 
+const analyticsPanelStyle: React.CSSProperties = {
+  ...ui.card.base,
+  marginTop: 24,
+  marginBottom: 24,
+  padding: 24,
+  border: "1px solid rgba(147,197,253,0.28)",
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,64,175,0.88) 100%)",
+  boxShadow: "0 16px 34px rgba(15,23,42,0.18)",
+};
+
+const analyticsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: 12,
+  marginTop: 18,
+};
+
+const analyticsCardStyle: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.14)",
+};
+
+const analyticsLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 11,
+  fontWeight: 950,
+  letterSpacing: "0.09em",
+  textTransform: "uppercase",
+  color: "#bfdbfe",
+};
+
+const analyticsValueStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 26,
+  lineHeight: 1,
+  fontWeight: 950,
+  color: "#ffffff",
+};
+
+const analyticsHintStyle: React.CSSProperties = {
+  margin: "7px 0 0",
+  fontSize: 12,
+  lineHeight: 1.35,
+  fontWeight: 700,
+  color: "rgba(255,255,255,0.68)",
+};
+
 const heroCardStyle: React.CSSProperties = {
   ...ui.card.base,
   marginTop: 20,
@@ -437,6 +487,94 @@ const stopActionsStyle: React.CSSProperties = {
   marginTop: 12,
 };
 
+const reviewSummaryStyle: React.CSSProperties = {
+  ...ui.card.base,
+  marginTop: 28,
+  padding: 24,
+  border: "1px solid rgba(147,197,253,0.28)",
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,64,175,0.9) 100%)",
+  boxShadow: "0 18px 42px rgba(15,23,42,0.18)",
+};
+
+const reviewGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: 12,
+  marginTop: 16,
+};
+
+const reviewMiniCardStyle: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.14)",
+};
+
+const reviewMiniLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 11,
+  fontWeight: 950,
+  letterSpacing: "0.09em",
+  textTransform: "uppercase",
+  color: "#bfdbfe",
+};
+
+const reviewMiniValueStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 28,
+  lineHeight: 1,
+  fontWeight: 950,
+  color: "#ffffff",
+};
+
+const problemStopCardStyle: React.CSSProperties = {
+  ...ui.card.base,
+  padding: 18,
+  border: "1px solid rgba(249,115,22,0.55)",
+  background:
+    "linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,247,237,1) 100%)",
+  boxShadow: "0 14px 34px rgba(249,115,22,0.14)",
+};
+
+const compactStopRowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "90px 1fr auto",
+  gap: 12,
+  alignItems: "center",
+  padding: "10px 14px",
+  borderRadius: 14,
+  background: "rgba(255,255,255,0.96)",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 6px 18px rgba(15,23,42,0.05)",
+};
+
+const compactStopNumberStyle: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 950,
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  color: "#f97316",
+};
+
+const compactStopAddressStyle: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 850,
+  color: "#0f172a",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const okCollapseStyle: React.CSSProperties = {
+  ...ui.card.base,
+  marginTop: 18,
+  padding: 18,
+  border: "1px solid #1e40af",
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,64,175,0.88) 100%)",
+};
+
 const badgeStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
@@ -564,6 +702,19 @@ function getStatusBadgeStyle(status: string): React.CSSProperties {
   return badgeStyle;
 }
 
+function formatDuration(minutes: number | null): string {
+  if (!minutes) return "—";
+
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  if (hours === 0) {
+    return `${mins} min`;
+  }
+
+  return `${hours}h ${mins}m`;
+}
+
 export default async function RouteProRoutePage({ params, searchParams }: Props) {
   const { routeId } = await params;
   const resolvedSearchParams = await searchParams;
@@ -582,25 +733,67 @@ export default async function RouteProRoutePage({ params, searchParams }: Props)
     notFound();
   }
 
+  const completedStops = route.stops.filter(
+    (stop) => stop.status === "completed",
+  );
+
+  const skippedStops = route.stops.filter(
+    (stop) => stop.status === "skipped",
+  );
+
+  const durationMinutes =
+    route.started_at && route.completed_at
+      ? Math.max(
+          1,
+          Math.round(
+            (new Date(route.completed_at).getTime() -
+              new Date(route.started_at).getTime()) /
+              60000,
+          ),
+        )
+      : null;
+
+  const averageStopsPerHour =
+    durationMinutes && durationMinutes > 0
+      ? Number(
+          (
+            ((completedStops.length + skippedStops.length) /
+              durationMinutes) *
+            60
+          ).toFixed(1),
+        )
+      : null;
+
   const totalStops = route.stops.length;
   const validStops = route.stops.filter((stop) => stop.status === "valid").length;
   const rawStops = route.stops.filter((stop) => stop.status === "raw").length;
   const needsReviewCount = route.stops.filter(
     (stop) => stop.status === "needs_review",
   ).length;
+  const problemStops = route.stops.filter(
+  (stop) => stop.status === "needs_review" || stop.status === "raw",
+);
+
+const readyStops = route.stops.filter(
+  (stop) =>
+    stop.status !== "needs_review" &&
+    stop.status !== "raw",
+);
+
+const readyStopsCount = readyStops.length;
 
   const availableShiftMinutes = getAvailableShiftMinutes(
-  route.shift_start_time,
-  route.shift_end_time,
-  route.break_minutes,
-);
+    route.shift_start_time,
+    route.shift_end_time,
+    route.break_minutes,
+  );
 
-const requiredStopsPerHour = getRequiredStopsPerHour(
-  validStops,
-  availableShiftMinutes,
-);
+  const requiredStopsPerHour = getRequiredStopsPerHour(
+    validStops,
+    availableShiftMinutes,
+  );
 
-const minutesPerStop = getMinutesPerStop(requiredStopsPerHour);
+  const minutesPerStop = getMinutesPerStop(requiredStopsPerHour);
 
   return (
     <section style={ui.page.section}>
@@ -817,6 +1010,38 @@ const minutesPerStop = getMinutesPerStop(requiredStopsPerHour);
         </article>
       </div>
 
+      <section style={analyticsPanelStyle}>
+        <p style={premiumPanelTitleStyle}>Route Analytics</p>
+
+        <div style={analyticsGridStyle}>
+          <article style={analyticsCardStyle}>
+            <p style={analyticsLabelStyle}>Durata reale</p>
+            <p style={analyticsValueStyle}>{formatDuration(durationMinutes)}</p>
+            <p style={analyticsHintStyle}>Calcolata da start a completamento rotta.</p>
+          </article>
+
+          <article style={analyticsCardStyle}>
+            <p style={analyticsLabelStyle}>Completati</p>
+            <p style={analyticsValueStyle}>{completedStops.length}</p>
+            <p style={analyticsHintStyle}>Stop chiusi come completati.</p>
+          </article>
+
+          <article style={analyticsCardStyle}>
+            <p style={analyticsLabelStyle}>Saltati</p>
+            <p style={analyticsValueStyle}>{skippedStops.length}</p>
+            <p style={analyticsHintStyle}>Stop marcati come skip.</p>
+          </article>
+
+          <article style={analyticsCardStyle}>
+            <p style={analyticsLabelStyle}>Velocità media</p>
+            <p style={analyticsValueStyle}>
+              {averageStopsPerHour !== null ? `${averageStopsPerHour}/h` : "—"}
+            </p>
+            <p style={analyticsHintStyle}>Stop gestiti per ora reale.</p>
+          </article>
+        </div>
+      </section>
+
       <RouteProOcrBatchUploader routeId={route.id} />
 
       <section style={premiumPanelStyle}>
@@ -978,92 +1203,165 @@ Via Torino 5, Milano`}
       </section>
 
       <div style={{ marginTop: 28 }}>
-        <h2 style={sectionTitleStyle}>Stop Importati</h2>
+  <h2 style={sectionTitleStyle}>Driver Review</h2>
 
-        {route.stops.length === 0 ? (
-          <div style={{ ...ui.card.base, marginTop: 18 }}>
-            <p style={mutedTextStyle}>
-              Nessuno stop inserito. Carica screenshot, lista o CSV per iniziare.
-            </p>
-          </div>
-        ) : (
-          <div style={stopListStyle}>
-            {route.stops.map((stop) => (
-              <article key={stop.id} style={stopRowStyle}>
-                <div style={stopCardHeaderStyle}>
-                  <div style={stopNumberGroupStyle}>
-                    <span style={amazonStopBadgeStyle}>
-                      STOP #{stop.original_position}
-                      <span style={stopBadgeLabelStyle}>Originale</span>
-                    </span>
+  <section style={reviewSummaryStyle}>
+    <p style={premiumPanelTitleStyle}>Stop Quality Control</p>
 
-                    <span style={optimizedStopBadgeStyle}>
-                      OPT #{stop.position}
-                      <span style={stopBadgeLabelStyle}>Ottimizzato</span>
-                    </span>
+    <div style={reviewGridStyle}>
+      <article style={reviewMiniCardStyle}>
+        <p style={reviewMiniLabelStyle}>Totali</p>
+        <p style={reviewMiniValueStyle}>{totalStops}</p>
+      </article>
+
+      <article style={reviewMiniCardStyle}>
+        <p style={reviewMiniLabelStyle}>Pronti</p>
+        <p style={reviewMiniValueStyle}>{readyStopsCount}</p>
+      </article>
+
+      <article style={reviewMiniCardStyle}>
+        <p style={reviewMiniLabelStyle}>Da geocodificare</p>
+        <p style={reviewMiniValueStyle}>{rawStops}</p>
+      </article>
+
+      <article style={reviewMiniCardStyle}>
+        <p style={reviewMiniLabelStyle}>Da correggere</p>
+        <p style={reviewMiniValueStyle}>{needsReviewCount}</p>
+      </article>
+    </div>
+
+    <p style={{ ...kpiHintStyle, marginTop: 16 }}>
+      {problemStops.length > 0
+        ? `${problemStops.length} stop richiedono attenzione prima di ottimizzare.`
+        : "Tutti gli stop sono pronti per ottimizzazione e guida."}
+    </p>
+  </section>
+
+  {route.stops.length === 0 ? (
+    <div style={{ ...ui.card.base, marginTop: 18 }}>
+      <p style={mutedTextStyle}>
+        Nessuno stop inserito. Carica screenshot, lista o CSV per iniziare.
+      </p>
+    </div>
+  ) : (
+    <>
+      {problemStops.length > 0 ? (
+        <div style={stopListStyle}>
+          {problemStops.map((stop) => (
+            <article key={stop.id} style={problemStopCardStyle}>
+              <div style={stopCardHeaderStyle}>
+                <div style={stopNumberGroupStyle}>
+                  <span style={amazonStopBadgeStyle}>
+                    STOP #{stop.original_position}
+                    <span style={stopBadgeLabelStyle}>Originale</span>
+                  </span>
+
+                  <span style={optimizedStopBadgeStyle}>
+                    OPT #{stop.position}
+                    <span style={stopBadgeLabelStyle}>Ottimizzato</span>
+                  </span>
+                </div>
+
+                <span style={getStatusBadgeStyle(stop.status)}>
+                  {stop.status}
+                </span>
+              </div>
+
+              <div style={stopAddressStyle}>{stop.address}</div>
+
+              <div style={stopMetaGridStyle}>
+                <div style={stopMetaItemStyle}>Fonte: {stop.source}</div>
+
+                {stop.lat && stop.lng ? (
+                  <div style={stopMetaItemStyle}>
+                    Coordinate: {stop.lat}, {stop.lng}
                   </div>
+                ) : (
+                  <div style={stopMetaItemStyle}>
+                    Coordinate: non disponibili
+                  </div>
+                )}
+              </div>
 
-                  <span style={getStatusBadgeStyle(stop.status)}>
-  {stop.status}
-</span>
-                </div>
+              <div style={stopEditPanelStyle}>
+                <form action={updateRouteProStopAddress} style={formStyle}>
+                  <input type="hidden" name="route_id" value={route.id} />
+                  <input type="hidden" name="stop_id" value={stop.id} />
 
-                <div style={stopAddressStyle}>{stop.address}</div>
-
-                <div style={stopMetaGridStyle}>
-                  <div style={stopMetaItemStyle}>Fonte: {stop.source}</div>
-
-                  {stop.lat && stop.lng ? (
-                    <div style={stopMetaItemStyle}>
-                      Coordinate: {stop.lat}, {stop.lng}
-                    </div>
-                  ) : (
-                    <div style={stopMetaItemStyle}>
-                      Coordinate: non disponibili
-                    </div>
-                  )}
-                </div>
-
-                <div style={stopEditPanelStyle}>
-                  <form action={updateRouteProStopAddress} style={formStyle}>
-                    <input type="hidden" name="route_id" value={route.id} />
-                    <input type="hidden" name="stop_id" value={stop.id} />
-
-                    <label style={ui.form.label}>
-                      Modifica indirizzo
-                      <input
-                        name="address"
-                        type="text"
-                        defaultValue={stop.address}
-                        style={ui.form.input}
-                      />
-                    </label>
-
-                    <div style={stopActionsStyle}>
-                      <RouteProSubmitButton
-                        idleLabel="Aggiorna"
-                        pendingLabel="Aggiornamento..."
-                        variant="secondary"
-                      />
-                    </div>
-                  </form>
-
-                  <form action={deleteRouteProStop} style={{ marginTop: 12 }}>
-                    <input type="hidden" name="route_id" value={route.id} />
-                    <input type="hidden" name="stop_id" value={stop.id} />
-
-                    <RouteProSubmitButton
-                      idleLabel="Elimina"
-                      pendingLabel="Eliminazione..."
-                      variant="danger"
+                  <label style={ui.form.label}>
+                    Correggi indirizzo
+                    <input
+                      name="address"
+                      type="text"
+                      defaultValue={stop.address}
+                      style={ui.form.input}
                     />
-                  </form>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
+                  </label>
+
+                  <div style={stopActionsStyle}>
+                    <RouteProSubmitButton
+                      idleLabel="Aggiorna"
+                      pendingLabel="Aggiornamento..."
+                      variant="secondary"
+                    />
+                  </div>
+                </form>
+
+                <form action={deleteRouteProStop} style={{ marginTop: 12 }}>
+                  <input type="hidden" name="route_id" value={route.id} />
+                  <input type="hidden" name="stop_id" value={stop.id} />
+
+                  <RouteProSubmitButton
+                    idleLabel="Elimina"
+                    pendingLabel="Eliminazione..."
+                    variant="danger"
+                  />
+                </form>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div style={successStyle}>
+          Tutti gli stop sono pronti. Puoi geocodificare, ottimizzare o partire.
+        </div>
+      )}
+
+      <details style={okCollapseStyle}>
+        <summary
+          style={{
+            cursor: "pointer",
+            color: "#ffffff",
+            fontSize: 16,
+            fontWeight: 950,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+          }}
+        >
+          Stop pronti / completati ({readyStops.length})
+        </summary>
+
+        <div style={{ display: "grid", gap: 8, marginTop: 16 }}>
+          {readyStops.map((stop) => (
+            <div key={stop.id} style={compactStopRowStyle}>
+              <span style={compactStopNumberStyle}>
+                #{stop.original_position} → #{stop.position}
+              </span>
+
+              <span style={compactStopAddressStyle}>
+                {stop.address}
+              </span>
+
+              <span style={getStatusBadgeStyle(stop.status)}>
+                {stop.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      </details>
+    </>
+  )}
+</div>
 
       <div style={dangerZoneStyle}>
         <h2 style={{ ...ui.page.sectionTitle, color: "#ffffff" }}>Zona pericolosa</h2>

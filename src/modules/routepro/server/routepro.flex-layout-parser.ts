@@ -203,6 +203,11 @@ function looksLikeAddress(text: string): boolean {
 
 function cleanAddressText(text: string): string {
   return normalizeText(text)
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replaceAll('"', "")
+    .replace(/\bN\s*[°º.]\s*/gi, "")
+    .replace(/\bNum\.?\s*/gi, "")
     .replace(/\s+,/g, ",")
     .replace(/,\s+/g, ", ")
     .replace(/\s+\/\s+/g, "/")
@@ -260,19 +265,21 @@ export function parseAmazonFlexStopsFromVisionLayout(
       continue;
     }
 
-    if (!looksLikeAddress(stopLine.addressPart)) {
-      continue;
-    }
+    const confidence = getAddressConfidenceScore(stopLine.addressPart);
 
-    const city = findCityBelow(lines, line);
-    const address = cleanAddressText(stopLine.addressPart);
+if (confidence < 35) {
+  continue;
+}
 
-    stops.push({
-      originalPosition: stopLine.stopNumber,
-      address,
-      city,
-      rawLine: line.text,
-    });
+const city = findCityBelow(lines, line);
+const address = cleanAddressText(stopLine.addressPart);
+
+stops.push({
+  originalPosition: stopLine.stopNumber,
+  address,
+  city,
+  rawLine: line.text,
+});
   }
 
   const unique = new Map<number, RouteProLayoutParsedStop>();

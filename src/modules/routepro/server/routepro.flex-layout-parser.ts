@@ -51,6 +51,14 @@ const NEGATIVE_WORDS = [
   "corrente",
   "scansiona",
   "ritira",
+  "ritiro",
+  "pickup",
+  "pick-up",
+  "carico",
+  "carica",
+  "deposito",
+  "partenza",
+  "arrivo",
   "codice",
 ];
 
@@ -109,11 +117,18 @@ function buildLinesFromWords(words: RouteProOcrWord[]): OcrLine[] {
     .sort((a, b) => a.yCenter - b.yCenter);
 }
 
+function cleanOcrStopPrefix(text: string): string {
+  return normalizeText(text)
+    .replace(/[\u2460-\u24ff]/g, "")
+    .replace(/^[^\d]{0,8}(\d{1,3})\s+/u, "$1 ")
+    .trim();
+}
+
 function extractStopLine(text: string): {
   stopNumber: number;
   addressPart: string;
 } | null {
-  const cleaned = normalizeText(text);
+  const cleaned = cleanOcrStopPrefix(text);
   const match = cleaned.match(/^(\d{1,3})\s+(.+)$/);
 
   if (!match?.[1] || !match?.[2]) {
@@ -170,6 +185,21 @@ function hasAlphaCharacters(text: string): boolean {
   return /[a-zA-ZÀ-ÿ]/.test(text);
 }
 
+function isPickupOrOperationalLine(text: string): boolean {
+  const cleaned = normalizeText(text).toLowerCase();
+
+  return (
+    /\britira\b/.test(cleaned) ||
+    /\britiro\b/.test(cleaned) ||
+    /\bpick[\s-]?up\b/.test(cleaned) ||
+    /\bcaric[ao]\b/.test(cleaned) ||
+    /\bdeposito\b/.test(cleaned) ||
+    /\bpartenza\b/.test(cleaned) ||
+    /\barrivo\b/.test(cleaned) ||
+    /\b\d{1,2}:\d{2}\b/.test(cleaned)
+  );
+}
+
 function getAddressConfidenceScore(text: string): number {
   const cleaned = normalizeText(text);
 
@@ -190,6 +220,7 @@ function getAddressConfidenceScore(text: string): number {
   if (/[,-]/.test(cleaned)) score += 5;
 
   if (hasNegativeWords(cleaned)) score -= 45;
+  if (isPickupOrOperationalLine(cleaned)) score -= 90;
   if (/^\d{1,3}$/.test(cleaned)) score -= 50;
   if (/^\d{1,2}:\d{2}/.test(cleaned)) score -= 50;
   if (/^n\./i.test(cleaned)) score -= 30;
@@ -203,9 +234,14 @@ function looksLikeAddress(text: string): boolean {
 
 function cleanAddressText(text: string): string {
   return normalizeText(text)
+    .replace(/[\u2460-\u24ff]/g, "")
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replaceAll('"', "")
+    .replace(/\britira\b.*?,/gi, "")
+    .replace(/\britiro\b.*?,/gi, "")
+    .replace(/\bpick[\s-]?up\b.*?,/gi, "")
+    .replace(/\b\d{1,2}:\d{2}\b/g, "")
     .replace(/\bN\s*[°º.]\s*/gi, "")
     .replace(/\bNum\.?\s*/gi, "")
     .replace(/\s+,/g, ",")
@@ -265,21 +301,29 @@ export function parseAmazonFlexStopsFromVisionLayout(
       continue;
     }
 
+    if (isPickupOrOperationalLine(stopLine.addressPart)) {
+      continue;
+    }
+
     const confidence = getAddressConfidenceScore(stopLine.addressPart);
 
-if (confidence < 35) {
-  continue;
-}
+    if (confidence < 35) {
+      continue;
+    }
 
-const city = findCityBelow(lines, line);
-const address = cleanAddressText(stopLine.addressPart);
+    const city = findCityBelow(lines, line);
+    const address = cleanAddressText(stopLine.addressPart);
 
-stops.push({
-  originalPosition: stopLine.stopNumber,
-  address,
-  city,
-  rawLine: line.text,
-});
+    if (address.length < 4 || isPickupOrOperationalLine(address)) {
+      continue;
+    }
+
+    stops.push({
+      originalPosition: stopLine.stopNumber,
+      address,
+      city,
+      rawLine: line.text,
+    });
   }
 
   const unique = new Map<number, RouteProLayoutParsedStop>();

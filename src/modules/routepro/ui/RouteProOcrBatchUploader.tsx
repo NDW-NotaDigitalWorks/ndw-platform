@@ -186,12 +186,34 @@ function detectSuspiciousStops(stops: ParsedStop[]): SuspiciousStop[] {
   return suspicious;
 }
 
+function updateEditableStopAddress(
+  stops: ParsedStop[],
+  originalPosition: number,
+  address: string,
+): ParsedStop[] {
+  return stops.map((stop) =>
+    stop.originalPosition === originalPosition
+      ? { ...stop, address }
+      : stop,
+  );
+}
+
+function formatEditableStopsForImport(stops: ParsedStop[]): string {
+  return getUniqueOrderedStops(stops)
+    .map((stop) => {
+      const cityPart = stop.city ? `, ${stop.city}` : "";
+      return `${stop.originalPosition} | ${stop.address}${cityPart}`;
+    })
+    .join("\n");
+}
+
 export function RouteProOcrBatchUploader({ routeId }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentBatch, setCurrentBatch] = useState(0);
   const [previewText, setPreviewText] = useState("");
   const [parsedStops, setParsedStops] = useState<ParsedStop[]>([]);
+  const [editableStops, setEditableStops] = useState<ParsedStop[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [importReport, setImportReport] =
   useState<ImportReport | null>(null);
@@ -211,6 +233,32 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
     [parsedStops],
   );
 
+  const suspiciousStopNumbers = useMemo(
+  () => new Set(suspiciousStops.map((stop) => stop.originalPosition)),
+  [suspiciousStops],
+);
+
+const problemEditableStops = useMemo(
+  () =>
+    editableStops.filter((stop) =>
+      suspiciousStopNumbers.has(stop.originalPosition),
+    ),
+  [editableStops, suspiciousStopNumbers],
+);
+
+const readyEditableStops = useMemo(
+  () =>
+    editableStops.filter(
+      (stop) => !suspiciousStopNumbers.has(stop.originalPosition),
+    ),
+  [editableStops, suspiciousStopNumbers],
+);
+
+const importText = useMemo(
+  () => formatEditableStopsForImport(editableStops),
+  [editableStops],
+);
+
   async function handleProcessScreenshots() {
     if (files.length === 0) {
       setErrorMessage("Seleziona almeno uno screenshot.");
@@ -221,6 +269,7 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
     setErrorMessage(null);
     setPreviewText("");
     setParsedStops([]);
+    setEditableStops([]);
     setImportReport(null);
     setCurrentBatch(0);
 
@@ -262,6 +311,7 @@ export function RouteProOcrBatchUploader({ routeId }: Props) {
       const formattedStops = formatStopsForTextarea(allStops);
 
       setParsedStops(getUniqueOrderedStops(allStops));
+      setEditableStops(getUniqueOrderedStops(allStops));
 
       setImportReport(latestImportReport);
 
@@ -463,78 +513,180 @@ verification and optimization.
 ) : null}
 
       {previewText ? (
-        <div style={{ ...ui.card.base, marginTop: 18 }}>
-          <h3 style={{ marginTop: 0 }}>Preview OCR pulita</h3>
+  <div style={{ ...ui.card.base, marginTop: 18 }}>
+    <h3 style={{ marginTop: 0 }}>OCR Control Room</h3>
 
-          {missingStopNumbers.length > 0 ? (
-            <div style={warningStyle}>
-              Numeri stop mancanti nella sequenza:{" "}
-              {missingStopNumbers.join(", ")}
-            </div>
-          ) : null}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+        gap: 12,
+        marginTop: 14,
+      }}
+    >
+      <div style={warningStyle}>
+        <strong>Stop letti</strong>
+        <div style={{ fontSize: 28, marginTop: 6 }}>{editableStops.length}</div>
+      </div>
 
-          {suspiciousStops.length > 0 ? (
-            <div style={warningStyle}>
-              <p style={{ margin: 0 }}>
-                Indirizzi da controllare: {suspiciousStops.length}
-              </p>
-
-              <ul style={{ margin: "10px 0 0", paddingLeft: 18 }}>
-                {suspiciousStops.slice(0, 12).map((stop) => (
-                  <li key={stop.originalPosition}>
-                    Stop {stop.originalPosition}: {stop.address} —{" "}
-                    {stop.reasons.join(", ")}
-                  </li>
-                ))}
-              </ul>
-
-              {suspiciousStops.length > 12 ? (
-                <p style={{ margin: "10px 0 0" }}>
-                  + altri {suspiciousStops.length - 12} indirizzi da controllare
-                  nella textarea.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <p style={mutedTextStyle}>
-            Controlla le righe segnalate, correggi eventuali errori nella textarea
-            e poi conferma l’import.
-          </p>
-
-          <form action={addScreenshotOcrRouteProStops} style={formStyle}>
-            <input type="hidden" name="route_id" value={routeId} />
-
-            <label style={ui.form.label}>
-              Stop da importare
-              <textarea
-                name="ocr_addresses"
-                rows={12}
-                defaultValue={previewText}
-                style={{
-                  ...ui.form.input,
-                  resize: "vertical",
-fontFamily:
-  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-minHeight: 260,
-lineHeight: 1.6,
-                }}
-              />
-            </label>
-
-            <button
-  type="submit"
-  style={{
-    ...routeProUi.primaryButton,
-    minHeight: 48,
-    width: "fit-content",
-  }}
->
-  Importa stop da screenshot
-</button>
-          </form>
+      <div style={warningStyle}>
+        <strong>Da controllare</strong>
+        <div style={{ fontSize: 28, marginTop: 6 }}>
+          {problemEditableStops.length}
         </div>
-      ) : null}
+      </div>
+
+      <div style={warningStyle}>
+        <strong>Pronti</strong>
+        <div style={{ fontSize: 28, marginTop: 6 }}>
+          {readyEditableStops.length}
+        </div>
+      </div>
+
+      <div style={warningStyle}>
+        <strong>Mancanti</strong>
+        <div style={{ fontSize: 28, marginTop: 6 }}>
+          {missingStopNumbers.length}
+        </div>
+      </div>
+    </div>
+
+    {missingStopNumbers.length > 0 ? (
+      <div style={warningStyle}>
+        Numeri stop mancanti nella sequenza: {missingStopNumbers.join(", ")}
+      </div>
+    ) : null}
+
+    {problemEditableStops.length > 0 ? (
+      <div style={{ marginTop: 18 }}>
+        <h4 style={{ margin: "0 0 12px", color: "#0f172a" }}>
+          Correggi solo questi stop
+        </h4>
+
+        <div style={{ display: "grid", gap: 12 }}>
+          {problemEditableStops.map((stop) => {
+            const warning = suspiciousStops.find(
+              (item) => item.originalPosition === stop.originalPosition,
+            );
+
+            return (
+              <div
+                key={stop.originalPosition}
+                style={{
+                  padding: 14,
+                  borderRadius: 18,
+                  border: "1px solid rgba(245,158,11,0.35)",
+                  background: "#fff7ed",
+                }}
+              >
+                <strong style={{ color: "#9a3412" }}>
+                  STOP #{stop.originalPosition}
+                </strong>
+
+                {warning ? (
+                  <p
+                    style={{
+                      margin: "6px 0 10px",
+                      fontSize: 13,
+                      color: "#92400e",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {warning.reasons.join(", ")}
+                  </p>
+                ) : null}
+
+                <input
+                  value={stop.address}
+                  onChange={(event) =>
+                    setEditableStops((current) =>
+                      updateEditableStopAddress(
+                        current,
+                        stop.originalPosition,
+                        event.target.value,
+                      ),
+                    )
+                  }
+                  style={{
+                    ...ui.form.input,
+                    width: "100%",
+                    background: "#ffffff",
+                    color: "#0f172a",
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    ) : (
+      <div style={{ ...warningStyle, background: "rgba(34,197,94,0.12)" }}>
+        Tutti gli stop letti sembrano pronti. Puoi importare.
+      </div>
+    )}
+
+    <details style={{ marginTop: 18 }}>
+      <summary
+        style={{
+          cursor: "pointer",
+          fontWeight: 900,
+          color: "#0f172a",
+        }}
+      >
+        Stop pronti compressi ({readyEditableStops.length})
+      </summary>
+
+      <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+        {readyEditableStops.slice(0, 40).map((stop) => (
+          <div
+            key={stop.originalPosition}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "80px 1fr",
+              gap: 10,
+              padding: "9px 12px",
+              borderRadius: 12,
+              background: "#f8fafc",
+              border: "1px solid #e2e8f0",
+              color: "#0f172a",
+              fontWeight: 800,
+            }}
+          >
+            <span>#{stop.originalPosition}</span>
+            <span>{stop.address}</span>
+          </div>
+        ))}
+
+        {readyEditableStops.length > 40 ? (
+          <p style={mutedTextStyle}>
+            + altri {readyEditableStops.length - 40} stop pronti nascosti.
+          </p>
+        ) : null}
+      </div>
+    </details>
+
+    <form action={addScreenshotOcrRouteProStops} style={formStyle}>
+      <input type="hidden" name="route_id" value={routeId} />
+      <input type="hidden" name="ocr_addresses" value={importText} />
+
+      <button
+        type="submit"
+        style={{
+          ...routeProUi.primaryButton,
+          minHeight: 52,
+          width: "100%",
+          background: "#ff7a00",
+          borderColor: "#ff7a00",
+          color: "#ffffff",
+        }}
+      >
+        Importa rotta corretta
+      </button>
+    </form>
+  </div>
+) : null}
+
+          
     </div>
   );
 }

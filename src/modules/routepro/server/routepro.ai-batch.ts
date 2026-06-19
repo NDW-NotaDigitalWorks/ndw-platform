@@ -2,12 +2,15 @@ import { extractRouteProStopsWithOpenAiVision } from "@/modules/routepro/server/
 import type { RouteProAiExtractedStop } from "@/modules/routepro/types/routepro.ai-import.types";
 
 export const ROUTEPRO_AI_SCREENSHOTS_PER_BATCH = 5;
+export const ROUTEPRO_AI_BATCH_CONCURRENCY = 3;
+export const ROUTEPRO_AI_BATCH_MAX_RETRIES = 2;
 
 export type RouteProAiBatchResult = {
   batchIndex: number;
   batchTotal: number;
   fileNames: string[];
   stops: RouteProAiExtractedStop[];
+  error: string | null;
 };
 
 function chunkFiles(files: File[], size: number): File[][] {
@@ -27,6 +30,41 @@ function scoreStop(stop: RouteProAiExtractedStop): number {
   if (stop.isPlaceholder) return 1;
 
   return 0;
+}
+
+async function analyzeBatchWithRetry(
+  batchFiles: File[],
+  batchIndex: number,
+  batchTotal: number,
+): Promise<RouteProAiBatchResult> {
+  let lastError: string | null = null;
+
+  for (let attempt = 1; attempt <= ROUTEPRO_AI_BATCH_MAX_RETRIES + 1; attempt += 1) {
+    try {
+      const stops = await extractRouteProStopsWithOpenAiVision(batchFiles);
+
+      return {
+        batchIndex,
+        batchTotal,
+        fileNames: batchFiles.map((file) => file.name),
+        stops,
+        error: null,
+      };
+    } catch (error) {
+      lastError =
+        error instanceof Error
+          ? error.message
+          : `Errore batch ${batchIndex}, tentativo ${attempt}`;
+    }
+  }
+
+  return {
+    batchIndex,
+    batchTotal,
+    fileNames: batchFiles.map((file) => file.name),
+    stops: [],
+    error: lastError,
+  };
 }
 
 export function mergeRouteProAiBatchStops(
@@ -63,21 +101,28 @@ export async function extractRouteProStopsWithOpenAiVisionBatches(
   const batches = chunkFiles(files, ROUTEPRO_AI_SCREENSHOTS_PER_BATCH);
   const batchResults: RouteProAiBatchResult[] = [];
 
-  for (let index = 0; index < batches.length; index += 1) {
-    const batchFiles = batches[index];
+  for (let index = 0; index < batches.length; index += ROUTEPRO_AI_BATCH_CONCURRENCY) {
+    const batchGroup = batches.slice(index, index + ROUTEPRO_AI_BATCH_CONCURRENCY);
 
-    const stops = await extractRouteProStopsWithOpenAiVision(batchFiles);
+    const groupResults = await Promise.all(
+      batchGroup.map((batchFiles, groupIndex) =>
+        analyzeBatchWithRetry(
+          batchFiles,
+          index + groupIndex + 1,
+          batches.length,
+        ),
+      ),
+    );
 
-    batchResults.push({
-      batchIndex: index + 1,
-      batchTotal: batches.length,
-      fileNames: batchFiles.map((file) => file.name),
-      stops,
-    });
+    batchResults.push(...groupResults);
   }
 
+  const sortedResults = batchResults.sort(
+    (a, b) => a.batchIndex - b.batchIndex,
+  );
+
   return {
-    batchResults,
-    mergedStops: mergeRouteProAiBatchStops(batchResults),
+    batchResults: sortedResults,
+    mergedStops: mergeRouteProAiBatchStops(sortedResults),
   };
 }

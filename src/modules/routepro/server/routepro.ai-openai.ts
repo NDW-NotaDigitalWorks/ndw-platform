@@ -127,8 +127,9 @@ Rules:
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4.1-mini",
-      input: [
+  model: "gpt-4.1-mini",
+  max_output_tokens: 12000,
+  input: [
         {
           role: "user",
           content,

@@ -47,7 +47,7 @@ export default function RouteProVisionLabPage() {
 
       setResult(json.text ?? "");
     } catch (error) {
-      console.error("RoutePro Vision Lab error:", error);
+      console.error("RoutePro AI Import error:", error);
       setError(
         error instanceof Error
           ? error.message
@@ -70,15 +70,13 @@ export default function RouteProVisionLabPage() {
             textTransform: "uppercase",
           }}
         >
-          RoutePro Vision Lab
+          RoutePro AI Import
         </p>
 
-        <h1 style={routeProUi.heroTitle}>RoutePro AI Vision</h1>
+        <h1 style={routeProUi.heroTitle}>AI Screenshot Import</h1>
 
         <p style={routeProUi.heroSubtitle}>
-          Laboratorio interno per verificare il motore AI Vision con batch da 5
-          screenshot, merge automatico, normalizzazione e protezione zero stop
-          persi.
+          Carica gli screenshot Amazon Flex. RoutePro leggerà gli stop con AI Vision, manterrà il numero originale e proteggerà la rotta da stop mancanti.
         </p>
       </div>
 
@@ -125,7 +123,7 @@ export default function RouteProVisionLabPage() {
         >
           {isProcessing
             ? "Analisi AI Vision in corso..."
-            : "Test AI Vision multi screenshot"}
+            : "Analizza screenshot con AI"}
         </button>
       </div>
 
@@ -144,7 +142,7 @@ export default function RouteProVisionLabPage() {
 
       {result ? (
         <div style={{ ...ui.card.base, marginTop: 18 }}>
-          <h2 style={{ marginTop: 0 }}>Risposta AI Vision</h2>
+          <h2 style={{ marginTop: 0 }}>Risultato import AI</h2>
 
           <pre
             style={{

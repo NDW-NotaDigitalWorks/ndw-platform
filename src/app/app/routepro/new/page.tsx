@@ -102,8 +102,8 @@ export default async function RouteProNewRoutePage({ searchParams }: Props) {
           </p>
         </div>
 
-        <Link href="/app/routepro/import-ai" style={methodCardStyle}>
-          <div style={methodTitleStyle}>AI Screenshot Import ⭐</div>
+        <Link href="/app/routepro/vision-lab" style={methodCardStyle}>
+  <div style={methodTitleStyle}>AI Screenshot Import ⭐</div>
           <p style={methodDescriptionStyle}>
             Carica gli screenshot Amazon Flex e crea una rotta mantenendo il
             numero stop originale.

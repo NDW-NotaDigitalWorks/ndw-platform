@@ -299,8 +299,7 @@ export function AiScreenshotImportClient() {
       <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl">
         <h2 className="text-lg font-semibold">1. Upload Screenshot</h2>
         <p className="mt-2 text-sm text-slate-300">
-          Carica tutti gli screenshot della rotta. RoutePro li analizzerà in batch
-          da 5 per aumentare precisione e stabilità.
+          Carica tutti gli screenshot della rotta. RoutePro li analizzerà automaticamente in blocchi sicuri per aumentare precisione e stabilità.
         </p>
 
         <label className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-500 bg-slate-900/70 px-4 py-10 text-center hover:border-cyan-300">

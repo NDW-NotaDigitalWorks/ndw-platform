@@ -218,9 +218,9 @@ export default async function RouteProModulePage() {
         </p>
 
         <div style={actionsStyle}>
-          <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
-            Prepare new route
-          </Link>
+          <Link href="/app/routepro/import-ai" style={routeProUi.primaryButton}>
+  AI Screenshot Import
+</Link>
 
           <Link href="/app/routepro/settings" style={routeProUi.secondaryButton}>
             Driver settings
@@ -317,9 +317,9 @@ export default async function RouteProModulePage() {
             title="No delivery day prepared yet"
             description="Create your first route, import stops, review addresses, optimize the sequence and start driving."
             action={
-              <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
-                Prepare first route
-              </Link>
+              <Link href="/app/routepro/import-ai" style={routeProUi.primaryButton}>
+  Import first route with AI
+</Link>
             }
           />
         ) : (

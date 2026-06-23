@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CreateRoutePayload;
 
-    if (!body.importId) {
+    if (!body.importId && !body.editedStops?.length) {
       return NextResponse.json(
         {
           ok: false,
@@ -24,19 +24,22 @@ export async function POST(request: Request) {
       );
     }
 
-    const preview = routeProAiImportPreviewStore.get(body.importId);
+    const preview = body.importId
+  ? routeProAiImportPreviewStore.get(body.importId)
+  : null;
 
-    if (!preview) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Preview AI scaduta. Ripeti l’analisi degli screenshot.",
-        },
-        { status: 404 },
-      );
-    }
+const finalStops = body.editedStops?.length ? body.editedStops : preview?.stops;
 
-    const finalStops = body.editedStops?.length ? body.editedStops : preview.stops;
+if (!finalStops?.length) {
+  return NextResponse.json(
+    {
+      ok: false,
+      message: "Preview AI scaduta. Ripeti l’analisi degli screenshot.",
+    },
+    { status: 404 },
+  );
+}
+
 
 const hasBlockingPlaceholders = finalStops.some(
   (stop) => stop.isPlaceholder || stop.addressRaw.trim().length === 0,
@@ -123,7 +126,9 @@ const hasBlockingPlaceholders = finalStops.some(
       );
     }
 
-    routeProAiImportPreviewStore.delete(body.importId);
+    if (body.importId) {
+  routeProAiImportPreviewStore.delete(body.importId);
+}
 
     return NextResponse.json({
       ok: true,

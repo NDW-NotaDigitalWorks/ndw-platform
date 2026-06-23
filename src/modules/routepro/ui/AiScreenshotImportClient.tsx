@@ -6,6 +6,85 @@ import type {
   RouteProAiImportPreview,
 } from "@/modules/routepro/types/routepro.ai-import.types";
 
+const CLIENT_UPLOAD_BATCH_SIZE = 10;
+
+function chunkFiles(files: File[], size: number): File[][] {
+  const chunks: File[][] = [];
+
+  for (let index = 0; index < files.length; index += size) {
+    chunks.push(files.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function mergeStopsByOriginalNumber(
+  stops: RouteProAiExtractedStop[],
+): RouteProAiExtractedStop[] {
+  const byNumber = new Map<number, RouteProAiExtractedStop>();
+
+  for (const stop of stops) {
+    const existing = byNumber.get(stop.originalStopNumber);
+
+    if (!existing) {
+      byNumber.set(stop.originalStopNumber, stop);
+      continue;
+    }
+
+    if (existing.confidence !== "high" && stop.confidence === "high") {
+      byNumber.set(stop.originalStopNumber, stop);
+    }
+  }
+
+  return Array.from(byNumber.values()).sort(
+    (a, b) => a.originalStopNumber - b.originalStopNumber,
+  );
+}
+
+function rebuildCombinedPreview(
+  previews: RouteProAiImportPreview[],
+): RouteProAiImportPreview {
+  const firstPreview = previews[0];
+
+  const stops = mergeStopsByOriginalNumber(
+    previews.flatMap((preview) => preview.stops),
+  );
+
+  const highConfidence = stops.filter((stop) => stop.confidence === "high").length;
+  const mediumConfidence = stops.filter((stop) => stop.confidence === "medium").length;
+  const lowConfidence = stops.filter((stop) => stop.confidence === "low").length;
+  const needsReview = stops.filter(
+    (stop) => stop.confidence === "needs_review",
+  ).length;
+  const placeholders = stops.filter((stop) => stop.isPlaceholder).length;
+  const missing = placeholders;
+
+  const blockingReason =
+    placeholders > 0 || missing > 0
+      ? "Correggi gli stop mancanti prima di creare la rotta."
+      : null;
+
+  return {
+    ...firstPreview,
+    importId: previews.map((preview) => preview.importId).join("__"),
+    stops,
+    batchSummaries: previews.flatMap((preview) => preview.batchSummaries),
+    recoveryPlan: firstPreview.recoveryPlan,
+    summary: {
+      totalFound: stops.length,
+      highConfidence,
+      mediumConfidence,
+      lowConfidence,
+      needsReview,
+      placeholders,
+      missing,
+    },
+    canCreateRoute: stops.length > 0 && placeholders === 0 && missing === 0,
+    canOptimize: blockingReason === null,
+    blockingReason,
+  };
+}
+
 function rebuildPreviewWithEditedStops(
   preview: RouteProAiImportPreview,
   stops: RouteProAiExtractedStop[],
@@ -58,14 +137,19 @@ export function AiScreenshotImportClient() {
   }, [files.length]);
 
   async function handleAnalyze() {
-    setError(null);
-    setPreview(null);
-    setIsAnalyzing(true);
+  setError(null);
+  setPreview(null);
+  setIsAnalyzing(true);
 
-    try {
+  try {
+    const uploadBatches = chunkFiles(files, CLIENT_UPLOAD_BATCH_SIZE);
+    const previews: RouteProAiImportPreview[] = [];
+
+    for (let index = 0; index < uploadBatches.length; index += 1) {
+      const batch = uploadBatches[index];
       const formData = new FormData();
 
-      for (const file of files) {
+      for (const file of batch) {
         formData.append("screenshots", file);
       }
 
@@ -76,31 +160,42 @@ export function AiScreenshotImportClient() {
 
       const responseText = await response.text();
 
-let payload: any;
+      let payload: {
+        ok?: boolean;
+        message?: string;
+        preview?: RouteProAiImportPreview;
+      };
 
-try {
-  payload = JSON.parse(responseText);
-} catch {
-  throw new Error(
-    responseText || "Risposta non valida dal server durante l'analisi AI.",
-  );
-}
+      try {
+        payload = JSON.parse(responseText) as {
+          ok?: boolean;
+          message?: string;
+          preview?: RouteProAiImportPreview;
+        };
+      } catch {
+        throw new Error(
+          responseText || "Risposta non valida dal server durante l'analisi AI.",
+        );
+      }
 
-      if (!response.ok || !payload.ok) {
+      if (!response.ok || !payload.ok || !payload.preview) {
         throw new Error(payload.message ?? "Analisi AI non riuscita.");
       }
 
-      setPreview(payload.preview);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Errore imprevisto durante l'analisi AI.",
-      );
-    } finally {
-      setIsAnalyzing(false);
+      previews.push(payload.preview);
     }
+
+    setPreview(rebuildCombinedPreview(previews));
+  } catch (err) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Errore imprevisto durante l'analisi AI.",
+    );
+  } finally {
+    setIsAnalyzing(false);
   }
+}
 
   function updateStopAddress(originalStopNumber: number, addressRaw: string) {
     if (!preview) return;

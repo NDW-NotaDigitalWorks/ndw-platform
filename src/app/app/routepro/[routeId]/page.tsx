@@ -12,7 +12,6 @@ import {
 } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
-import { RouteProOcrBatchUploader } from "@/modules/routepro/ui/RouteProOcrBatchUploader";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 import { RouteProSubmitButton } from "@/modules/routepro/ui/RouteProSubmitButton";
@@ -1042,7 +1041,9 @@ const readyStopsCount = readyStops.length;
         </div>
       </section>
 
-      <RouteProOcrBatchUploader routeId={route.id} />
+      <div style={successStyle}>
+  Import screenshot disponibile dal workflow AI Import.
+</div>
 
       <section style={premiumPanelStyle}>
         <p style={premiumPanelTitleStyle}>Import Methods</p>

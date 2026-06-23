@@ -235,8 +235,28 @@ export async function POST(request: Request) {
 
   try {
     const batchResults = await Promise.all(
-      batches.map((batch, index) => extractStopsFromBatch(client, batch, index)),
-    );
+  batches.map(async (batch, index) => {
+    const result = await extractStopsFromBatch(client, batch, index);
+
+    return {
+      ...result,
+      batchIndex: index,
+      fileCount: batch.length,
+      extractedStops: result.stops.length,
+      minStop:
+        result.stops.length > 0
+          ? Math.min(...result.stops.map((stop) => stop.originalPosition))
+          : null,
+      maxStop:
+        result.stops.length > 0
+          ? Math.max(...result.stops.map((stop) => stop.originalPosition))
+          : null,
+      stopNumbers: result.stops
+        .map((stop) => stop.originalPosition)
+        .sort((a, b) => a - b),
+    };
+  }),
+);
 
     const allStops = batchResults.flatMap((result) => result.stops);
     const allWarnings = batchResults.flatMap((result) => result.warnings);
@@ -276,6 +296,14 @@ export async function POST(request: Request) {
             placeholders: placeholdersCount,
             missingStops: missingStopNumbers.length,
             canOptimize: placeholdersCount === 0,
+            batchDebug: batchResults.map((batch) => ({
+  batchIndex: batch.batchIndex,
+  fileCount: batch.fileCount,
+  extractedStops: batch.extractedStops,
+  minStop: batch.minStop,
+  maxStop: batch.maxStop,
+  stopNumbers: batch.stopNumbers,
+})),
           },
         },
         null,

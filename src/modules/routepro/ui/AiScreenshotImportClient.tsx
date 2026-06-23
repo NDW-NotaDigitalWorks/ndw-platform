@@ -74,7 +74,17 @@ export function AiScreenshotImportClient() {
         body: formData,
       });
 
-      const payload = await response.json();
+      const responseText = await response.text();
+
+let payload: any;
+
+try {
+  payload = JSON.parse(responseText);
+} catch {
+  throw new Error(
+    responseText || "Risposta non valida dal server durante l'analisi AI.",
+  );
+}
 
       if (!response.ok || !payload.ok) {
         throw new Error(payload.message ?? "Analisi AI non riuscita.");

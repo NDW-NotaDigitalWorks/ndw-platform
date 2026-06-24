@@ -68,9 +68,9 @@ const bigStopNumberStyle: React.CSSProperties = {
 
 const addressStyle: React.CSSProperties = {
   margin: "20px 0 0",
-  fontSize: "clamp(18px, 2.2vw, 26px)",
-  lineHeight: 1.18,
-  fontWeight: 950,
+  fontSize: "clamp(24px, 3vw, 34px)",
+lineHeight: 1.2,
+fontWeight: 950,
   color: "#0f172a",
 };
 
@@ -232,6 +232,77 @@ const optimizedStopBadgeStyle: React.CSSProperties = {
   fontSize: 14,
 };
 
+
+const driverFocusGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 12,
+  marginTop: 18,
+};
+
+const driverFocusCardStyle: React.CSSProperties = {
+  padding: "14px 16px",
+  borderRadius: 18,
+  background: "#f8fafc",
+  border: "1px solid #cbd5e1",
+};
+
+const driverFocusLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 11,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "#475569",
+};
+
+const driverFocusValueStyle: React.CSSProperties = {
+  margin: "6px 0 0",
+  fontSize: "clamp(24px, 5vw, 34px)",
+  lineHeight: 1,
+  fontWeight: 950,
+  color: "#0f172a",
+};
+
+const stickyDriverHeaderStyle: React.CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 40,
+  marginTop: 12,
+  padding: "10px 12px",
+  borderRadius: 18,
+  background: "rgba(15,23,42,0.96)",
+  border: "1px solid rgba(96,165,250,0.22)",
+  boxShadow: "0 12px 28px rgba(15,23,42,0.18)",
+  backdropFilter: "blur(10px)",
+};
+
+const stickyDriverHeaderTopStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
+const stickyDriverHeaderNumberStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 13,
+  fontWeight: 950,
+  color: "#ffffff",
+  letterSpacing: "0.02em",
+};
+
+const stickyDriverHeaderAddressStyle: React.CSSProperties = {
+  margin: "6px 0 0",
+  fontSize: 14,
+  lineHeight: 1.25,
+  fontWeight: 800,
+  color: "#cbd5e1",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
 const primaryNavigateStyle: React.CSSProperties = {
   ...routeProUi.primaryButton,
   width: "100%",
@@ -386,7 +457,7 @@ function getOperationalStatus(requiredStopsPerHour: number | null): string {
 }
 
 function formatMinutes(minutes: number | null): string {
-  if (minutes === null) return "—";
+  if (minutes === null) return "-";
 
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
@@ -404,7 +475,7 @@ function getEstimatedRemainingMinutes(
 }
 
 function getEstimatedEndTime(remainingMinutes: number | null): string {
-  if (remainingMinutes === null) return "—";
+  if (remainingMinutes === null) return "-";
 
   const end = new Date(Date.now() + remainingMinutes * 60 * 1000);
 
@@ -521,7 +592,7 @@ const realEta =
   realRemainingMinutes
     ? new Date(Date.now() + realRemainingMinutes * 60000)
     : null;
-  
+
    const paceDelta =
   realStopsPerHour !== null &&
   requiredStopsPerHour !== null &&
@@ -567,22 +638,38 @@ const performanceLabel =
   performanceScore === "A+"
     ? "Elite"
     : performanceScore === "A"
-      ? "Excellent"
+      ? "Ottimo"
       : performanceScore === "B"
-        ? "Good"
-        : "Needs Improvement";
+        ? "Buono"
+        : "Da migliorare";
 
   return (
     <section style={{ ...ui.page.section, paddingBottom: showBottomBar ? 112 : 0 }}>
-      <RouteProHeader subtitle="Driver execution mode" />
+      <RouteProHeader subtitle="Modalita driver" />
+
+      {!isRouteCompleted && currentStop ? (
+        <div style={stickyDriverHeaderStyle}>
+          <div style={stickyDriverHeaderTopStyle}>
+            <p style={stickyDriverHeaderNumberStyle}>
+              Workflow #{currentStop.position}
+            </p>
+
+            <p style={stickyDriverHeaderNumberStyle}>
+              Originale #{currentStop.original_position}
+            </p>
+          </div>
+
+          <p style={stickyDriverHeaderAddressStyle}>{currentStop.address}</p>
+        </div>
+      ) : null}
 
       <div style={cockpitHeroStyle}>
-        <p style={cockpitEyebrowStyle}>Driver Cockpit</p>
+        <p style={cockpitEyebrowStyle}>Driver Command Center</p>
 
         <h1 style={cockpitTitleStyle}>{route.name}</h1>
 
         <p style={cockpitSubtitleStyle}>
-          Follow the route stop by stop. Navigate, complete, skip and keep your day under control.
+          Segui la rotta stop per stop. Naviga, completa, salta e tieni sotto controllo la giornata.
         </p>
 
         <div style={actionsStyle}>
@@ -622,9 +709,56 @@ const performanceLabel =
           <div style={{ ...progressFillStyle, width: `${progressPercent}%` }} />
         </div>
 
-        <p style={mutedTextStyle}>
-          Progress: <strong>{progressPercent}%</strong> · Stop {currentStop?.position ?? doneCount} / {totalStops}
-        </p>
+        <div
+          style={{
+            marginTop: 18,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: 12,
+          }}
+        >
+          <div>
+            <p style={mutedTextStyle}>Stop corrente</p>
+            <h3
+              style={{
+                margin: "4px 0 0",
+                color: "#fff",
+                fontSize: 30,
+                fontWeight: 950,
+              }}
+            >
+              {currentStop?.position ?? doneCount}/{totalStops}
+            </h3>
+          </div>
+
+          <div>
+            <p style={mutedTextStyle}>Rimanenti</p>
+            <h3
+              style={{
+                margin: "4px 0 0",
+                color: "#fff",
+                fontSize: 30,
+                fontWeight: 950,
+              }}
+            >
+              {remainingCount}
+            </h3>
+          </div>
+
+          <div>
+            <p style={mutedTextStyle}>Completamento</p>
+            <h3
+              style={{
+                margin: "4px 0 0",
+                color: "#fff",
+                fontSize: 30,
+                fontWeight: 950,
+              }}
+            >
+              {progressPercent}%
+            </h3>
+          </div>
+        </div>
 
         <div style={intelligenceGridStyle}>
           <article style={intelligenceCardStyle}>
@@ -635,14 +769,14 @@ const performanceLabel =
           <article style={intelligenceCardStyle}>
             <p style={intelligenceLabelStyle}>Ritmo richiesto</p>
             <h3 style={intelligenceValueStyle}>
-              {requiredStopsPerHour !== null ? `${requiredStopsPerHour}/h` : "—"}
+              {requiredStopsPerHour !== null ? `${requiredStopsPerHour}/h` : "-"}
             </h3>
           </article>
 
           <article style={intelligenceCardStyle}>
             <p style={intelligenceLabelStyle}>Media stop</p>
             <h3 style={intelligenceValueStyle}>
-              {minutesPerStop !== null ? `${minutesPerStop} min` : "—"}
+              {minutesPerStop !== null ? `${minutesPerStop} min` : "-"}
             </h3>
           </article>
 
@@ -669,7 +803,7 @@ const performanceLabel =
   <h3 style={intelligenceValueStyle}>
     {realStopsPerHour !== null
       ? `${realStopsPerHour}/h`
-      : "—"}
+      : "-"}
   </h3>
 </article>
 
@@ -682,7 +816,7 @@ const performanceLabel =
           hour: "2-digit",
           minute: "2-digit",
         })
-      : "—"}
+      : "-"}
   </h3>
 </article>
 
@@ -717,7 +851,7 @@ const performanceLabel =
       color: "rgba(255,255,255,0.72)",
     }}
   >
-    {paceDelta !== null ? `${paceDelta >= 0 ? "+" : ""}${paceDelta}% vs target` : "Completa almeno uno stop"}
+    {paceDelta !== null ? `${paceDelta >= 0 ? "+" : ""}${paceDelta}% vs obiettivo` : "Completa almeno uno stop"}
   </p>
 </article>
         </div>
@@ -729,91 +863,99 @@ const performanceLabel =
       {routeCompleted === "1" ? <div style={successStyle}>Rotta terminata correttamente.</div> : null}
 
       {isRouteCompleted ? (
-  <div style={cockpitHeroStyle}>
-    <p style={cockpitEyebrowStyle}>
-      Mission Completed
-    </p>
+        <div style={cockpitHeroStyle}>
+          <p style={cockpitEyebrowStyle}>Riepilogo rotta</p>
 
-    <h2 style={cockpitTitleStyle}>
-      Route Completed
-    </h2>
+          <h2 style={cockpitTitleStyle}>Rotta completata</h2>
 
-    <p style={cockpitSubtitleStyle}>
-      Great job. All route operations have been completed.
-    </p>
+          <p style={cockpitSubtitleStyle}>
+            Giornata chiusa. Qui trovi i numeri principali della rotta e una lettura rapida della performance.
+          </p>
 
-    <div style={intelligenceGridStyle}>
-      <article style={intelligenceCardStyle}>
-        <p style={intelligenceLabelStyle}>
-          Stop Totali
-        </p>
+          <div style={intelligenceGridStyle}>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Stop totali</p>
+              <h3 style={intelligenceValueStyle}>{totalStops}</h3>
+            </article>
 
-        <h3 style={intelligenceValueStyle}>
-          {totalStops}
-        </h3>
-      </article>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Completati</p>
+              <h3 style={intelligenceValueStyle}>{completedStops.length}</h3>
+            </article>
 
-      <article style={intelligenceCardStyle}>
-        <p style={intelligenceLabelStyle}>
-          Completati
-        </p>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Saltati</p>
+              <h3 style={intelligenceValueStyle}>{skippedStops.length}</h3>
+            </article>
 
-        <h3 style={intelligenceValueStyle}>
-          {completedStops.length}
-        </h3>
-      </article>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Completamento</p>
+              <h3 style={intelligenceValueStyle}>{completionRate}%</h3>
+            </article>
 
-      <article style={intelligenceCardStyle}>
-        <p style={intelligenceLabelStyle}>
-          Saltati
-        </p>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Tempo operativo</p>
+              <h3 style={intelligenceValueStyle}>{formatMinutes(elapsedMinutes)}</h3>
+            </article>
 
-        <h3 style={intelligenceValueStyle}>
-          {skippedStops.length}
-        </h3>
-      </article>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Ritmo reale</p>
+              <h3 style={intelligenceValueStyle}>
+                {realStopsPerHour !== null ? `${realStopsPerHour}/h` : "-"}
+              </h3>
+            </article>
 
-      <article style={intelligenceCardStyle}>
-  <p style={intelligenceLabelStyle}>
-    Score
-  </p>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Tempo medio stop</p>
+              <h3 style={intelligenceValueStyle}>
+                {realMinutesPerStop !== null ? `${realMinutesPerStop} min` : "-"}
+              </h3>
+            </article>
 
-  <h3
-    style={{
-      ...intelligenceValueStyle,
-      color: "#ff7a00",
-    }}
-  >
-    {performanceScore}
-  </h3>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Obiettivo ritmo</p>
+              <h3 style={intelligenceValueStyle}>
+                {requiredStopsPerHour !== null ? `${requiredStopsPerHour}/h` : "-"}
+              </h3>
+            </article>
 
-  <p
-    style={{
-      margin: "6px 0 0",
-      fontSize: 12,
-      fontWeight: 700,
-      color: "rgba(255,255,255,0.75)",
-    }}
-  >
-    {performanceLabel}
-  </p>
-</article>
-    </div>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Score RoutePro</p>
+              <h3
+                style={{
+                  ...intelligenceValueStyle,
+                  color: "#ff7a00",
+                }}
+              >
+                {performanceScore}
+              </h3>
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.75)",
+                }}
+              >
+                {performanceLabel}
+              </p>
+            </article>
+          </div>
 
-    <div style={progressTrackStyle}>
-      <div
-        style={{
-          ...progressFillStyle,
-          width: "100%",
-        }}
-      />
-    </div>
+          <div style={progressTrackStyle}>
+            <div
+              style={{
+                ...progressFillStyle,
+                width: "100%",
+              }}
+            />
+          </div>
 
-    <p style={mutedTextStyle}>
-  Completion Rate: {completionRate}%
-</p>
-  </div>
-) : !currentStop || currentStopLat === null || currentStopLng === null ? (
+          <p style={mutedTextStyle}>
+            Riepilogo pronto per valutare velocita, continuita e qualita della rotta.
+          </p>
+        </div>
+      ) : !currentStop || currentStopLat === null || currentStopLng === null ? (
         <div style={currentStopCardStyle}>
           <h2 style={ui.page.sectionTitle}>Fine rotta</h2>
           <p style={lightMutedTextStyle}>
@@ -841,18 +983,25 @@ const performanceLabel =
         <div style={currentStopCardStyle}>
           <p style={statLabelStyle}>Stop corrente</p>
 
-          <div style={bigStopNumberStyle}>
-            #{currentStop.position}
-          </div>
+          <div
+  style={{
+    ...bigStopNumberStyle,
+    fontSize: "clamp(54px, 8vw, 88px)",
+  }}
+>
+  #{currentStop.position}
+</div>
 
-          <div style={stopBadgeRowStyle}>
-            <span style={optimizedStopBadgeStyle}>
-              OPT #{currentStop.position}
-            </span>
+          <div style={driverFocusGridStyle}>
+            <article style={driverFocusCardStyle}>
+              <p style={driverFocusLabelStyle}>Posizione RoutePro</p>
+              <h3 style={driverFocusValueStyle}>#{currentStop.position}</h3>
+            </article>
 
-            <span style={originalStopBadgeStyle}>
-              STOP #{currentStop.original_position}
-            </span>
+            <article style={driverFocusCardStyle}>
+              <p style={driverFocusLabelStyle}>Numero originale app</p>
+              <h3 style={driverFocusValueStyle}>#{currentStop.original_position}</h3>
+            </article>
           </div>
 
           {currentDuplicateStops.length > 1 ? (
@@ -867,7 +1016,14 @@ const performanceLabel =
   </div>
 ) : null}
 
-          <div style={addressStyle}>📍 {currentStop.address}</div>
+          <div
+  style={{
+    ...addressStyle,
+    marginTop: 24,
+  }}
+>
+  {currentStop.address}
+</div>
 
           <div style={{ marginTop: 16 }}>
             <a
@@ -876,7 +1032,7 @@ const performanceLabel =
               rel="noreferrer"
               style={primaryNavigateStyle}
             >
-              🧭 NAVIGA ORA
+              NAVIGA ORA
             </a>
           </div>
 
@@ -896,7 +1052,7 @@ const performanceLabel =
                 color: "#ffffff",
               }}
             >
-              🗺 Google Maps
+              Google Maps
             </a>
 
             <a
@@ -914,7 +1070,7 @@ const performanceLabel =
                 color: "#ffffff",
               }}
             >
-              🚘 Waze
+              Waze
             </a>
           </div>
         </div>
@@ -966,7 +1122,7 @@ const performanceLabel =
                   color: "#ffffff",
                 }}
               >
-                ✓ COMPLETE STOP
+                COMPLETA
               </button>
             </form>
 
@@ -986,7 +1142,7 @@ const performanceLabel =
                   color: "#0f172a",
                 }}
               >
-                ↷ SKIP STOP
+                SALTA
               </button>
             </form>
           </div>

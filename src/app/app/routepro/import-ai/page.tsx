@@ -17,12 +17,12 @@ export default function RouteProAiImportPage() {
           RoutePro AI Import
         </p>
 
-        <h1 style={routeProUi.heroTitle}>AI Screenshot Import</h1>
+        <h1 style={routeProUi.heroTitle}>Importa la tua rotta</h1>
 
         <p style={routeProUi.heroSubtitle}>
-          Carica gli screenshot Amazon Flex. RoutePro li analizzerà in batch,
-          manterrà il numero stop originale e proteggerà la rotta da stop
-          mancanti.
+          Carica gli screenshot della tua app di consegna. RoutePro individua
+          gli stop, mantiene la numerazione originale e prepara il percorso per
+          il workflow RoutePro.
         </p>
       </div>
 

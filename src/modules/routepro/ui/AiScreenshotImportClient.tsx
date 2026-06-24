@@ -122,6 +122,18 @@ function rebuildPreviewWithEditedStops(
   };
 }
 
+function getStopsToReview(
+  stops: RouteProAiExtractedStop[],
+): RouteProAiExtractedStop[] {
+  return stops.filter(
+    (stop) =>
+      stop.isPlaceholder ||
+      stop.confidence === "medium" ||
+      stop.confidence === "low" ||
+      stop.confidence === "needs_review",
+  );
+}
+
 export function AiScreenshotImportClient() {
   const [files, setFiles] = useState<File[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -136,66 +148,79 @@ export function AiScreenshotImportClient() {
     return `${files.length} screenshot selezionati`;
   }, [files.length]);
 
+  const stopsToReview = useMemo(
+    () => (preview ? getStopsToReview(preview.stops) : []),
+    [preview],
+  );
+
+  const autoConfirmedCount = preview ? preview.summary.highConfidence : 0;
+
+  const reviewCount = preview
+    ? preview.summary.mediumConfidence +
+      preview.summary.lowConfidence +
+      preview.summary.needsReview
+    : 0;
+
   async function handleAnalyze() {
-  setError(null);
-  setPreview(null);
-  setIsAnalyzing(true);
+    setError(null);
+    setPreview(null);
+    setIsAnalyzing(true);
 
-  try {
-    const uploadBatches = chunkFiles(files, CLIENT_UPLOAD_BATCH_SIZE);
-    const previews: RouteProAiImportPreview[] = [];
+    try {
+      const uploadBatches = chunkFiles(files, CLIENT_UPLOAD_BATCH_SIZE);
+      const previews: RouteProAiImportPreview[] = [];
 
-    for (let index = 0; index < uploadBatches.length; index += 1) {
-      const batch = uploadBatches[index];
-      const formData = new FormData();
+      for (let index = 0; index < uploadBatches.length; index += 1) {
+        const batch = uploadBatches[index];
+        const formData = new FormData();
 
-      for (const file of batch) {
-        formData.append("screenshots", file);
-      }
+        for (const file of batch) {
+          formData.append("screenshots", file);
+        }
 
-      const response = await fetch("/api/routepro/import-ai/analyze", {
-        method: "POST",
-        body: formData,
-      });
+        const response = await fetch("/api/routepro/import-ai/analyze", {
+          method: "POST",
+          body: formData,
+        });
 
-      const responseText = await response.text();
+        const responseText = await response.text();
 
-      let payload: {
-        ok?: boolean;
-        message?: string;
-        preview?: RouteProAiImportPreview;
-      };
-
-      try {
-        payload = JSON.parse(responseText) as {
+        let payload: {
           ok?: boolean;
           message?: string;
           preview?: RouteProAiImportPreview;
         };
-      } catch {
-        throw new Error(
-          responseText || "Risposta non valida dal server durante l'analisi AI.",
-        );
+
+        try {
+          payload = JSON.parse(responseText) as {
+            ok?: boolean;
+            message?: string;
+            preview?: RouteProAiImportPreview;
+          };
+        } catch {
+          throw new Error(
+            responseText || "Risposta non valida dal server durante l'analisi AI.",
+          );
+        }
+
+        if (!response.ok || !payload.ok || !payload.preview) {
+          throw new Error(payload.message ?? "Analisi AI non riuscita.");
+        }
+
+        previews.push(payload.preview);
       }
 
-      if (!response.ok || !payload.ok || !payload.preview) {
-        throw new Error(payload.message ?? "Analisi AI non riuscita.");
-      }
-
-      previews.push(payload.preview);
+      setPreview(rebuildCombinedPreview(previews));
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Errore imprevisto durante l'analisi AI.",
+      );
+    } finally {
+      setIsAnalyzing(false);
     }
-
-    setPreview(rebuildCombinedPreview(previews));
-  } catch (err) {
-    setError(
-      err instanceof Error
-        ? err.message
-        : "Errore imprevisto durante l'analisi AI.",
-    );
-  } finally {
-    setIsAnalyzing(false);
   }
-}
 
   function updateStopAddress(originalStopNumber: number, addressRaw: string) {
     if (!preview) return;
@@ -252,9 +277,11 @@ export function AiScreenshotImportClient() {
 
       return {
         ...stop,
-        confidence: hasAddress ? "medium" : "needs_review",
+        confidence: hasAddress ? "high" : "needs_review",
         isPlaceholder: !hasAddress,
-        needsReviewReason: hasAddress ? "Confermato manualmente" : "Indirizzo mancante",
+        needsReviewReason: hasAddress
+          ? "Confermato manualmente"
+          : "Indirizzo mancante",
       } satisfies RouteProAiExtractedStop;
     });
 
@@ -273,33 +300,33 @@ export function AiScreenshotImportClient() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-  editedStops: preview.stops,
-}),
+          editedStops: preview.stops,
+        }),
       });
 
       const responseText = await response.text();
       console.log("CREATE ROUTE RESPONSE", {
-  status: response.status,
-  responseText,
-});
+        status: response.status,
+        responseText,
+      });
 
-let payload: {
-  ok?: boolean;
-  message?: string;
-  routeId?: string;
-};
+      let payload: {
+        ok?: boolean;
+        message?: string;
+        routeId?: string;
+      };
 
-try {
-  payload = JSON.parse(responseText) as {
-    ok?: boolean;
-    message?: string;
-    routeId?: string;
-  };
-} catch {
-  throw new Error(
-    responseText || "Risposta non valida durante la creazione rotta.",
-  );
-}
+      try {
+        payload = JSON.parse(responseText) as {
+          ok?: boolean;
+          message?: string;
+          routeId?: string;
+        };
+      } catch {
+        throw new Error(
+          responseText || "Risposta non valida durante la creazione rotta.",
+        );
+      }
 
       if (!response.ok || !payload.ok) {
         throw new Error(payload.message ?? "Creazione rotta non riuscita.");
@@ -318,9 +345,10 @@ try {
   return (
     <section className="grid gap-6 lg:grid-cols-[420px_1fr]">
       <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl">
-        <h2 className="text-lg font-semibold">1. Upload Screenshot</h2>
+        <h2 className="text-lg font-semibold">1. Carica screenshot</h2>
         <p className="mt-2 text-sm text-slate-300">
-          Carica tutti gli screenshot della rotta. RoutePro li analizzerà automaticamente in blocchi sicuri per aumentare precisione e stabilità.
+          Carica tutti gli screenshot della rotta. RoutePro analizzerà gli stop
+          e ti mostrerà solo quelli che richiedono controllo.
         </p>
 
         <label className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-500 bg-slate-900/70 px-4 py-10 text-center hover:border-cyan-300">
@@ -362,70 +390,54 @@ try {
       </div>
 
       <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-2xl">
-        <h2 className="text-lg font-semibold">2. Preview & Review</h2>
+        <h2 className="text-lg font-semibold">2. Controllo rapido</h2>
 
         {!preview ? (
           <p className="mt-3 text-sm text-slate-300">
-            Dopo l’analisi potrai correggere placeholder, indirizzi e comuni prima
-            di creare la rotta.
+            Dopo l'analisi vedrai un riepilogo chiaro. Gli stop confermati non
+            richiedono azioni manuali.
           </p>
         ) : (
           <div className="mt-5 flex flex-col gap-5">
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <Metric label="Stop trovati" value={preview.summary.totalFound} />
-              <Metric label="High" value={preview.summary.highConfidence} />
-              <Metric label="Low" value={preview.summary.lowConfidence} />
-              <Metric label="Needs review" value={preview.summary.needsReview} />
-              <Metric label="Missing" value={preview.summary.missing} />
+              <Metric label="Confermati" value={autoConfirmedCount} />
+              <Metric label="Da verificare" value={reviewCount} />
+              <Metric label="Mancanti" value={preview.summary.missing} />
             </div>
-
-            {preview.batchSummaries.length > 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3">
-                <div className="text-sm font-bold text-white">
-                  Batch Processing
-                </div>
-                <div className="mt-1 text-sm text-slate-300">
-                  Screenshot analizzati in blocchi da 5.
-                </div>
-              </div>
-            ) : null}
 
             {preview.blockingReason ? (
               <div className="rounded-2xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-100">
                 {preview.blockingReason}
               </div>
+            ) : stopsToReview.length > 0 ? (
+              <div className="rounded-2xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-sm font-semibold text-amber-100">
+                {stopsToReview.length} stop richiedono controllo rapido. Gli
+                altri sono già confermati automaticamente.
+              </div>
             ) : (
               <div className="rounded-2xl border border-emerald-300/40 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-100">
-                Nessuno stop mancante rilevato. La rotta può essere creata.
+                Nessuno stop da correggere. La rotta può essere creata.
               </div>
             )}
 
-            <div className="max-h-[620px] overflow-auto rounded-2xl border border-white/10">
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 bg-slate-900 text-xs uppercase tracking-wide text-slate-400">
-                  <tr>
-                    <th className="px-4 py-3">Stop</th>
-                    <th className="px-4 py-3">Indirizzo</th>
-                    <th className="px-4 py-3">Comune</th>
-                    <th className="px-4 py-3">Confidence</th>
-                    <th className="px-4 py-3">Azione</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.stops.map((stop) => {
-                    const needsAttention =
-                      stop.isPlaceholder ||
-                      stop.confidence === "low" ||
-                      stop.confidence === "needs_review";
-
-                    return (
+            {stopsToReview.length > 0 ? (
+              <div className="max-h-[620px] overflow-auto rounded-2xl border border-white/10">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 bg-slate-900 text-xs uppercase tracking-wide text-slate-400">
+                    <tr>
+                      <th className="px-4 py-3">Stop</th>
+                      <th className="px-4 py-3">Indirizzo</th>
+                      <th className="px-4 py-3">Comune</th>
+                      <th className="px-4 py-3">Stato</th>
+                      <th className="px-4 py-3">Azione</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stopsToReview.map((stop) => (
                       <tr
                         key={`${stop.originalStopNumber}-${stop.addressRaw}`}
-                        className={
-                          needsAttention
-                            ? "border-t border-amber-300/30 bg-amber-400/5"
-                            : "border-t border-white/10"
-                        }
+                        className="border-t border-amber-300/30 bg-amber-400/5"
                       >
                         <td className="px-4 py-3 font-bold">
                           {stop.originalStopNumber}
@@ -463,24 +475,26 @@ try {
                         </td>
                         <td className="px-4 py-3">
                           <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
-                            {stop.confidence}
+                            {stop.isPlaceholder ? "mancante" : stop.confidence}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <button
                             type="button"
-                            onClick={() => markStopReviewed(stop.originalStopNumber)}
+                            onClick={() =>
+                              markStopReviewed(stop.originalStopNumber)
+                            }
                             className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/20"
                           >
                             Conferma
                           </button>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
 
             <button
               type="button"
@@ -488,7 +502,7 @@ try {
               onClick={handleCreateRoute}
               className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Conferma e crea RoutePro Route
+              Crea rotta RoutePro
             </button>
           </div>
         )}

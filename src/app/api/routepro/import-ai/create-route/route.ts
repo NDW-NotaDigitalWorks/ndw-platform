@@ -9,6 +9,14 @@ export const runtime = "nodejs";
 type CreateRoutePayload = {
   importId?: string;
   editedStops?: RouteProAiExtractedStop[];
+  name?: string;
+  routeDate?: string;
+  routeProfile?: string;
+  startAddress?: string;
+  returnAddress?: string;
+  shiftStartTime?: string;
+  shiftEndTime?: string;
+  breakMinutes?: number;
 };
 export async function POST(request: Request) {
   try {
@@ -71,18 +79,34 @@ const hasBlockingPlaceholders = finalStops.some(
     }
 
     const today = new Date().toISOString().slice(0, 10);
+    const routeDate = body.routeDate?.trim() || today;
+    const routeName = body.name?.trim() || `RoutePro - ${routeDate}`;
+    const routeProfile = body.routeProfile?.trim() || "generic";
+    const startAddress = body.startAddress?.trim() || null;
+    const returnAddress = body.returnAddress?.trim() || null;
+    const shiftStartTime = body.shiftStartTime?.trim() || null;
+    const shiftEndTime = body.shiftEndTime?.trim() || null;
+    const breakMinutes =
+  typeof body.breakMinutes === "number" && Number.isFinite(body.breakMinutes)
+    ? body.breakMinutes
+    : 30;
 
     const { data: route, error: routeError } = await supabase
       .from("routepro_routes")
       .insert({
-        user_id: user.id,
-        name: `AI Screenshot Import - ${today}`,
-        route_date: today,
-        status: "draft",
-        is_optimized: false,
-        optimization_method: null,
-        route_profile: "amazon_flex",
-      })
+  user_id: user.id,
+  name: routeName,
+  route_date: routeDate,
+  status: "draft",
+  is_optimized: false,
+  optimization_method: null,
+  route_profile: routeProfile,
+  start_address: startAddress,
+  return_address: returnAddress,
+  shift_start_time: shiftStartTime,
+  shift_end_time: shiftEndTime,
+  break_minutes: breakMinutes,
+})
       .select("id")
       .single();
 

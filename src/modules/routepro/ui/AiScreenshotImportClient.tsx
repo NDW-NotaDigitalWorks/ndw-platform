@@ -134,7 +134,22 @@ function getStopsToReview(
   );
 }
 
-export function AiScreenshotImportClient() {
+type AiScreenshotImportClientProps = {
+  routeDraft?: {
+    name?: string;
+    routeDate?: string;
+    routeProfile?: string;
+    startAddress?: string;
+    returnAddress?: string;
+    shiftStartTime?: string;
+    shiftEndTime?: string;
+    breakMinutes?: number;
+  };
+};
+
+export function AiScreenshotImportClient({
+  routeDraft,
+}: AiScreenshotImportClientProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [preview, setPreview] = useState<RouteProAiImportPreview | null>(null);
@@ -300,8 +315,16 @@ export function AiScreenshotImportClient() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          editedStops: preview.stops,
-        }),
+  editedStops: preview.stops,
+  name: routeDraft?.name,
+  routeDate: routeDraft?.routeDate,
+  routeProfile: routeDraft?.routeProfile,
+  startAddress: routeDraft?.startAddress,
+  returnAddress: routeDraft?.returnAddress,
+  shiftStartTime: routeDraft?.shiftStartTime,
+  shiftEndTime: routeDraft?.shiftEndTime,
+  breakMinutes: routeDraft?.breakMinutes,
+}),
       });
 
       const responseText = await response.text();

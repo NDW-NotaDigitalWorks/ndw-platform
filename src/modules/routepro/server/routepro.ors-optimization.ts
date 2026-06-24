@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import { decryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
+import { getRouteProNdwOrsApiKey } from "@/modules/routepro/server/routepro.ai-config";
 
 export type RouteProOrsOptimizationStop = {
   id: string;
@@ -47,35 +46,21 @@ type OrsOptimizationResponse = {
   };
 };
 
-async function getMyOpenRouteServiceKey(): Promise<string | null> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("routepro_api_keys")
-    .select("encrypted_key")
-    .eq("provider", "openrouteservice")
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (error) {
-    console.error("RoutePro ORS key fetch error:", error.message);
-    return null;
-  }
-
-  return data?.encrypted_key ? decryptRouteProSecret(data.encrypted_key) : null;
-}
-
 export async function optimizeStopsWithOpenRouteService(
   stops: RouteProOrsOptimizationStop[],
   startPoint?: { lat: number; lng: number } | null,
 ): Promise<RouteProOrsOptimizationResult> {
-  const apiKey = await getMyOpenRouteServiceKey();
+  let apiKey: string;
 
-  if (!apiKey) {
+  try {
+    apiKey = getRouteProNdwOrsApiKey();
+  } catch (error) {
+    console.error("RoutePro NDW ORS optimization key error:", error);
+
     return {
       ok: false,
       reason: "missing_key",
-      message: "Missing OpenRouteService API key.",
+      message: "RoutePro optimization is not configured on NDW.",
       provider: "openrouteservice_optimization",
     };
   }

@@ -1,165 +1,95 @@
 import Link from "next/link";
-import {
-  saveRouteProGoogleVisionKey,
-  saveRouteProOpenRouteServiceKey,
-} from "@/modules/routepro/server/routepro.actions";
 import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 
-type Props = {
-  searchParams?: Promise<{
-    error?: string;
-    saved?: string;
-    visionSaved?: string;
-  }>;
-};
-
-const formStyle: React.CSSProperties = {
+const gridStyle: React.CSSProperties = {
   display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
   gap: 16,
-  marginTop: 20,
-};
-
-const actionsStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 12,
-  marginTop: 12,
+  marginTop: 24,
 };
 
 const mutedTextStyle: React.CSSProperties = {
   margin: "8px 0 0",
   fontSize: 14,
   lineHeight: 1.6,
+  color: "#64748b",
 };
 
-const errorStyle: React.CSSProperties = {
-  marginTop: 16,
-  padding: 12,
-  borderRadius: 12,
-  background: "#fff1f2",
-  color: "#be123c",
-  fontWeight: 600,
-};
-
-const successStyle: React.CSSProperties = {
-  marginTop: 16,
-  padding: 12,
-  borderRadius: 12,
+const badgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  marginTop: 14,
+  padding: "8px 12px",
+  borderRadius: 999,
   background: "#ecfdf5",
   color: "#047857",
-  fontWeight: 600,
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
 };
 
-function getErrorMessage(error?: string): string | null {
-  if (error === "missing-key") {
-    return "Inserisci una API key OpenRouteService.";
-  }
-
-  if (error === "save-failed") {
-    return "Non siamo riusciti a salvare la chiave. Riprova.";
-  }
-
-  if (error === "missing-vision-key") {
-    return "Inserisci una API key Google Vision.";
-  }
-
-  if (error === "vision-save-failed") {
-    return "Non siamo riusciti a salvare la chiave OCR.";
-  }
-
-  return null;
-}
-
-export default async function RouteProSettingsPage({ searchParams }: Props) {
-  const resolvedSearchParams = await searchParams;
-  const errorMessage = getErrorMessage(resolvedSearchParams?.error);
-  const saved = resolvedSearchParams?.saved === "1";
-  const visionSaved = resolvedSearchParams?.visionSaved === "1";
-
+export default function RouteProSettingsPage() {
   return (
     <section style={ui.page.section}>
-      <RouteProHeader subtitle="Configura le API per sbloccare tutte le funzionalità" />
+      <RouteProHeader subtitle="Preferenze operative per driver e corrieri" />
 
       <p style={ui.page.eyebrow}>Impostazioni</p>
-      <h1 style={ui.page.title}>API & Integrazioni</h1>
+      <h1 style={ui.page.title}>Preferenze Driver</h1>
       <p style={ui.page.subtitle}>
-        Collega le tue chiavi per attivare geocoding, OCR e automazioni avanzate.
+        RoutePro è già configurato da NDW. Non devi inserire API, chiavi tecniche o configurazioni complesse.
       </p>
 
-      {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
-
-      {saved ? (
-        <div style={successStyle}>
-          Chiave OpenRouteService salvata correttamente.
-        </div>
-      ) : null}
-
-      {visionSaved ? (
-        <div style={successStyle}>
-          Chiave Google Vision salvata correttamente.
-        </div>
-      ) : null}
-
-      {/* OpenRouteService */}
       <div style={{ ...ui.card.base, marginTop: 24 }}>
-        <h2 style={ui.page.sectionTitle}>Geocoding (OpenRouteService)</h2>
-
+        <h2 style={ui.page.sectionTitle}>Configurazione sistema</h2>
         <p style={mutedTextStyle}>
-          Usata per trasformare indirizzi in coordinate. RoutePro usa modello BYOK:
-          la chiave è tua, i limiti sono tuoi.
+          AI Screenshot Import, geocoding e ottimizzazione sono gestiti da NDW.
+          Il driver deve solo caricare gli screenshot, creare la rotta e partire.
         </p>
 
-        <form action={saveRouteProOpenRouteServiceKey} style={formStyle}>
-          <label style={ui.form.label}>
-            API Key
-            <input
-              name="openrouteservice_key"
-              type="password"
-              placeholder="Incolla qui la tua API key"
-              style={ui.form.input}
-            />
-          </label>
-
-          <div style={actionsStyle}>
-            <button type="submit" style={routeProUi.primaryButton}>
-              Salva chiave
-            </button>
-
-            <Link href="/app/routepro" style={routeProUi.secondaryButton}>
-              Torna a RoutePro
-            </Link>
-          </div>
-        </form>
+        <span style={badgeStyle}>API gestite da NDW</span>
       </div>
 
-      {/* Google Vision */}
-      <div style={{ ...ui.card.base, marginTop: 24 }}>
-        <h2 style={ui.page.sectionTitle}>OCR Screenshot (Google Vision)</h2>
+      <div style={gridStyle}>
+        <div style={ui.card.base}>
+          <h2 style={ui.page.sectionTitle}>Navigazione</h2>
+          <p style={mutedTextStyle}>
+            Usa Google Maps o Waze dal Driver Command Center durante la consegna.
+          </p>
+        </div>
 
+        <div style={ui.card.base}>
+          <h2 style={ui.page.sectionTitle}>Numero originale</h2>
+          <p style={mutedTextStyle}>
+            RoutePro mantiene il numero originale dell’app del corriere per ridurre errori e confusione.
+          </p>
+        </div>
+
+        <div style={ui.card.base}>
+          <h2 style={ui.page.sectionTitle}>Workflow RoutePro</h2>
+          <p style={mutedTextStyle}>
+            Import AI, verifica minima, ottimizzazione, Driver Mode e riepilogo finale.
+          </p>
+        </div>
+      </div>
+
+      <div style={{ ...ui.card.base, marginTop: 24 }}>
+        <h2 style={ui.page.sectionTitle}>Preferenze avanzate</h2>
         <p style={mutedTextStyle}>
-          Permette di leggere automaticamente screenshot Amazon Flex e ricostruire
-          la lista stop.
+          In una prossima versione potrai personalizzare navigatore preferito, pausa media,
+          profilo corriere, lingua e preferenze di raggruppamento.
         </p>
 
-        <form action={saveRouteProGoogleVisionKey} style={formStyle}>
-          <label style={ui.form.label}>
-            API Key
-            <input
-              name="google_vision_key"
-              type="password"
-              placeholder="Incolla qui la tua API key"
-              style={ui.form.input}
-            />
-          </label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 18 }}>
+          <Link href="/app/routepro" style={routeProUi.primaryButton}>
+            Torna a RoutePro
+          </Link>
 
-          <div style={actionsStyle}>
-            <button type="submit" style={routeProUi.primaryButton}>
-              Salva chiave OCR
-            </button>
-          </div>
-        </form>
+          <Link href="/app/routepro/import-ai" style={routeProUi.secondaryButton}>
+            Apri AI Import
+          </Link>
+        </div>
       </div>
     </section>
   );

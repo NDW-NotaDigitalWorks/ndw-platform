@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { RouteProWorkflowShell } from "@/modules/routepro/v2/ui/RouteProWorkflowShell";
-import { ui } from "@/styles/ui";
 
 type Props = {
   params: Promise<{ routeId: string }>;
@@ -16,6 +15,31 @@ const gridStyle: React.CSSProperties = {
   marginTop: 18,
 };
 
+const metricCardStyle: React.CSSProperties = {
+  padding: 18,
+  borderRadius: 22,
+  background: "rgba(15,23,42,0.96)",
+  border: "1px solid rgba(148,163,184,0.28)",
+  boxShadow: "0 18px 40px rgba(15,23,42,0.12)",
+};
+
+const metricLabelStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#93c5fd",
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+};
+
+const metricValueStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  color: "#ffffff",
+  fontSize: 32,
+  lineHeight: 1,
+  fontWeight: 950,
+};
+
 const listStyle: React.CSSProperties = {
   display: "grid",
   gap: 12,
@@ -23,25 +47,42 @@ const listStyle: React.CSSProperties = {
 };
 
 const stopCardStyle: React.CSSProperties = {
-  ...ui.card.base,
-  padding: 16,
+  padding: 18,
+  borderRadius: 22,
+  background: "rgba(15,23,42,0.96)",
+  border: "1px solid rgba(148,163,184,0.26)",
+  boxShadow: "0 16px 36px rgba(15,23,42,0.12)",
+};
+
+const stopTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#ffffff",
+  fontSize: 16,
+  fontWeight: 900,
+};
+
+const addressStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  color: "#e2e8f0",
+  fontSize: 15,
+  lineHeight: 1.55,
+  fontWeight: 700,
 };
 
 const mutedTextStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  fontSize: 14,
-  lineHeight: 1.6,
+  margin: "6px 0 0",
+  color: "#94a3b8",
+  fontSize: 13,
+  lineHeight: 1.5,
+  fontWeight: 700,
 };
 
-const badgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "4px 8px",
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 700,
-  background: "#f1f5f9",
-  color: "#334155",
+const sectionTitleStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#0f172a",
+  fontSize: 26,
+  lineHeight: 1.15,
+  fontWeight: 950,
 };
 
 function getStatusLabel(status: string): string {
@@ -51,6 +92,43 @@ function getStatusLabel(status: string): string {
   if (status === "completed") return "Completed";
   if (status === "skipped") return "Skipped";
   return status;
+}
+
+function getBadgeStyle(status: string): React.CSSProperties {
+  const base: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  };
+
+  if (status === "valid") {
+    return {
+      ...base,
+      background: "rgba(34,197,94,0.16)",
+      color: "#bbf7d0",
+      border: "1px solid rgba(34,197,94,0.35)",
+    };
+  }
+
+  if (status === "needs_review") {
+    return {
+      ...base,
+      background: "rgba(245,158,11,0.16)",
+      color: "#fde68a",
+      border: "1px solid rgba(245,158,11,0.35)",
+    };
+  }
+
+  return {
+    ...base,
+    background: "rgba(59,130,246,0.16)",
+    color: "#bfdbfe",
+    border: "1px solid rgba(59,130,246,0.35)",
+  };
 }
 
 export default async function RouteProReviewPage({ params }: Props) {
@@ -76,33 +154,33 @@ export default async function RouteProReviewPage({ params }: Props) {
       subtitle={`${totalStops} stops extracted from your route. Check them before verifying addresses.`}
     >
       <div style={gridStyle}>
-        <article style={stopCardStyle}>
-          <p style={ui.page.eyebrow}>Extracted stops</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{totalStops}</h2>
+        <article style={metricCardStyle}>
+          <p style={metricLabelStyle}>Extracted stops</p>
+          <h2 style={metricValueStyle}>{totalStops}</h2>
         </article>
 
-        <article style={stopCardStyle}>
-          <p style={ui.page.eyebrow}>Verified</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{validStops}</h2>
+        <article style={metricCardStyle}>
+          <p style={metricLabelStyle}>Verified</p>
+          <h2 style={metricValueStyle}>{validStops}</h2>
         </article>
 
-        <article style={stopCardStyle}>
-          <p style={ui.page.eyebrow}>Need review</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{needsReviewStops}</h2>
+        <article style={metricCardStyle}>
+          <p style={metricLabelStyle}>Need review</p>
+          <h2 style={metricValueStyle}>{needsReviewStops}</h2>
         </article>
 
-        <article style={stopCardStyle}>
-          <p style={ui.page.eyebrow}>Raw</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{rawStops}</h2>
+        <article style={metricCardStyle}>
+          <p style={metricLabelStyle}>Raw</p>
+          <h2 style={metricValueStyle}>{rawStops}</h2>
         </article>
       </div>
 
-      <div style={{ marginTop: 24 }}>
-        <h2 style={ui.page.sectionTitle}>Extracted stop list</h2>
+      <div style={{ marginTop: 28 }}>
+        <h2 style={sectionTitleStyle}>Extracted stop list</h2>
 
         {route.stops.length === 0 ? (
-          <div style={{ ...ui.card.base, marginTop: 18 }}>
-            <p style={mutedTextStyle}>
+          <div style={{ ...stopCardStyle, marginTop: 18 }}>
+            <p style={addressStyle}>
               No stops imported yet. Go back to the classic route view and import
               screenshots, a list or a CSV.
             </p>
@@ -126,19 +204,21 @@ export default async function RouteProReviewPage({ params }: Props) {
                   }}
                 >
                   <div>
-                    <strong>
+                    <p style={stopTitleStyle}>
                       Original stop {stop.original_position} · Workflow position{" "}
                       {stop.position}
-                    </strong>
+                    </p>
 
-                    <p style={mutedTextStyle}>{stop.address}</p>
+                    <p style={addressStyle}>{stop.address}</p>
 
                     {stop.source ? (
                       <p style={mutedTextStyle}>Source: {stop.source}</p>
                     ) : null}
                   </div>
 
-                  <span style={badgeStyle}>{getStatusLabel(stop.status)}</span>
+                  <span style={getBadgeStyle(stop.status)}>
+                    {getStatusLabel(stop.status)}
+                  </span>
                 </div>
               </article>
             ))}

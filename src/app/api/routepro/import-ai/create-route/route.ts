@@ -73,7 +73,7 @@ const hasBlockingPlaceholders = finalStops.some(
     const today = new Date().toISOString().slice(0, 10);
 
     const { data: route, error: routeError } = await supabase
-      .from("ndw_routepro_routes")
+      .from("routepro_routes")
       .insert({
         user_id: user.id,
         name: `AI Screenshot Import - ${today}`,
@@ -96,31 +96,28 @@ const hasBlockingPlaceholders = finalStops.some(
       );
     }
 
-    const stopRows = finalStops.map((stop) => ({
-      route_id: route.id,
-      stop_type: stop.originalStopNumber === 1 ? "start" : "delivery",
-      original_stop_number: stop.originalStopNumber,
-      optimized_stop_number: null,
-      address_raw: stop.addressRaw,
-      address_normalized: stop.addressRaw.trim().toLowerCase(),
-      status: stop.confidence === "high" ? "pending" : "needs_review",
-      estimated_service_minutes: 3,
-      duplicate_group_key: null,
-      nearby_group_key: null,
-      is_front_side_pair: false,
-    }));
+    const stopRows = finalStops.map((stop, index) => ({
+  route_id: route.id,
+  position: index + 1,
+  original_position: stop.originalStopNumber,
+  address: stop.city ? `${stop.addressRaw}, ${stop.city}` : stop.addressRaw,
+  lat: null,
+  lng: null,
+  status: stop.confidence === "high" ? "raw" : "needs_review",
+  
+}));
 
     const { error: stopsError } = await supabase
-      .from("ndw_routepro_stops")
+      .from("routepro_stops")
       .insert(stopRows);
 
     if (stopsError) {
-      await supabase.from("ndw_routepro_routes").delete().eq("id", route.id);
+      await supabase.from("routepro_routes").delete().eq("id", route.id);
 
       return NextResponse.json(
         {
           ok: false,
-          message: stopsError.message,
+          message: `${stopsError.message} | ${stopsError.details ?? ""} | ${stopsError.hint ?? ""} | ${stopsError.code ?? ""}`,
         },
         { status: 500 },
       );

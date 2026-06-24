@@ -273,12 +273,33 @@ export function AiScreenshotImportClient() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          importId: preview.importId,
-          editedStops: preview.stops,
-        }),
+  editedStops: preview.stops,
+}),
       });
 
-      const payload = await response.json();
+      const responseText = await response.text();
+      console.log("CREATE ROUTE RESPONSE", {
+  status: response.status,
+  responseText,
+});
+
+let payload: {
+  ok?: boolean;
+  message?: string;
+  routeId?: string;
+};
+
+try {
+  payload = JSON.parse(responseText) as {
+    ok?: boolean;
+    message?: string;
+    routeId?: string;
+  };
+} catch {
+  throw new Error(
+    responseText || "Risposta non valida durante la creazione rotta.",
+  );
+}
 
       if (!response.ok || !payload.ok) {
         throw new Error(payload.message ?? "Creazione rotta non riuscita.");

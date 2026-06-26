@@ -213,13 +213,12 @@ export default async function RouteProModulePage() {
         <h1 style={routeProUi.heroTitle}>RoutePro Command Center</h1>
 
         <p style={routeProUi.heroSubtitle}>
-          Import your stops, review your route, verify addresses, optimize the sequence
-          and drive smarter with a workflow built for real multi-stop drivers.
+          Crea la rotta, importa gli screenshot, controlla solo gli stop da verificare e passa al Driver Command Center.
         </p>
 
         <div style={actionsStyle}>
-          <Link href="/app/routepro/import-ai" style={routeProUi.primaryButton}>
-  AI Screenshot Import
+          <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
+  Crea nuova rotta
 </Link>
 
           <Link href="/app/routepro/settings" style={routeProUi.secondaryButton}>
@@ -317,8 +316,8 @@ export default async function RouteProModulePage() {
             title="No delivery day prepared yet"
             description="Create your first route, import stops, review addresses, optimize the sequence and start driving."
             action={
-              <Link href="/app/routepro/import-ai" style={routeProUi.primaryButton}>
-  Import first route with AI
+              <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
+  Crea la prima rotta
 </Link>
             }
           />

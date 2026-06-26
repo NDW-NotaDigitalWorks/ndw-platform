@@ -1,3 +1,4 @@
+import { createClient } from "@/lib/supabase/server";
 import { getRouteProNdwOrsApiKey } from "@/modules/routepro/server/routepro.ai-config";
 
 type OrsFeature = {
@@ -23,7 +24,7 @@ export type RouteProGeocodeResult =
       lng: number;
       label: string | null;
       confidence: number | null;
-      provider: "openrouteservice";
+      provider: "openrouteservice" | "routepro_cache";
     }
   | {
       ok: false;
@@ -42,6 +43,14 @@ type GeocodingCountryConfig = {
     maxLng: number;
     maxLat: number;
   };
+};
+
+type GeocodingCacheRow = {
+  normalized_address: string;
+  display_address: string;
+  lat: number;
+  lng: number;
+  confidence: number | null;
 };
 
 const DEFAULT_GEOCODING_COUNTRY: GeocodingCountryConfig = {
@@ -73,6 +82,14 @@ function normalizeAddressForGeocoding(address: string): string {
   return address.replaceAll('"', "").replace(/\s+/g, " ").trim();
 }
 
+function normalizeAddressForCache(address: string): string {
+  return normalizeAddressForGeocoding(address)
+    .toLowerCase()
+    .replace(/[.,;:()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function isLikelyItalyResult(feature: OrsFeature): boolean {
   const country = feature.properties?.country?.toLowerCase() ?? "";
   const countryCode = feature.properties?.country_a?.toLowerCase() ?? "";
@@ -84,9 +101,102 @@ function isLikelyItalyResult(feature: OrsFeature): boolean {
   );
 }
 
+async function getCachedGeocode(
+  normalizedAddress: string,
+): Promise<RouteProGeocodeResult | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("routepro_geocoding_cache")
+    .select("normalized_address, display_address, lat, lng, confidence")
+    .eq("normalized_address", normalizedAddress)
+    .maybeSingle<GeocodingCacheRow>();
+
+  if (error) {
+    console.error("RoutePro geocoding cache read error:", error.message);
+    return null;
+  }
+
+  if (!data) return null;
+
+  await supabase
+    .from("routepro_geocoding_cache")
+    .update({
+      hit_count: undefined,
+      last_used_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("normalized_address", normalizedAddress);
+
+  await supabase.rpc("increment_routepro_geocoding_cache_hit", {
+    cache_key: normalizedAddress,
+  }).then(({ error: rpcError }) => {
+    if (rpcError) {
+      console.warn("RoutePro cache hit increment skipped:", rpcError.message);
+    }
+  });
+
+  return {
+    ok: true,
+    lat: Number(data.lat),
+    lng: Number(data.lng),
+    label: data.display_address,
+    confidence: data.confidence,
+    provider: "routepro_cache",
+  };
+}
+
+async function saveGeocodeToCache(params: {
+  normalizedAddress: string;
+  displayAddress: string;
+  lat: number;
+  lng: number;
+  confidence: number | null;
+}) {
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("routepro_geocoding_cache").upsert(
+    {
+      normalized_address: params.normalizedAddress,
+      display_address: params.displayAddress,
+      lat: params.lat,
+      lng: params.lng,
+      provider: "openrouteservice",
+      confidence: params.confidence,
+      country_code: "IT",
+      hit_count: 0,
+      last_used_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "normalized_address" },
+  );
+
+  if (error) {
+    console.error("RoutePro geocoding cache save error:", error.message);
+  }
+}
+
 export async function geocodeAddressWithOpenRouteService(
   address: string,
 ): Promise<RouteProGeocodeResult> {
+  const cleanAddress = normalizeAddressForGeocoding(address);
+  const normalizedAddress = normalizeAddressForCache(cleanAddress);
+
+  if (!normalizedAddress) {
+    return {
+      ok: false,
+      reason: "not_found",
+      message: "Address is empty.",
+      provider: "openrouteservice",
+    };
+  }
+
+  const cachedResult = await getCachedGeocode(normalizedAddress);
+
+  if (cachedResult) {
+    return cachedResult;
+  }
+
   let apiKey: string;
 
   try {
@@ -102,7 +212,6 @@ export async function geocodeAddressWithOpenRouteService(
     };
   }
 
-  const cleanAddress = normalizeAddressForGeocoding(address);
   const countryConfig = DEFAULT_GEOCODING_COUNTRY;
 
   const url = new URL("https://api.openrouteservice.org/geocode/search");
@@ -162,13 +271,23 @@ export async function geocodeAddressWithOpenRouteService(
     }
 
     const [lng, lat] = validFeature.geometry.coordinates;
+    const label = validFeature.properties?.label ?? cleanAddress;
+    const confidence = validFeature.properties?.confidence ?? null;
+
+    await saveGeocodeToCache({
+      normalizedAddress,
+      displayAddress: label,
+      lat,
+      lng,
+      confidence,
+    });
 
     return {
       ok: true,
       lat,
       lng,
-      label: validFeature.properties?.label ?? null,
-      confidence: validFeature.properties?.confidence ?? null,
+      label,
+      confidence,
       provider: "openrouteservice",
     };
   } catch (error) {

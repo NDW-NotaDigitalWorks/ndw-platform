@@ -120,16 +120,24 @@ const hasBlockingPlaceholders = finalStops.some(
       );
     }
 
-    const stopRows = finalStops.map((stop, index) => ({
-  route_id: route.id,
-  position: index + 1,
-  original_position: stop.originalStopNumber,
-  address: stop.city ? `${stop.addressRaw}, ${stop.city}` : stop.addressRaw,
-  lat: null,
-  lng: null,
-  status: stop.confidence === "high" ? "raw" : "needs_review",
-  
-}));
+    const stopRows = finalStops.map((stop, index) => {
+  const hasAddress = stop.addressRaw.trim().length > 0;
+  const shouldReview =
+    stop.isPlaceholder ||
+    !hasAddress ||
+    stop.confidence === "low" ||
+    stop.confidence === "needs_review";
+
+  return {
+    route_id: route.id,
+    position: index + 1,
+    original_position: stop.originalStopNumber,
+    address: stop.city ? `${stop.addressRaw}, ${stop.city}` : stop.addressRaw,
+    lat: null,
+    lng: null,
+    status: shouldReview ? "needs_review" : "valid",
+  };
+});
 
     const { error: stopsError } = await supabase
       .from("routepro_stops")

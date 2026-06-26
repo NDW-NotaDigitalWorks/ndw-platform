@@ -219,25 +219,35 @@ export async function geocodeRouteProStops(formData: FormData) {
   if (!routeId) redirect("/app/routepro");
 
   const { data: stops, error: stopsError } = await supabase
-    .from("routepro_stops")
-    .select("id, address")
-    .eq("route_id", routeId)
-    .in("status", ["raw", "needs_review"])
-    .order("position", { ascending: true });
+  .from("routepro_stops")
+  .select("id, address, status, lat, lng")
+  .eq("route_id", routeId)
+  .order("position", { ascending: true });
+
+const stopsToGeocode =
+  stops?.filter((stop) => {
+    const hasCoordinates = stop.lat !== null && stop.lng !== null;
+
+    return (
+      stop.status === "raw" ||
+      stop.status === "needs_review" ||
+      !hasCoordinates
+    );
+  }) ?? [];
 
   if (stopsError) {
     console.error("RoutePro stops geocode fetch error:", stopsError.message);
     redirect(`/app/routepro/${routeId}?error=geocode-failed`);
   }
 
-  if (!stops || stops.length === 0) {
-    redirect(`/app/routepro/${routeId}?geocoded=0`);
-  }
+  if (stopsToGeocode.length === 0) {
+  redirect(`/app/routepro/${routeId}?geocoded=0`);
+}
 
   const GEOCODING_BATCH_SIZE = 5;
 
   await runRouteProGeocodingInBatches(
-    stops,
+  stopsToGeocode,
     GEOCODING_BATCH_SIZE,
     async (stop) => {
       const result = await geocodeAddressWithOpenRouteService(stop.address);

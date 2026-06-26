@@ -14,19 +14,34 @@ type OpenAiVisionPayload = {
   stops?: OpenAiVisionStop[];
 };
 
+function cleanAiAddress(address: string): string {
+  return address
+    .replace(/\b\d{5}\b/g, "")
+    .replace(/\b(c\/o|presso|citofono|campanello|interno|scala|piano|porta|bar|ufficio|reception|magazzino|srl|sas|spa)\b.*$/i, "")
+    .replace(/\s+/g, " ")
+    .replace(/\s+,/g, ",")
+    .trim();
+}
+
+function normalizeAiConfidence(stop: OpenAiVisionStop, cleanedAddress: string) {
+  if (stop.isPlaceholder || cleanedAddress.length === 0) return "needs_review";
+  if (stop.confidence === "low" || stop.confidence === "needs_review") return stop.confidence;
+  return "high";
+}
+
 function normalizeAiStop(stop: OpenAiVisionStop): RouteProAiExtractedStop | null {
   if (!stop.originalStopNumber || stop.originalStopNumber < 1) {
     return null;
   }
 
   const isPlaceholder = Boolean(stop.isPlaceholder);
-  const addressRaw = stop.addressRaw?.trim();
+  const addressRaw = cleanAiAddress(stop.addressRaw?.trim() ?? "");
 
   return {
     originalStopNumber: stop.originalStopNumber,
     addressRaw: addressRaw && addressRaw.length > 0 ? addressRaw : "PLACEHOLDER_STOP_MISSING_ADDRESS",
     city: stop.city?.trim() || null,
-    confidence: stop.confidence ?? (isPlaceholder ? "needs_review" : "medium"),
+    confidence: normalizeAiConfidence(stop, addressRaw),
     isPlaceholder,
     needsReviewReason: stop.needsReviewReason ?? null,
   };
@@ -277,6 +292,8 @@ FINAL CHECK BEFORE ANSWERING:
     },
     body: JSON.stringify({
   model: "gpt-4.1-mini",
+  temperature: 0,
+  top_p: 1,
   max_output_tokens: 12000,
   input: [
         {

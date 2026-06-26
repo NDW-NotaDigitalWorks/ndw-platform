@@ -125,13 +125,13 @@ function rebuildPreviewWithEditedStops(
 function getStopsToReview(
   stops: RouteProAiExtractedStop[],
 ): RouteProAiExtractedStop[] {
-  return stops.filter(
-    (stop) =>
-      stop.isPlaceholder ||
-      stop.confidence === "medium" ||
-      stop.confidence === "low" ||
-      stop.confidence === "needs_review",
-  );
+  return stops.filter((stop) => {
+    if (stop.isPlaceholder) return true;
+    if (stop.confidence === "low") return true;
+    if (stop.confidence === "needs_review") return true;
+
+    return false;
+  });
 }
 
 type AiScreenshotImportClientProps = {

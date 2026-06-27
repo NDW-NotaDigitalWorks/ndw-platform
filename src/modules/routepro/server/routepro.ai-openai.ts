@@ -20,12 +20,52 @@ function cleanAiAddress(address: string): string {
     .replace(/\b(c\/o|presso|citofono|campanello|interno|scala|piano|porta|bar|ufficio|reception|magazzino|srl|sas|spa)\b.*$/i, "")
     .replace(/\s+/g, " ")
     .replace(/\s+,/g, ",")
+    .replace(/\b(\d+[A-Za-z]?)\s+\1\b/g, "$1")
+    .replace(/\s+\.$/, "")
+    .replace(/\s+,/g, ",")
+    .replace(/,+$/, "")
     .trim();
 }
 
 function normalizeAiConfidence(stop: OpenAiVisionStop, cleanedAddress: string) {
-  if (stop.isPlaceholder || cleanedAddress.length === 0) return "needs_review";
-  if (stop.confidence === "low" || stop.confidence === "needs_review") return stop.confidence;
+  if (stop.isPlaceholder || cleanedAddress.length === 0) {
+    return "needs_review";
+  }
+
+  const address = cleanedAddress.toLowerCase();
+
+  // civico mancante
+  const hasHouseNumber = /\b\d+[a-zA-Z]?\b/.test(cleanedAddress);
+
+  // locker / punto ritiro
+  const hasLocker =
+    /\blocker\b|\bpunto ritiro\b|\bt\d+\b/i.test(cleanedAddress);
+
+  // testo troncato
+  const looksTruncated =
+    /\.\.\.$/.test(cleanedAddress) ||
+    /\bmon\.$/i.test(cleanedAddress);
+
+  // civico duplicato
+  const duplicatedHouseNumber =
+    /\b(\d+[a-zA-Z]?)\s+\1\b/.test(cleanedAddress);
+
+  if (
+    !hasHouseNumber ||
+    hasLocker ||
+    looksTruncated ||
+    duplicatedHouseNumber
+  ) {
+    return "needs_review";
+  }
+
+  if (
+    stop.confidence === "low" ||
+    stop.confidence === "needs_review"
+  ) {
+    return stop.confidence;
+  }
+
   return "high";
 }
 

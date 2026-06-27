@@ -18,6 +18,31 @@ type CreateRoutePayload = {
   shiftEndTime?: string;
   breakMinutes?: number;
 };
+
+function normalizeAddressForMatch(address: string | null): string {
+  if (!address) return "";
+
+  return address
+    .toLowerCase()
+    .replace(/\b\d{5}\b/g, "")
+    .replace(/[.,;:()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isSameRouteBoundaryAddress(stopAddress: string, boundaryAddress: string | null): boolean {
+  const normalizedStop = normalizeAddressForMatch(stopAddress);
+  const normalizedBoundary = normalizeAddressForMatch(boundaryAddress);
+
+  if (!normalizedStop || !normalizedBoundary) return false;
+
+  return (
+    normalizedStop === normalizedBoundary ||
+    normalizedStop.includes(normalizedBoundary) ||
+    normalizedBoundary.includes(normalizedStop)
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as CreateRoutePayload;
@@ -120,7 +145,25 @@ const hasBlockingPlaceholders = finalStops.some(
       );
     }
 
-    const stopRows = finalStops.map((stop, index) => {
+    const filteredStops = finalStops.filter((stop) => {
+  const fullStopAddress = stop.city
+    ? `${stop.addressRaw}, ${stop.city}`
+    : stop.addressRaw;
+
+  const isStartDuplicate = isSameRouteBoundaryAddress(
+    fullStopAddress,
+    startAddress,
+  );
+
+  const isReturnDuplicate = isSameRouteBoundaryAddress(
+    fullStopAddress,
+    returnAddress,
+  );
+
+  return !isStartDuplicate && !isReturnDuplicate;
+});
+
+const stopRows = filteredStops.map((stop, index) => {
   const hasAddress = stop.addressRaw.trim().length > 0;
   const shouldReview =
     stop.isPlaceholder ||

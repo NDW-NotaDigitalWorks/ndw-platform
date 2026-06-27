@@ -428,14 +428,7 @@ export async function optimizeRouteProRoute(formData: FormData) {
   lng: Number(stop.lng),
 }));
 
-const orsResult = await optimizeStopsWithOpenRouteService(
-  optimizationStops.map((stop) => ({
-    id: stop.id,
-    lat: stop.lat,
-    lng: stop.lng,
-  })),
-  startPoint,
-);
+
 
 const sortedByOriginalPosition = [...optimizationStops].sort(
   (a, b) => a.original_position - b.original_position,
@@ -462,6 +455,15 @@ const stopsToOptimize =
           stop.id !== fixedReturnStop.id,
       )
     : optimizationStops;
+
+ const orsResult = await optimizeStopsWithOpenRouteService(
+  stopsToOptimize.map((stop) => ({
+    id: stop.id,
+    lat: stop.lat,
+    lng: stop.lng,
+  })),
+  startPoint,
+);   
 
 const optimizedMiddleStops = orsResult.ok
   ? orsResult.orderedStopIds

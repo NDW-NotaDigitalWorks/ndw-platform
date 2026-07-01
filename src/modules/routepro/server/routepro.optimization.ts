@@ -16,6 +16,8 @@ type OptimizationCluster = {
   key: string;
   lat: number;
   lng: number;
+  streetKey: string;
+  houseNumber: number | null;
   stops: RouteProOptimizationStop[];
 };
 
@@ -50,6 +52,65 @@ function normalizeAddressForOptimization(address: string | undefined): string {
     .toLowerCase()
     .replace(/\s+/g, " ")
     .replace(/[.,]/g, "");
+}
+
+function extractHouseNumber(address: string | undefined): number | null {
+  if (!address) return null;
+
+  const match = address.match(/\b(\d{1,4})[a-zA-Z]?\b/);
+  return match ? Number(match[1]) : null;
+}
+
+function extractStreetKey(address: string | undefined): string {
+  const normalized = normalizeAddressForOptimization(address);
+
+  return normalized
+    .replace(/\b\d{1,4}[a-zA-Z]?\b/g, "")
+    .replace(/\b(italia|italy)\b/g, "")
+    .replace(/\b(mi|mb|lc|co|bg|va)\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getSmartClusterScore(
+  currentPoint: OptimizationPoint,
+  candidate: OptimizationCluster,
+  previousCluster?: OptimizationCluster | null,
+): number {
+  let score = getDistanceKm(currentPoint, {
+    lat: candidate.lat,
+    lng: candidate.lng,
+  });
+
+  if (!previousCluster) {
+    return score;
+  }
+
+  const sameStreet =
+    previousCluster.streetKey.length > 0 &&
+    previousCluster.streetKey === candidate.streetKey;
+
+  if (sameStreet) {
+    score *= 0.72;
+  }
+
+  if (
+    sameStreet &&
+    previousCluster.houseNumber !== null &&
+    candidate.houseNumber !== null
+  ) {
+    const houseDiff = Math.abs(
+      previousCluster.houseNumber - candidate.houseNumber,
+    );
+
+    if (houseDiff <= 4) {
+      score *= 0.65;
+    } else if (houseDiff <= 12) {
+      score *= 0.82;
+    }
+  }
+
+  return score;
 }
 
 function getCentroidPoint(clusters: OptimizationCluster[]): OptimizationPoint | null {
@@ -101,12 +162,16 @@ function buildOptimizationClusters(
     const lng =
       sortedStops.reduce((sum, stop) => sum + stop.lng, 0) / sortedStops.length;
 
-    return {
-      key,
-      lat,
-      lng,
-      stops: sortedStops,
-    };
+    const firstAddress = sortedStops[0]?.address;
+
+return {
+  key,
+  lat,
+  lng,
+  streetKey: extractStreetKey(firstAddress),
+  houseNumber: extractHouseNumber(firstAddress),
+  stops: sortedStops,
+};
   });
 }
 
@@ -121,6 +186,7 @@ function optimizeClustersNearestNeighbor(
   const remaining = [...clusters];
   const ordered: OptimizationCluster[] = [];
   let currentPoint = getEffectiveStartPoint(remaining, startPoint);
+  let previousCluster: OptimizationCluster | null = null;
 
   if (!currentPoint) {
     return clusters;
@@ -133,19 +199,21 @@ function optimizeClustersNearestNeighbor(
     for (let index = 0; index < remaining.length; index += 1) {
       const candidate = remaining[index];
 
-      const distance = getDistanceKm(currentPoint, {
-        lat: candidate.lat,
-        lng: candidate.lng,
-      });
+      const score = getSmartClusterScore(
+  currentPoint,
+  candidate,
+  previousCluster,
+);
 
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestIndex = index;
-      }
+if (score < bestDistance) {
+  bestDistance = score;
+  bestIndex = index;
+}
     }
 
     const [nextCluster] = remaining.splice(bestIndex, 1);
     ordered.push(nextCluster);
+    previousCluster = nextCluster;
 
     currentPoint = {
       lat: nextCluster.lat,

@@ -4,6 +4,7 @@ import { geocodeRouteProStops } from "@/modules/routepro/server/routepro.actions
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { RouteProSubmitButton } from "@/modules/routepro/ui/RouteProSubmitButton";
+import { RouteProVerifyStopsClient } from "@/modules/routepro/ui/RouteProVerifyStopsClient";
 import { RouteProWorkflowShell } from "@/modules/routepro/v2/ui/RouteProWorkflowShell";
 
 type Props = {
@@ -62,13 +63,8 @@ const mutedTextStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
-const listStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 12,
-  marginTop: 22,
-};
-
-const stopCardStyle: React.CSSProperties = {
+const emptyCardStyle: React.CSSProperties = {
+  marginTop: 18,
   padding: 18,
   borderRadius: 22,
   background: "rgba(15,23,42,0.96)",
@@ -76,26 +72,11 @@ const stopCardStyle: React.CSSProperties = {
   boxShadow: "0 16px 36px rgba(15,23,42,0.12)",
 };
 
-const stopTitleStyle: React.CSSProperties = {
-  margin: 0,
-  color: "#ffffff",
-  fontSize: 16,
-  fontWeight: 900,
-};
-
-const addressStyle: React.CSSProperties = {
+const emptyTextStyle: React.CSSProperties = {
   margin: "8px 0 0",
   color: "#e2e8f0",
   fontSize: 15,
   lineHeight: 1.55,
-  fontWeight: 700,
-};
-
-const stopMutedStyle: React.CSSProperties = {
-  margin: "6px 0 0",
-  color: "#94a3b8",
-  fontSize: 13,
-  lineHeight: 1.5,
   fontWeight: 700,
 };
 
@@ -117,52 +98,6 @@ const errorStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
-function getVerifyLabel(status: string): string {
-  if (status === "valid") return "Verified";
-  if (status === "needs_review") return "Needs correction";
-  if (status === "raw") return "Waiting verification";
-  if (status === "completed") return "Completed";
-  if (status === "skipped") return "Skipped";
-  return status;
-}
-
-function getBadgeStyle(status: string): React.CSSProperties {
-  const base: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "6px 10px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 900,
-    whiteSpace: "nowrap",
-  };
-
-  if (status === "valid") {
-    return {
-      ...base,
-      background: "rgba(34,197,94,0.16)",
-      color: "#bbf7d0",
-      border: "1px solid rgba(34,197,94,0.35)",
-    };
-  }
-
-  if (status === "needs_review") {
-    return {
-      ...base,
-      background: "rgba(245,158,11,0.16)",
-      color: "#fde68a",
-      border: "1px solid rgba(245,158,11,0.35)",
-    };
-  }
-
-  return {
-    ...base,
-    background: "rgba(59,130,246,0.16)",
-    color: "#bfdbfe",
-    border: "1px solid rgba(59,130,246,0.35)",
-  };
-}
-
 function getErrorMessage(error?: string): string | null {
   if (error === "geocode-failed") {
     return "Address verification failed. Check your API settings and try again.";
@@ -171,7 +106,10 @@ function getErrorMessage(error?: string): string | null {
   return null;
 }
 
-export default async function RouteProVerifyPage({ params, searchParams }: Props) {
+export default async function RouteProVerifyPage({
+  params,
+  searchParams,
+}: Props) {
   const { routeId } = await params;
   const resolvedSearchParams = await searchParams;
   const route = await getMyRouteProRouteDetail(routeId);
@@ -197,7 +135,8 @@ export default async function RouteProVerifyPage({ params, searchParams }: Props
     >
       {resolvedSearchParams?.geocoded === "1" ? (
         <div style={successStyle}>
-          Address verification completed. Review any stop marked as needs correction.
+          Address verification completed. Review any stop marked as needs
+          correction.
         </div>
       ) : null}
 
@@ -228,8 +167,8 @@ export default async function RouteProVerifyPage({ params, searchParams }: Props
       <div style={{ marginTop: 28 }}>
         <h2 style={sectionTitleStyle}>Address verification</h2>
         <p style={mutedTextStyle}>
-          RoutePro checks each stop and marks addresses that need correction before
-          optimization.
+          RoutePro checks each stop and marks addresses that need correction
+          before optimization.
         </p>
 
         <form action={geocodeRouteProStops} style={{ marginTop: 18 }}>
@@ -246,51 +185,24 @@ export default async function RouteProVerifyPage({ params, searchParams }: Props
         <h2 style={sectionTitleStyle}>Verification status</h2>
 
         {route.stops.length === 0 ? (
-          <div style={{ ...stopCardStyle, marginTop: 18 }}>
-            <p style={addressStyle}>
+          <div style={emptyCardStyle}>
+            <p style={emptyTextStyle}>
               No stops available yet. Import stops before verifying addresses.
             </p>
           </div>
         ) : (
-          <div style={listStyle}>
-            {route.stops.map((stop) => (
-              <article key={stop.id} style={stopCardStyle}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div>
-                    <p style={stopTitleStyle}>
-                      Original stop {stop.original_position} · Workflow position{" "}
-                      {stop.position}
-                    </p>
-
-                    <p style={addressStyle}>{stop.address}</p>
-
-                    {stop.lat && stop.lng ? (
-                      <p style={stopMutedStyle}>
-                        Coordinates: {stop.lat}, {stop.lng}
-                      </p>
-                    ) : (
-                      <p style={stopMutedStyle}>Coordinates: waiting verification</p>
-                    )}
-                  </div>
-
-                  <span style={getBadgeStyle(stop.status)}>
-                    {getVerifyLabel(stop.status)}
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
+          <RouteProVerifyStopsClient stops={route.stops} />
         )}
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          marginTop: 24,
+        }}
+      >
         <Link
           href={`/app/routepro/routes/${route.id}/optimize`}
           style={routeProUi.primaryButton}
@@ -305,7 +217,10 @@ export default async function RouteProVerifyPage({ params, searchParams }: Props
           Back to review
         </Link>
 
-        <Link href={`/app/routepro/${route.id}`} style={routeProUi.secondaryButton}>
+        <Link
+          href={`/app/routepro/${route.id}`}
+          style={routeProUi.secondaryButton}
+        >
           Edit in classic view
         </Link>
       </div>

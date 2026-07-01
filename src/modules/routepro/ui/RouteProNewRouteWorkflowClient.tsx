@@ -34,8 +34,19 @@ const stepBadgeStyle: React.CSSProperties = {
 const formGridStyle: React.CSSProperties = {
   display: "grid",
   gap: 14,
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
   marginTop: 18,
+};
+
+const fullWidthFieldStyle: React.CSSProperties = {
+  minWidth: 0,
+};
+
+const textInputStyle: React.CSSProperties = {
+  ...ui.form.input,
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
 };
 
 const compactHintStyle: React.CSSProperties = {
@@ -126,34 +137,34 @@ export function RouteProNewRouteWorkflowClient() {
         </p>
 
         <div style={formGridStyle}>
-          <label style={ui.form.label}>
+          <label style={{ ...ui.form.label, ...fullWidthFieldStyle }}>
             Nome rotta
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
               type="text"
               placeholder="Esempio: Milano mattina"
-              style={ui.form.input}
+              style={textInputStyle}
             />
           </label>
 
-          <label style={ui.form.label}>
+          <label style={{ ...ui.form.label, ...fullWidthFieldStyle }}>
             Data
             <input
               value={routeDate}
               onChange={(event) => setRouteDate(event.target.value)}
               type="date"
               required
-              style={ui.form.input}
+              style={textInputStyle}
             />
           </label>
 
-          <label style={ui.form.label}>
+          <label style={{ ...ui.form.label, ...fullWidthFieldStyle }}>
             Profilo
             <select
               value={routeProfile}
               onChange={(event) => setRouteProfile(event.target.value)}
-              style={ui.form.input}
+              style={textInputStyle}
             >
               <option value="generic">Generico</option>
               <option value="courier">Corriere / multi-stop</option>
@@ -163,49 +174,49 @@ export function RouteProNewRouteWorkflowClient() {
             </select>
           </label>
 
-          <label style={ui.form.label}>
+          <label style={{ ...ui.form.label, ...fullWidthFieldStyle }}>
             Partenza
             <input
               value={startAddress}
               onChange={(event) => setStartAddress(event.target.value)}
               type="text"
               placeholder="Deposito, casa, magazzino..."
-              style={ui.form.input}
+              style={textInputStyle}
             />
           </label>
 
-          <label style={ui.form.label}>
+          <label style={{ ...ui.form.label, ...fullWidthFieldStyle }}>
             Rientro
             <input
               value={returnAddress}
               onChange={(event) => setReturnAddress(event.target.value)}
               type="text"
               placeholder="Deposito, casa, magazzino..."
-              style={ui.form.input}
+              style={textInputStyle}
             />
           </label>
 
-          <label style={ui.form.label}>
+          <label style={{ ...ui.form.label, ...fullWidthFieldStyle }}>
             Inizio
             <input
               value={shiftStartTime}
               onChange={(event) => setShiftStartTime(event.target.value)}
               type="time"
-              style={ui.form.input}
+              style={textInputStyle}
             />
           </label>
 
-          <label style={ui.form.label}>
+          <label style={{ ...ui.form.label, ...fullWidthFieldStyle }}>
             Fine
             <input
               value={shiftEndTime}
               onChange={(event) => setShiftEndTime(event.target.value)}
               type="time"
-              style={ui.form.input}
+              style={textInputStyle}
             />
           </label>
 
-          <label style={ui.form.label}>
+          <label style={{ ...ui.form.label, ...fullWidthFieldStyle }}>
             Pausa
             <input
               value={breakMinutes}
@@ -213,7 +224,7 @@ export function RouteProNewRouteWorkflowClient() {
               type="number"
               min="0"
               step="5"
-              style={ui.form.input}
+              style={textInputStyle}
             />
           </label>
         </div>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { RouteProWorkflowShell } from "@/modules/routepro/v2/ui/RouteProWorkflowShell";
+import { RouteProReviewStopsClient } from "@/modules/routepro/ui/RouteProReviewStopsClient";
 
 type Props = {
   params: Promise<{ routeId: string }>;
@@ -176,55 +177,28 @@ export default async function RouteProReviewPage({ params }: Props) {
       </div>
 
       <div style={{ marginTop: 28 }}>
-        <h2 style={sectionTitleStyle}>Extracted stop list</h2>
+  <h2 style={sectionTitleStyle}>Review Route</h2>
 
-        {route.stops.length === 0 ? (
-          <div style={{ ...stopCardStyle, marginTop: 18 }}>
-            <p style={addressStyle}>
-              No stops imported yet. Go back to the classic route view and import
-              screenshots, a list or a CSV.
-            </p>
+  {route.stops.length === 0 ? (
+    <div style={{ ...stopCardStyle, marginTop: 18 }}>
+      <p style={addressStyle}>
+        No stops imported yet. Go back to the classic route view and import
+        screenshots, a list or a CSV.
+      </p>
 
-            <div style={{ marginTop: 16 }}>
-              <Link href={`/app/routepro/${route.id}`} style={routeProUi.primaryButton}>
-                Import stops
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <div style={listStyle}>
-            {route.stops.map((stop) => (
-              <article key={stop.id} style={stopCardStyle}>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div>
-                    <p style={stopTitleStyle}>
-                      Original stop {stop.original_position} · Workflow position{" "}
-                      {stop.position}
-                    </p>
-
-                    <p style={addressStyle}>{stop.address}</p>
-
-                    {stop.source ? (
-                      <p style={mutedTextStyle}>Source: {stop.source}</p>
-                    ) : null}
-                  </div>
-
-                  <span style={getBadgeStyle(stop.status)}>
-                    {getStatusLabel(stop.status)}
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
+      <div style={{ marginTop: 16 }}>
+        <Link
+          href={`/app/routepro/${route.id}`}
+          style={routeProUi.primaryButton}
+        >
+          Import stops
+        </Link>
       </div>
+    </div>
+  ) : (
+    <RouteProReviewStopsClient stops={route.stops} />
+  )}
+</div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24 }}>
         <Link href={`/app/routepro/routes/${route.id}/verify`} style={routeProUi.primaryButton}>

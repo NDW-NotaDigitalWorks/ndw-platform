@@ -33,6 +33,14 @@ const cardStyle: React.CSSProperties = {
   boxShadow: "0 18px 40px rgba(15,23,42,0.12)",
 };
 
+const whiteCardStyle: React.CSSProperties = {
+  padding: 18,
+  borderRadius: 22,
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 10px 28px rgba(15,23,42,0.06)",
+};
+
 const labelStyle: React.CSSProperties = {
   margin: 0,
   color: "#93c5fd",
@@ -68,31 +76,46 @@ const sectionTextStyle: React.CSSProperties = {
 
 const listStyle: React.CSSProperties = {
   display: "grid",
+  gap: 10,
+  marginTop: 14,
+};
+
+const rowStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "120px 1fr 130px",
   gap: 12,
-  marginTop: 22,
+  alignItems: "center",
+  padding: "12px 14px",
+  borderRadius: 16,
+  border: "1px solid #e2e8f0",
+  background: "#f8fafc",
 };
 
-const stopTitleStyle: React.CSSProperties = {
-  margin: 0,
-  color: "#ffffff",
-  fontSize: 16,
-  fontWeight: 900,
+const stopNumberStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 90,
+  padding: "7px 10px",
+  borderRadius: 999,
+  background: "#eff6ff",
+  color: "#1d4ed8",
+  fontSize: 13,
+  fontWeight: 950,
 };
 
-const addressStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  color: "#e2e8f0",
-  fontSize: 15,
-  lineHeight: 1.55,
-  fontWeight: 700,
+const addressTextStyle: React.CSSProperties = {
+  color: "#0f172a",
+  fontSize: 14,
+  fontWeight: 850,
+  lineHeight: 1.35,
 };
 
 const mutedTextStyle: React.CSSProperties = {
-  margin: "6px 0 0",
-  color: "#94a3b8",
-  fontSize: 13,
-  lineHeight: 1.5,
-  fontWeight: 700,
+  marginTop: 4,
+  color: "#64748b",
+  fontSize: 12,
+  fontWeight: 750,
 };
 
 const successStyle: React.CSSProperties = {
@@ -113,63 +136,29 @@ const errorStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
-function getBadgeStyle(kind: string): React.CSSProperties {
-  const base: React.CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "6px 10px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 900,
-    whiteSpace: "nowrap",
-  };
-
-  if (kind === "cluster") {
-    return {
-      ...base,
-      background: "rgba(168,85,247,0.18)",
-      color: "#e9d5ff",
-      border: "1px solid rgba(168,85,247,0.36)",
-    };
-  }
-
-  if (kind === "valid") {
-    return {
-      ...base,
-      background: "rgba(34,197,94,0.16)",
-      color: "#bbf7d0",
-      border: "1px solid rgba(34,197,94,0.35)",
-    };
-  }
-
-  if (kind === "needs_review") {
-    return {
-      ...base,
-      background: "rgba(245,158,11,0.16)",
-      color: "#fde68a",
-      border: "1px solid rgba(245,158,11,0.35)",
-    };
-  }
-
-  return {
-    ...base,
-    background: "rgba(59,130,246,0.16)",
-    color: "#bfdbfe",
-    border: "1px solid rgba(59,130,246,0.35)",
-  };
-}
+const badgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  justifyContent: "center",
+  padding: "7px 10px",
+  borderRadius: 999,
+  background: "#dcfce7",
+  color: "#166534",
+  border: "1px solid #86efac",
+  fontSize: 12,
+  fontWeight: 950,
+};
 
 function getOptimizationError(error?: string): string | null {
   if (error === "optimize-failed") {
-    return "Route optimization failed. Check valid stops and try again.";
+    return "Ottimizzazione non riuscita. Controlla gli stop validi e riprova.";
   }
 
   if (error === "optimize-needs-review") {
-    return "Some stops still need review before optimization.";
+    return "Alcuni stop devono ancora essere controllati prima dell'ottimizzazione.";
   }
 
   if (error === "optimize-not-enough-stops") {
-    return "At least 2 valid stops are required to optimize a route.";
+    return "Servono almeno 2 stop validi per ottimizzare una rotta.";
   }
 
   return null;
@@ -187,12 +176,10 @@ export default async function RouteProOptimizePage({
     notFound();
   }
 
-  const totalStops = route.stops.length;
   const validStops = route.stops.filter((stop) => stop.status === "valid").length;
   const needsReviewStops = route.stops.filter(
     (stop) => stop.status === "needs_review",
   ).length;
-  const rawStops = route.stops.filter((stop) => stop.status === "raw").length;
 
   const optimizedStops = [...route.stops].sort(
     (a, b) => a.position - b.position,
@@ -206,13 +193,13 @@ export default async function RouteProOptimizePage({
     <RouteProWorkflowShell
       routeId={routeId}
       currentStep="Optimize"
-      title="Optimize route"
-      subtitle="Prepare the best sequence while preserving every original stop number."
+      title="Ottimizza percorso"
+      subtitle="Prepara la sequenza migliore mantenendo ogni numero originale."
     >
       {resolvedSearchParams?.optimized === "1" ? (
         <div style={successStyle}>
-          Route optimized. Workflow positions have been updated while original stop
-          numbers were preserved.
+          Percorso ottimizzato. Le posizioni RoutePro sono state aggiornate e i
+          numeri originali sono stati preservati.
         </div>
       ) : null}
 
@@ -220,169 +207,171 @@ export default async function RouteProOptimizePage({
 
       <div style={gridStyle}>
         <article style={cardStyle}>
-          <p style={labelStyle}>Total stops</p>
-          <h2 style={valueStyle}>{totalStops}</h2>
-        </article>
-
-        <article style={cardStyle}>
-          <p style={labelStyle}>Delivery clusters</p>
-          <h2 style={valueStyle}>{multiStopClusters.length}</h2>
-        </article>
-
-        <article style={cardStyle}>
-          <p style={labelStyle}>Valid stops</p>
+          <p style={labelStyle}>Stop pronti</p>
           <h2 style={valueStyle}>{validStops}</h2>
         </article>
 
         <article style={cardStyle}>
-          <p style={labelStyle}>Need review</p>
-          <h2 style={valueStyle}>{needsReviewStops}</h2>
+          <p style={labelStyle}>Cluster</p>
+          <h2 style={valueStyle}>{multiStopClusters.length}</h2>
         </article>
 
         <article style={cardStyle}>
-          <p style={labelStyle}>Waiting verification</p>
-          <h2 style={valueStyle}>{rawStops}</h2>
+          <p style={labelStyle}>Da correggere</p>
+          <h2 style={valueStyle}>{needsReviewStops}</h2>
         </article>
       </div>
 
       <div style={{ marginTop: 28 }}>
-        <h2 style={sectionTitleStyle}>Optimization</h2>
+        <h2 style={sectionTitleStyle}>Ottimizzazione</h2>
         <p style={sectionTextStyle}>
-          RoutePro optimizes the workflow order but never removes stops and never
-          loses the original stop number.
+          RoutePro calcola l'ordine operativo della rotta senza eliminare stop e
+          senza perdere il numero originale dell'app di consegna.
         </p>
 
-        <form action={optimizeRouteProRoute} style={{ marginTop: 18 }}>
-          <input type="hidden" name="route_id" value={route.id} />
+        <div style={{ marginTop: 18 }}>
+          <form action={optimizeRouteProRoute}>
+            <input type="hidden" name="route_id" value={route.id} />
 
-          <RouteProSubmitButton
-            idleLabel={route.is_optimized ? "Re-optimize route" : "Optimize route"}
-            pendingLabel="Optimizing route..."
-          />
-        </form>
+            <RouteProSubmitButton
+              idleLabel={route.is_optimized ? "Ricalcola percorso" : "Ottimizza percorso"}
+              pendingLabel="Ottimizzazione in corso..."
+            />
+          </form>
+        </div>
 
         {route.is_optimized ? (
-          <p style={sectionTextStyle}>
-            Last optimization: {route.optimized_at ?? "completed"}
-          </p>
+          <div style={{ ...whiteCardStyle, marginTop: 18 }}>
+            <p style={{ ...sectionTextStyle, margin: 0 }}>
+              ✓ Numerazione originale preservata
+              <br />
+              ✓ Cluster intelligenti attivi
+              <br />
+              ✓ Percorso pronto per il Driver Command Center
+            </p>
+          </div>
         ) : null}
       </div>
 
-      <div style={{ marginTop: 28 }}>
-        <h2 style={sectionTitleStyle}>Delivery clusters</h2>
+      <details style={{ marginTop: 28 }}>
+        <summary
+          style={{
+            ...sectionTitleStyle,
+            cursor: "pointer",
+            listStyle: "none",
+          }}
+        >
+          Delivery clusters ({multiStopClusters.length})
+        </summary>
+
         <p style={sectionTextStyle}>
-          RoutePro groups repeated addresses without deleting stops or losing
-          original stop numbers.
+          Gli indirizzi ripetuti vengono raggruppati senza eliminare consegne.
         </p>
 
         {multiStopClusters.length === 0 ? (
-          <div style={{ ...cardStyle, marginTop: 18 }}>
-            <p style={addressStyle}>
-              No repeated delivery addresses detected in this route.
+          <div style={{ ...whiteCardStyle, marginTop: 18 }}>
+            <p style={{ ...sectionTextStyle, margin: 0 }}>
+              Nessun indirizzo ripetuto rilevato in questa rotta.
             </p>
           </div>
         ) : (
           <div style={listStyle}>
             {multiStopClusters.map((cluster) => (
-              <article key={cluster.normalizedAddress} style={cardStyle}>
-                <p style={labelStyle}>Workflow stop {cluster.workflowPosition}</p>
+              <article key={cluster.normalizedAddress} style={whiteCardStyle}>
+                <div style={rowStyle}>
+                  <span style={stopNumberStyle}>
+                    Workflow #{cluster.workflowPosition}
+                  </span>
 
-                <h3 style={stopTitleStyle}>{cluster.address}</h3>
+                  <div>
+                    <div style={addressTextStyle}>{cluster.address}</div>
+                    <div style={mutedTextStyle}>
+                      Originali:{" "}
+                      {cluster.stops
+                        .map((stop) => stop.original_position)
+                        .sort((a, b) => a - b)
+                        .join(" · ")}
+                    </div>
+                  </div>
 
-                <p style={mutedTextStyle}>
-                  Original stops:{" "}
-                  <strong>
-                    {cluster.stops
-                      .map((stop) => stop.original_position)
-                      .sort((a, b) => a - b)
-                      .join(" · ")}
-                  </strong>
-                </p>
-
-                <p style={mutedTextStyle}>
-                  Packages/stops at this address:{" "}
-                  <strong>{cluster.stops.length}</strong>
-                </p>
+                  <span style={badgeStyle}>{cluster.stops.length} stop</span>
+                </div>
               </article>
             ))}
           </div>
         )}
-      </div>
+      </details>
 
-      <div style={{ marginTop: 28 }}>
-        <h2 style={sectionTitleStyle}>Optimized workflow preview</h2>
+      <details style={{ marginTop: 28 }}>
+        <summary
+          style={{
+            ...sectionTitleStyle,
+            cursor: "pointer",
+            listStyle: "none",
+          }}
+        >
+          Anteprima percorso ({deliveryClusters.length})
+        </summary>
+
+        <p style={sectionTextStyle}>
+          Apri questa sezione solo se vuoi controllare l'ordine completo prima
+          della guida.
+        </p>
 
         {deliveryClusters.length === 0 ? (
-          <div style={{ ...cardStyle, marginTop: 18 }}>
-            <p style={addressStyle}>
-              No stops available yet. Import and verify stops before optimizing.
+          <div style={{ ...whiteCardStyle, marginTop: 18 }}>
+            <p style={{ ...sectionTextStyle, margin: 0 }}>
+              Nessuno stop disponibile. Importa e verifica gli stop prima di
+              ottimizzare.
             </p>
           </div>
         ) : (
           <div style={listStyle}>
-            {deliveryClusters.map((cluster) => {
-              const badgeKind =
-                cluster.stops.length > 1 ? "cluster" : cluster.stops[0]?.status ?? "raw";
+            {deliveryClusters.map((cluster) => (
+              <article key={cluster.normalizedAddress} style={whiteCardStyle}>
+                <div style={rowStyle}>
+                  <span style={stopNumberStyle}>
+                    Workflow #{cluster.workflowPosition}
+                  </span>
 
-              return (
-                <article key={cluster.normalizedAddress} style={cardStyle}>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      alignItems: "flex-start",
-                    }}
-                  >
-                    <div>
-                      <p style={stopTitleStyle}>
-                        Workflow stop {cluster.workflowPosition}
-                        {cluster.stops.length > 1
-                          ? ` · ${cluster.stops.length} original stops`
-                          : ` · Original stop ${cluster.stops[0]?.original_position}`}
-                      </p>
-
-                      <p style={addressStyle}>{cluster.address}</p>
-
-                      <p style={mutedTextStyle}>
-                        Original stops:{" "}
-                        <strong>
-                          {cluster.stops
-                            .map((stop) => stop.original_position)
-                            .sort((a, b) => a - b)
-                            .join(" · ")}
-                        </strong>
-                      </p>
+                  <div>
+                    <div style={addressTextStyle}>{cluster.address}</div>
+                    <div style={mutedTextStyle}>
+                      Originali:{" "}
+                      {cluster.stops
+                        .map((stop) => stop.original_position)
+                        .sort((a, b) => a - b)
+                        .join(" · ")}
                     </div>
-
-                    <span style={getBadgeStyle(badgeKind)}>
-                      {cluster.stops.length > 1 ? "Cluster" : cluster.stops[0]?.status}
-                    </span>
                   </div>
-                </article>
-              );
-            })}
+
+                  <span style={badgeStyle}>
+                    {cluster.stops.length > 1 ? "Cluster" : "Stop"}
+                  </span>
+                </div>
+              </article>
+            ))}
           </div>
         )}
-      </div>
+      </details>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24 }}>
         <Link
           href={`/app/routepro/routes/${route.id}/drive`}
           style={routeProUi.primaryButton}
         >
-          Continue to drive
+          Apri Driver Command Center
         </Link>
 
         <Link
           href={`/app/routepro/routes/${route.id}/verify`}
           style={routeProUi.secondaryButton}
         >
-          Back to verify
+          Torna a Verify
         </Link>
 
         <Link href={`/app/routepro/${route.id}`} style={routeProUi.secondaryButton}>
-          Classic route view
+          Vista completa rotta
         </Link>
       </div>
     </RouteProWorkflowShell>

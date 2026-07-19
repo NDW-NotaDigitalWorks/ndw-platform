@@ -14,6 +14,8 @@ import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ndwTokens } from "@/styles/ndw/ndw-tokens";
 import { RouteProWorkflowHeader } from "@/modules/routepro/v2/ui/RouteProWorkflowHeader";
+import { RouteProAnalyticsPanel } from "@/modules/routepro/ui/RouteProAnalyticsPanel";
+import { getDriverHeroState } from "@/modules/routepro/ui/driver-hero";
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
@@ -27,6 +29,37 @@ const actionsStyle: React.CSSProperties = {
   flexWrap: "wrap",
   gap: ndwTokens.spacing.md,
   marginTop: ndwTokens.spacing.xl,
+};
+
+const heroResumeCardStyle: React.CSSProperties = {
+  marginTop: 22,
+  padding: 18,
+  borderRadius: 24,
+  background: "rgba(255,255,255,0.12)",
+  border: "1px solid rgba(255,255,255,0.18)",
+};
+
+const heroResumeGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: 10,
+  marginTop: 14,
+};
+
+const heroResumeLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 11,
+  fontWeight: 950,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#bfdbfe",
+};
+
+const heroResumeValueStyle: React.CSSProperties = {
+  margin: "5px 0 0",
+  fontSize: 16,
+  fontWeight: 950,
+  color: "#ffffff",
 };
 
 const routeCardHeaderStyle: React.CSSProperties = {
@@ -124,11 +157,72 @@ const routeMetaValueStyle: React.CSSProperties = {
   color: ndwTokens.colors.textPrimary,
 };
 
+const compactRouteGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+  gap: ndwTokens.spacing.lg,
+  marginTop: ndwTokens.spacing.xl,
+};
+
+const compactRouteCardStyle: React.CSSProperties = {
+  padding: 20,
+  borderRadius: ndwTokens.radius["2xl"],
+  border: `1px solid ${ndwTokens.colors.border}`,
+  background: `linear-gradient(180deg, ${ndwTokens.colors.surfaceSoft} 0%, ${ndwTokens.colors.surface} 100%)`,
+  boxShadow: ndwTokens.shadows.sm,
+};
+
+const compactMetaRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginTop: 14,
+};
+
+const compactMetaBadgeStyle: React.CSSProperties = {
+  padding: "7px 10px",
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  color: ndwTokens.colors.textSecondary,
+  fontSize: 12,
+  fontWeight: 800,
+};
+
+const routeActionRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  marginTop: 18,
+};
+
 function getRouteStatusVariant(status: string) {
   if (status === "completed") return "success";
   if (status === "active" || status === "in_progress") return "info";
   if (status === "archived") return "neutral";
   return "warning";
+}
+function formatRouteProfile(profile: string | null): string {
+  const normalizedProfile = profile ?? "generic";
+
+  const profileLabels: Record<string, string> = {
+    generic: "Generico",
+    courier: "Corriere",
+    amazon_flex: "Amazon Flex",
+    technician: "Tecnico",
+    sales: "Commerciale",
+    dhl: "DHL",
+    ups: "UPS",
+    generic_courier: "Corriere generico",
+    owner_driver: "Driver indipendente",
+  };
+
+  return (
+    profileLabels[normalizedProfile] ??
+    normalizedProfile
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (character) => character.toUpperCase())
+  );
 }
 
 function getMinutesBetween(startedAt: string | null, completedAt: string | null): number | null {
@@ -193,121 +287,207 @@ export default async function RouteProModulePage() {
   const averageDurationMinutes = getAverageDurationMinutes(routes);
   const completionRate =
     totalRoutes > 0 ? Math.round((completedRoutes / totalRoutes) * 100) : 0;
+    const routeToResume =
+  routes.find((route) => route.status === "in_progress") ??
+  routes.find((route) => route.status !== "completed") ??
+  null;
+  const recentRoutes = routes.slice(0, 4);
+
+const lastCompletedRoute =
+  routes.find((route) => route.status === "completed") ?? null;
+
+const hero = getDriverHeroState(routeToResume);
 
   return (
     <section style={routeProUi.shell}>
       <RouteProHeader />
 
       <RouteProWorkflowHeader
-        steps={[
-          { label: "Import", status: "current" },
-          { label: "Review", status: "pending" },
-          { label: "Verify", status: "pending" },
-          { label: "Optimize", status: "pending" },
-          { label: "Drive", status: "pending" },
-          { label: "Summary", status: "pending" },
-        ]}
-      />
+  steps={[
+    {
+      label: "Import",
+      status: routeToResume ? "current" : "pending",
+    },
+    { label: "Review", status: "pending" },
+    { label: "Verify", status: "pending" },
+    { label: "Optimize", status: "pending" },
+    { label: "Drive", status: "pending" },
+    { label: "Summary", status: "pending" },
+  ]}
+/>
 
       <div style={routeProUi.hero}>
-        <h1 style={routeProUi.heroTitle}>RoutePro Command Center</h1>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      flexWrap: "wrap",
+      gap: 16,
+    }}
+  >
+    <div>
+      <h1 style={routeProUi.heroTitle}>
+        {routeToResume ? "Centro operativo" : "Pronto per una nuova giornata"}
+      </h1>
 
-        <p style={routeProUi.heroSubtitle}>
-          Crea la rotta, importa gli screenshot, controlla solo gli stop da verificare e passa al Driver Command Center.
-        </p>
+      <p style={routeProUi.heroSubtitle}>
+        {hero.subtitle}
+      </p>
+    </div>
 
-        <div style={actionsStyle}>
-          <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
-  Crea nuova rotta
-</Link>
+    <Link
+      href="/app/routepro/settings"
+      style={{
+        ...routeProUi.secondaryButton,
+        minHeight: 42,
+        padding: "0 16px",
+      }}
+    >
+      Impostazioni
+    </Link>
+  </div>
 
-          <Link href="/app/routepro/settings" style={routeProUi.secondaryButton}>
-            Driver settings
+  {routeToResume ? (
+    <div style={heroResumeCardStyle}>
+      <p style={heroResumeLabelStyle}>{hero.badge}</p>
+
+      <h2
+        style={{
+          margin: "8px 0 0",
+          color: "#ffffff",
+          fontSize: 28,
+          lineHeight: 1.1,
+          fontWeight: 950,
+        }}
+      >
+        {hero.title}
+      </h2>
+
+      <div style={heroResumeGridStyle}>
+        <div>
+          <p style={heroResumeLabelStyle}>Data</p>
+          <p style={heroResumeValueStyle}>
+            {routeToResume.route_date}
+          </p>
+        </div>
+
+        <div>
+          <p style={heroResumeLabelStyle}>Stato</p>
+          <p style={heroResumeValueStyle}>
+            {hero.stateLabel}
+          </p>
+        </div>
+
+        <div>
+          <p style={heroResumeLabelStyle}>Profilo</p>
+          <p style={heroResumeValueStyle}>
+            {formatRouteProfile(routeToResume.route_profile)}
+          </p>
+        </div>
+      </div>
+
+      <div style={actionsStyle}>
+        <Link
+          href={hero.primaryHref}
+          style={routeProUi.primaryButton}
+        >
+          {hero.primaryLabel}
+        </Link>
+
+        {hero.secondaryHref && hero.secondaryLabel ? (
+          <Link
+            href={hero.secondaryHref}
+            style={routeProUi.secondaryButton}
+          >
+            {hero.secondaryLabel}
           </Link>
+        ) : null}
+      </div>
+    </div>
+  ) : (
+    <div style={heroResumeCardStyle}>
+      <p style={heroResumeLabelStyle}>Nessun workflow attivo</p>
+
+      <h2
+        style={{
+          margin: "8px 0 0",
+          color: "#ffffff",
+          fontSize: 28,
+          lineHeight: 1.1,
+          fontWeight: 950,
+        }}
+      >
+        Prepariamo la prossima giornata.
+      </h2>
+
+      <div style={heroResumeGridStyle}>
+        <div>
+          <p style={heroResumeLabelStyle}>Ultima rotta</p>
+          <p style={heroResumeValueStyle}>
+            {lastCompletedRoute?.name ?? "Nessuna"}
+          </p>
+        </div>
+
+        <div>
+          <p style={heroResumeLabelStyle}>Ultima attività</p>
+          <p style={heroResumeValueStyle}>
+            {lastCompletedRoute?.route_date ?? "—"}
+          </p>
+        </div>
+
+        <div>
+          <p style={heroResumeLabelStyle}>Stop gestiti</p>
+          <p style={heroResumeValueStyle}>
+            {history.stopsManaged}
+          </p>
+        </div>
+
+        <div>
+          <p style={heroResumeLabelStyle}>Rotte completate</p>
+          <p style={heroResumeValueStyle}>
+            {history.routesCompleted}
+          </p>
         </div>
       </div>
 
-      <div style={gridStyle}>
-        <NdwMetricCard label="Routes prepared" value={totalRoutes} />
-        <NdwMetricCard label="Active workflows" value={activeRoutes} />
-        <NdwMetricCard label="Completed days" value={completedRoutes} />
+      <div style={actionsStyle}>
+        <Link
+          href="/app/routepro/new"
+          style={routeProUi.primaryButton}
+        >
+          Prepara nuova rotta
+        </Link>
+
+        <Link
+          href="/app/routepro/routes"
+          style={routeProUi.secondaryButton}
+        >
+          Storico rotte
+        </Link>
       </div>
+    </div>
+  )}
+</div>
 
-      <section style={analyticsPanelStyle}>
-        <p style={analyticsTitleStyle}>Dashboard Analytics</p>
+      {/* Dashboard summary moved into Analytics */}
 
-        <div style={analyticsGridStyle}>
-          <article style={analyticsCardStyle}>
-            <p style={analyticsLabelStyle}>Completion rate</p>
-            <p style={analyticsValueStyle}>{completionRate}%</p>
-            <p style={analyticsHintStyle}>Completed routes over total prepared routes.</p>
-          </article>
-
-          <article style={analyticsCardStyle}>
-            <p style={analyticsLabelStyle}>Optimized routes</p>
-            <p style={analyticsValueStyle}>{optimizedRoutes}</p>
-            <p style={analyticsHintStyle}>Routes already optimized and ready to drive.</p>
-          </article>
-
-          <article style={analyticsCardStyle}>
-            <p style={analyticsLabelStyle}>Tracked sessions</p>
-            <p style={analyticsValueStyle}>{trackedSessions}</p>
-            <p style={analyticsHintStyle}>Routes with real driving session timestamps.</p>
-          </article>
-
-          <article style={analyticsCardStyle}>
-            <p style={analyticsLabelStyle}>Avg duration</p>
-            <p style={analyticsValueStyle}>{formatDuration(averageDurationMinutes)}</p>
-            <p style={analyticsHintStyle}>Average real duration of completed tracked routes.</p>
-          </article>
-
-          <article style={analyticsCardStyle}>
-  <p style={analyticsLabelStyle}>Routes completed</p>
-  <p style={analyticsValueStyle}>
-    {history.routesCompleted}
-  </p>
-  <p style={analyticsHintStyle}>
-    Total completed delivery days.
-  </p>
-</article>
-
-<article style={analyticsCardStyle}>
-  <p style={analyticsLabelStyle}>Stops managed</p>
-  <p style={analyticsValueStyle}>
-    {history.stopsManaged}
-  </p>
-  <p style={analyticsHintStyle}>
-    Total imported stops.
-  </p>
-</article>
-
-<article style={analyticsCardStyle}>
-  <p style={analyticsLabelStyle}>Avg stops / route</p>
-  <p style={analyticsValueStyle}>
-    {history.avgStopsPerRoute}
-  </p>
-  <p style={analyticsHintStyle}>
-    Average route size.
-  </p>
-</article>
-
-<article style={analyticsCardStyle}>
-  <p style={analyticsLabelStyle}>Best day</p>
-  <p style={analyticsValueStyle}>
-    {history.bestDayStops}
-  </p>
-  <p style={analyticsHintStyle}>
-    Highest stop count completed.
-  </p>
-</article>
-        </div>
-      </section>
+      <RouteProAnalyticsPanel
+  completionRate={completionRate}
+  optimizedRoutes={optimizedRoutes}
+  trackedSessions={trackedSessions}
+  averageDuration={formatDuration(averageDurationMinutes)}
+  routesCompleted={history.routesCompleted}
+  stopsManaged={history.stopsManaged}
+  avgStopsPerRoute={history.avgStopsPerRoute}
+  bestDayStops={history.bestDayStops}
+/>
 
       <div style={{ marginTop: ndwTokens.spacing["3xl"] }}>
         <NdwSectionHeader
           eyebrow="RoutePro"
-          title="Your delivery days"
-          subtitle="Open a route workflow, continue preparation or start driving."
+          title="Recent Routes"
+          subtitle="Continue a workflow or review your latest delivery sessions."
         />
 
         {routes.length === 0 ? (
@@ -321,101 +501,123 @@ export default async function RouteProModulePage() {
 </Link>
             }
           />
-        ) : (
-          <div style={gridStyle}>
-            {routes.map((route) => {
-              const durationMinutes = getMinutesBetween(route.started_at, route.completed_at);
+                ) : (
+          <>
+            <div style={compactRouteGridStyle}>
+              {recentRoutes.map((route) => {
+                const durationMinutes = getMinutesBetween(
+                  route.started_at,
+                  route.completed_at,
+                );
 
-              return (
-                <article
-                  key={route.id}
-                  style={{
-                    padding: ndwTokens.spacing.xl,
-                    borderRadius: ndwTokens.radius["2xl"],
-                    border: `1px solid ${ndwTokens.colors.border}`,
-                    background: `linear-gradient(180deg, ${ndwTokens.colors.surfaceSoft} 0%, ${ndwTokens.colors.surface} 100%)`,
-                    boxShadow: ndwTokens.shadows.sm,
-                  }}
-                >
-                  <div style={routeCardHeaderStyle}>
-                    <div>
-                      <h3
-                        style={{
-                          margin: 0,
-                          color: ndwTokens.colors.textPrimary,
-                          fontSize: ndwTokens.typography.sizes.cardTitle,
-                          fontWeight: ndwTokens.typography.weights.black,
-                        }}
-                      >
-                        {route.name}
-                      </h3>
-
-                      <p
-                        style={{
-                          margin: "10px 0 0",
-                          color: ndwTokens.colors.textSecondary,
-                          fontSize: ndwTokens.typography.sizes.body,
-                          lineHeight: ndwTokens.typography.lineHeights.normal,
-                        }}
-                      >
-                        Data: {route.route_date}
-                      </p>
-                    </div>
-
-                    <NdwStatusPill
-                      label={route.status}
-                      variant={getRouteStatusVariant(route.status)}
-                    />
-                  </div>
-
-                  <p
-                    style={{
-                      margin: "16px 0 0",
-                      color: ndwTokens.colors.textSecondary,
-                      fontSize: ndwTokens.typography.sizes.body,
-                      lineHeight: ndwTokens.typography.lineHeights.normal,
-                    }}
+                return (
+                  <article
+                    key={route.id}
+                    style={compactRouteCardStyle}
                   >
-                    {route.is_optimized
-                      ? "Route optimized and ready to drive"
-                      : "Route preparation in progress"}
-                  </p>
+                    <div style={routeCardHeaderStyle}>
+                      <div>
+                        <h3
+                          style={{
+                            margin: 0,
+                            color: ndwTokens.colors.textPrimary,
+                            fontSize: ndwTokens.typography.sizes.cardTitle,
+                            fontWeight: ndwTokens.typography.weights.black,
+                          }}
+                        >
+                          {route.name}
+                        </h3>
 
-                  <div style={routeMetaGridStyle}>
-                    <div style={routeMetaItemStyle}>
-                      <p style={routeMetaLabelStyle}>Session</p>
-                      <p style={routeMetaValueStyle}>
-                        {getRouteSessionLabel(route.status, route.started_at, route.completed_at)}
-                      </p>
+                        <p
+                          style={{
+                            margin: "10px 0 0",
+                            color: ndwTokens.colors.textSecondary,
+                            fontSize: ndwTokens.typography.sizes.body,
+                            lineHeight: ndwTokens.typography.lineHeights.normal,
+                          }}
+                        >
+                          Data: {route.route_date}
+                        </p>
+                      </div>
+
+                      <NdwStatusPill
+                        label={route.status}
+                        variant={getRouteStatusVariant(route.status)}
+                      />
                     </div>
 
-                    <div style={routeMetaItemStyle}>
-                      <p style={routeMetaLabelStyle}>Duration</p>
-                      <p style={routeMetaValueStyle}>{formatDuration(durationMinutes)}</p>
-                    </div>
-
-                    <div style={routeMetaItemStyle}>
-                      <p style={routeMetaLabelStyle}>Profile</p>
-                      <p style={routeMetaValueStyle}>{route.route_profile ?? "generic"}</p>
-                    </div>
-                  </div>
-
-                  <div style={actionsStyle}>
-                    <Link href={`/app/routepro/${route.id}`} style={routeProUi.primaryButton}>
-                      Open workflow
-                    </Link>
-
-                    <Link
-                      href={`/app/routepro/${route.id}/execute`}
-                      style={routeProUi.secondaryButton}
+                    <p
+                      style={{
+                        margin: "16px 0 0",
+                        color: ndwTokens.colors.textSecondary,
+                        fontSize: ndwTokens.typography.sizes.body,
+                        lineHeight: ndwTokens.typography.lineHeights.normal,
+                      }}
                     >
-                      Drive route
-                    </Link>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                      {route.status === "completed"
+                        ? "Delivery session completed"
+                        : route.is_optimized
+                          ? "Route optimized and ready to drive"
+                          : "Route preparation in progress"}
+                    </p>
+
+                    <div style={compactMetaRowStyle}>
+                      <span style={compactMetaBadgeStyle}>
+                        {getRouteSessionLabel(
+                          route.status,
+                          route.started_at,
+                          route.completed_at,
+                        )}
+                      </span>
+
+                      <span style={compactMetaBadgeStyle}>
+                        {formatDuration(durationMinutes)}
+                      </span>
+
+                      <span style={compactMetaBadgeStyle}>
+                        {formatRouteProfile(route.route_profile)}
+                      </span>
+                    </div>
+
+                    <div style={routeActionRowStyle}>
+                      <Link
+                        href={`/app/routepro/${route.id}`}
+                        style={routeProUi.primaryButton}
+                      >
+                        {route.status === "completed"
+                          ? "View Summary"
+                          : "Continue Workflow"}
+                      </Link>
+
+                      {route.status !== "completed" ? (
+                        <Link
+                          href={`/app/routepro/${route.id}/execute`}
+                          style={routeProUi.secondaryButton}
+                        >
+                          Resume Drive
+                        </Link>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginTop: ndwTokens.spacing.xl,
+              }}
+            >
+              <Link
+                href="/app/routepro/routes"
+                style={routeProUi.secondaryButton}
+              >
+                Visualizza tutte le rotte →
+              </Link>
+            </div>
+          </>
         )}
       </div>
     </section>

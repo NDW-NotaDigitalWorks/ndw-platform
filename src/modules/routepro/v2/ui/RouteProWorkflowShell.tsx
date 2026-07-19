@@ -21,36 +21,39 @@ const heroStyle: CSSProperties = {
   ...ui.card.base,
   marginTop: 22,
   padding: 24,
-  border: "1px solid #cbd5e1",
+  borderRadius: 28,
+  border: "1px solid rgba(255,255,255,0.08)",
   background:
-    "linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(248,250,252,1) 100%)",
+    "linear-gradient(135deg,#172033 0%,#111827 68%,rgba(234,88,12,0.2) 145%)",
+  boxShadow: "0 24px 60px rgba(0,0,0,0.3)",
 };
 
 const eyebrowStyle: CSSProperties = {
   margin: 0,
-  fontSize: 13,
-  fontWeight: 900,
+  color: "#60a5fa",
+  fontSize: 12,
+  lineHeight: 1.2,
+  fontWeight: 950,
   textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  color: "#1d4ed8",
+  letterSpacing: "0.1em",
 };
 
 const titleStyle: CSSProperties = {
   margin: "8px 0 0",
+  color: "#ffffff",
   fontSize: "clamp(28px, 4vw, 44px)",
   lineHeight: 1.05,
   fontWeight: 950,
   letterSpacing: "-0.04em",
-  color: "#0f172a",
 };
 
 const subtitleStyle: CSSProperties = {
   margin: "12px 0 0",
-  maxWidth: 760,
+  maxWidth: 820,
+  color: "#cbd5e1",
   fontSize: 16,
   lineHeight: 1.65,
-  fontWeight: 600,
-  color: "#334155",
+  fontWeight: 650,
 };
 
 const actionsStyle: CSSProperties = {
@@ -64,8 +67,10 @@ const contentCardStyle: CSSProperties = {
   ...ui.card.base,
   marginTop: 18,
   padding: 24,
-  border: "1px solid #cbd5e1",
-  background: "#ffffff",
+  borderRadius: 28,
+  border: "1px solid rgba(255,255,255,0.08)",
+  background: "linear-gradient(180deg,#172033 0%,#111827 100%)",
+  boxShadow: "0 24px 60px rgba(0,0,0,0.28)",
 };
 
 function getStepStatus(
@@ -89,7 +94,7 @@ export function RouteProWorkflowShell({
 }: Props) {
   return (
     <section style={ui.page.section}>
-      <RouteProHeader subtitle="Import your stops. Review your route. Drive smarter." />
+      <RouteProHeader subtitle="Importa gli stop. Controlla la rotta. Guida in modo più intelligente." />
 
       <div style={heroStyle}>
         <p style={eyebrowStyle}>RoutePro Workflow</p>
@@ -109,8 +114,11 @@ export function RouteProWorkflowShell({
         />
 
         <div style={actionsStyle}>
-          <Link href={`/app/routepro/${routeId}`} style={routeProUi.secondaryButton}>
-            Classic route view
+          <Link
+            href={`/app/routepro/${routeId}`}
+            style={routeProUi.secondaryButton}
+          >
+            Vista classica
           </Link>
 
           <Link href="/app/routepro" style={routeProUi.secondaryButton}>

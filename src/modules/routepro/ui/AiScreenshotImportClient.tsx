@@ -22,34 +22,50 @@ type AiScreenshotImportClientProps = {
   };
 };
 
-const shellStyle: CSSProperties = { display: "grid", gap: 18 };
+const shellStyle: CSSProperties = {
+  display: "grid",
+  gap: 18,
+};
+
 const panelStyle: CSSProperties = {
-  borderRadius: 32,
-  border: "1px solid #e2e8f0",
-  background: "#ffffff",
-  boxShadow: "0 22px 56px rgba(15,23,42,0.10)",
+  borderRadius: 30,
+  border: "1px solid rgba(255,255,255,0.1)",
+  background: "linear-gradient(180deg,#172033 0%,#111827 100%)",
+  boxShadow: "0 24px 60px rgba(0,0,0,0.3)",
   overflow: "hidden",
 };
+
 const heroStyle: CSSProperties = {
   padding: 22,
   color: "#ffffff",
-  background: "linear-gradient(135deg,#0f172a 0%,#1e293b 60%,#ea580c 145%)",
+  background:
+    "linear-gradient(135deg,#0f172a 0%,#1e293b 62%,rgba(234,88,12,0.55) 145%)",
+  borderBottom: "1px solid rgba(255,255,255,0.08)",
 };
-const bodyStyle: CSSProperties = { display: "grid", gap: 18, padding: 18 };
-const cardStyle: CSSProperties = {
-  borderRadius: 26,
-  border: "1px solid #e2e8f0",
-  background: "#ffffff",
+
+const bodyStyle: CSSProperties = {
+  display: "grid",
+  gap: 18,
   padding: 18,
-  boxShadow: "0 14px 34px rgba(15,23,42,0.06)",
 };
+
+const cardStyle: CSSProperties = {
+  borderRadius: 24,
+  border: "1px solid rgba(255,255,255,0.09)",
+  background: "rgba(255,255,255,0.045)",
+  padding: 18,
+  boxShadow: "0 14px 34px rgba(0,0,0,0.18)",
+};
+
 const headerRowStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "space-between",
+  flexWrap: "wrap",
   gap: 14,
   marginBottom: 14,
 };
+
 const eyebrowStyle: CSSProperties = {
   margin: 0,
   fontSize: 11,
@@ -57,19 +73,21 @@ const eyebrowStyle: CSSProperties = {
   letterSpacing: "0.12em",
   textTransform: "uppercase",
 };
+
 const titleStyle: CSSProperties = {
   margin: "6px 0 0",
   fontSize: 24,
   lineHeight: 1.05,
   letterSpacing: "-0.04em",
   fontWeight: 950,
-  color: "#0f172a",
+  color: "#ffffff",
 };
+
 const hintStyle: CSSProperties = {
   margin: "8px 0 0",
   fontSize: 14,
   lineHeight: 1.55,
-  color: "#475569",
+  color: "#cbd5e1",
   fontWeight: 650,
 };
 const dropZoneStyle: CSSProperties = {
@@ -77,11 +95,13 @@ const dropZoneStyle: CSSProperties = {
   placeItems: "center",
   minHeight: 190,
   padding: 22,
-  borderRadius: 26,
-  border: "2px dashed #cbd5e1",
-  background: "linear-gradient(180deg,#f8fafc 0%,#ffffff 100%)",
+  borderRadius: 24,
+  border: "2px dashed rgba(251,146,60,0.55)",
+  background:
+    "linear-gradient(180deg,rgba(15,23,42,0.82) 0%,rgba(30,41,59,0.72) 100%)",
   cursor: "pointer",
   textAlign: "center",
+  transition: "border-color .2s ease, background .2s ease",
 };
 const grid2Style: CSSProperties = {
   display: "grid",
@@ -97,47 +117,47 @@ const primaryButtonStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  width: "auto",
+  width: "100%",
   minWidth: 220,
-  height: 50,
+  height: 52,
   padding: "0 24px",
-  border: "1px solid #1e293b",
+  border: "1px solid #f97316",
   borderRadius: 16,
-  background: "#0f172a",
+  background: "linear-gradient(135deg,#f97316 0%,#ea580c 100%)",
   color: "#ffffff",
   fontSize: 14,
-  fontWeight: 800,
+  fontWeight: 900,
   letterSpacing: "0.03em",
   cursor: "pointer",
   transition: "all .2s ease",
-  boxShadow: "0 8px 20px rgba(15,23,42,.15)",
+  boxShadow: "0 12px 28px rgba(234,88,12,0.24)",
 };
-
 const disabledButtonStyle: CSSProperties = {
   ...primaryButtonStyle,
-  background: "#e2e8f0",
-  border: "1px solid #cbd5e1",
-  color: "#94a3b8",
+  background: "rgba(148,163,184,0.12)",
+  border: "1px solid rgba(148,163,184,0.18)",
+  color: "#64748b",
   boxShadow: "none",
   cursor: "not-allowed",
 };
 const createButtonStyle: CSSProperties = {
   width: "100%",
   minHeight: 66,
-  border: 0,
+  border: "1px solid #f97316",
   borderRadius: 24,
-  background: "linear-gradient(135deg,#020617 0%,#1e293b 100%)",
+  background: "linear-gradient(135deg,#f97316 0%,#ea580c 100%)",
   color: "#ffffff",
   fontSize: 15,
   fontWeight: 950,
   textTransform: "uppercase",
   letterSpacing: "0.07em",
   cursor: "pointer",
-  boxShadow: "0 18px 42px rgba(15,23,42,0.24)",
+  boxShadow: "0 18px 42px rgba(234,88,12,0.24)",
 };
 const disabledCreateButtonStyle: CSSProperties = {
   ...createButtonStyle,
-  background: "#cbd5e1",
+  background: "rgba(148,163,184,0.12)",
+  border: "1px solid rgba(148,163,184,0.18)",
   color: "#64748b",
   boxShadow: "none",
   cursor: "not-allowed",
@@ -331,20 +351,33 @@ needsReviewReason: isStillPlaceholder
     setPreview(rebuildPreviewWithEditedStops(preview, nextStops));
   }
 
-  function markStopReviewed(originalStopNumber: number) {
-    if (!preview) return;
-    const nextStops = preview.stops.map((stop) => {
-      if (stop.originalStopNumber !== originalStopNumber) return stop;
-      const hasAddress = stop.addressRaw.trim().length > 0;
-      return {
-        ...stop,
-        confidence: hasAddress ? "high" : "needs_review",
-        isPlaceholder: !hasAddress,
-        needsReviewReason: hasAddress ? "Confermato manualmente" : "Indirizzo mancante",
-      } satisfies RouteProAiExtractedStop;
-    });
-    setPreview(rebuildPreviewWithEditedStops(preview, nextStops));
-  }
+  function markStopReviewed(
+  originalStopNumber: number,
+  addressRaw: string,
+  city: string,
+) {
+  if (!preview) return;
+
+  const cleanedAddress = addressRaw.trim();
+  const cleanedCity = city.trim();
+
+  const nextStops = preview.stops.map((stop) => {
+    if (stop.originalStopNumber !== originalStopNumber) return stop;
+
+    const hasAddress = cleanedAddress.length > 0;
+
+    return {
+      ...stop,
+      addressRaw: cleanedAddress,
+      city: cleanedCity || null,
+      confidence: hasAddress ? "high" : "needs_review",
+      isPlaceholder: !hasAddress,
+      needsReviewReason: hasAddress ? "Confermato manualmente" : "Indirizzo mancante",
+    } satisfies RouteProAiExtractedStop;
+  });
+
+  setPreview(rebuildPreviewWithEditedStops(preview, nextStops));
+}
 
   async function handleCreateRoute() {
     if (!preview) return;
@@ -411,9 +444,45 @@ needsReviewReason: isStillPlaceholder
             </div>
 
             <label style={dropZoneStyle}>
-              <div style={{ display: "grid", placeItems: "center", width: 58, height: 58, borderRadius: 20, background: "#fff7ed", color: "#ea580c", fontSize: 28, fontWeight: 950 }}>+</div>
-              <strong style={{ display: "block", marginTop: 14, color: "#0f172a", fontSize: 18, fontWeight: 950 }}>Seleziona screenshot</strong>
-              <span style={{ display: "block", marginTop: 6, color: "#64748b", fontSize: 13, lineHeight: 1.5, fontWeight: 700 }}>PNG, JPG, JPEG, WEBP - upload multiplo</span>
+              <div
+  style={{
+    display: "grid",
+    placeItems: "center",
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    background: "rgba(249,115,22,0.14)",
+    border: "1px solid rgba(251,146,60,0.4)",
+    color: "#fb923c",
+    fontSize: 32,
+    fontWeight: 950,
+  }}
+>
+  +
+</div>
+              <strong
+  style={{
+    display: "block",
+    marginTop: 14,
+    color: "#ffffff",
+    fontSize: 18,
+    fontWeight: 950,
+  }}
+>
+  Seleziona screenshot
+</strong>
+              <span
+  style={{
+    display: "block",
+    marginTop: 6,
+    color: "#94a3b8",
+    fontSize: 13,
+    lineHeight: 1.5,
+    fontWeight: 700,
+  }}
+>
+  PNG, JPG, JPEG, WEBP - upload multiplo
+</span>
               <input
                 hidden
                 type="file"
@@ -452,8 +521,23 @@ needsReviewReason: isStillPlaceholder
                 </div>
                 <CounterBadge value={`${progressPercent}%`} label="progress" />
               </div>
-              <div style={{ height: 14, overflow: "hidden", borderRadius: 999, background: "#dbeafe" }}>
-                <div style={{ width: `${Math.max(8, progressPercent)}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#2563eb 0%,#38bdf8 100%)", transition: "width 250ms ease" }} />
+              <div
+                style={{
+                  height: 14,
+                  overflow: "hidden",
+                  borderRadius: 999,
+                  background: "rgba(255,255,255,0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    width: `${Math.max(8, progressPercent)}%`,
+                    height: "100%",
+                    borderRadius: 999,
+                    background: "linear-gradient(90deg,#f97316 0%,#fb923c 100%)",
+                    transition: "width 250ms ease",
+                  }}
+                />
               </div>
               <p style={{ ...hintStyle, marginTop: 10 }}>Batch {analyzedBatches} / {uploadBatchesCount}</p>
             </div>
@@ -491,8 +575,21 @@ function UploadSummary({
   uploadBatchesCount: number;
 }) {
   return (
-    <div style={{ borderRadius: 22, border: "1px solid #e2e8f0", background: "#f8fafc", padding: 14 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(92px,1fr))", gap: 10 }}>
+    <div
+      style={{
+        borderRadius: 20,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(2,6,23,0.32)",
+        padding: 14,
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit,minmax(92px,1fr))",
+          gap: 10,
+        }}
+      >
         <MiniStat label="File" value={String(files.length)} />
         <MiniStat label="Peso" value={formatBytes(totalSize)} />
         <MiniStat label="Batch" value={String(uploadBatchesCount)} />
@@ -501,19 +598,66 @@ function UploadSummary({
       {visibleFiles.length > 0 ? (
         <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
           {visibleFiles.map((file) => (
-            <div key={`${file.name}-${file.size}`} style={{ display: "flex", justifyContent: "space-between", gap: 12, borderRadius: 14, background: "#ffffff", border: "1px solid #e2e8f0", padding: "9px 10px", color: "#334155", fontSize: 12, fontWeight: 800 }}>
-              <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>
-              <span style={{ color: "#94a3b8", whiteSpace: "nowrap" }}>{formatBytes(file.size)}</span>
+            <div
+              key={`${file.name}-${file.size}`}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                minWidth: 0,
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.045)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                padding: "10px 12px",
+                color: "#e2e8f0",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
+              <span
+                style={{
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {file.name}
+              </span>
+
+              <span
+                style={{
+                  flexShrink: 0,
+                  color: "#94a3b8",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {formatBytes(file.size)}
+              </span>
             </div>
           ))}
+
           {hiddenFilesCount > 0 ? (
-            <div style={{ borderRadius: 14, background: "#ffffff", border: "1px dashed #cbd5e1", padding: "9px 10px", color: "#64748b", fontSize: 12, fontWeight: 950 }}>
+            <div
+              style={{
+                borderRadius: 14,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px dashed rgba(148,163,184,0.3)",
+                padding: "10px 12px",
+                color: "#cbd5e1",
+                fontSize: 12,
+                fontWeight: 950,
+              }}
+            >
               +{hiddenFilesCount} altri screenshot
             </div>
           ) : null}
         </div>
       ) : (
-        <p style={{ ...hintStyle, marginTop: 12 }}>Nessun file selezionato. Quando carichi gli screenshot li vedrai qui.</p>
+        <p style={{ ...hintStyle, marginTop: 12 }}>
+          Nessun file selezionato. Quando carichi gli screenshot li vedrai qui.
+        </p>
       )}
     </div>
   );
@@ -535,7 +679,7 @@ function ResultPanel({
   stopsToReview: RouteProAiExtractedStop[];
   onUpdateAddress: (originalStopNumber: number, addressRaw: string) => void;
   onUpdateCity: (originalStopNumber: number, city: string) => void;
-  onConfirmStop: (originalStopNumber: number) => void;
+  onConfirmStop: (originalStopNumber: number, addressRaw: string, city: string) => void;
   onCreateRoute: () => void;
 }) {
   return (
@@ -585,7 +729,7 @@ function ResultPanel({
           ) : null}
 
           <button type="button" disabled={!preview.canCreateRoute} onClick={onCreateRoute} style={preview.canCreateRoute ? createButtonStyle : disabledCreateButtonStyle}>
-            Crea rotta RoutePro - {preview.summary.totalFound} stop
+            Crea rotta - {preview.summary.totalFound} stop
           </button>
         </div>
       )}
@@ -602,10 +746,15 @@ function ReviewStopCard({
   stop: RouteProAiExtractedStop;
   onUpdateAddress: (originalStopNumber: number, addressRaw: string) => void;
   onUpdateCity: (originalStopNumber: number, city: string) => void;
-  onConfirmStop: (originalStopNumber: number) => void;
+  onConfirmStop: (
+    originalStopNumber: number,
+    addressRaw: string,
+    city: string,
+  ) => void;
 }) {
   const initialAddress =
-    stop.isPlaceholder && stop.addressRaw === "PLACEHOLDER_STOP_MISSING_ADDRESS"
+    stop.isPlaceholder &&
+    stop.addressRaw === "PLACEHOLDER_STOP_MISSING_ADDRESS"
       ? ""
       : stop.addressRaw;
 
@@ -613,13 +762,37 @@ function ReviewStopCard({
   const [draftCity, setDraftCity] = useState(stop.city ?? "");
 
   return (
-    <article style={{ borderRadius: 24, border: "1px solid #fde68a", background: "linear-gradient(180deg,#fffbeb 0%,#ffffff 100%)", padding: 16 }}>
+    <article
+      style={{
+        borderRadius: 22,
+        border: "1px solid rgba(251,191,36,0.28)",
+        background:
+          "linear-gradient(180deg,rgba(245,158,11,0.09) 0%,rgba(15,23,42,0.7) 100%)",
+        padding: 16,
+      }}
+    >
       <div style={headerRowStyle}>
         <div>
-          <p style={{ ...eyebrowStyle, color: "#b45309" }}>Stop originale</p>
-          <h5 style={{ margin: "5px 0 0", fontSize: 30, lineHeight: 1, fontWeight: 950, color: "#0f172a" }}>#{stop.originalStopNumber}</h5>
+          <p style={{ ...eyebrowStyle, color: "#fbbf24" }}>
+            Stop originale
+          </p>
+
+          <h5
+            style={{
+              margin: "5px 0 0",
+              color: "#ffffff",
+              fontSize: 30,
+              lineHeight: 1,
+              fontWeight: 950,
+            }}
+          >
+            #{stop.originalStopNumber}
+          </h5>
         </div>
-        <Pill tone="warning">{stop.isPlaceholder ? "mancante" : stop.confidence}</Pill>
+
+        <Pill tone="warning">
+          {stop.isPlaceholder ? "Mancante" : stop.confidence}
+        </Pill>
       </div>
 
       <div style={grid2Style}>
@@ -636,7 +809,7 @@ function ReviewStopCard({
           <input
             value={draftCity}
             onChange={(event) => setDraftCity(event.target.value)}
-            placeholder="Comune"
+            placeholder="Inserisci comune"
             style={inputStyle}
           />
         </FieldLabel>
@@ -644,20 +817,31 @@ function ReviewStopCard({
 
       {stop.needsReviewReason ? (
         <div style={{ marginTop: 12 }}>
-          <MessageBox tone="warning" title="Motivo">{stop.needsReviewReason}</MessageBox>
+          <MessageBox tone="warning" title="Motivo">
+            {stop.needsReviewReason}
+          </MessageBox>
         </div>
       ) : null}
 
       <button
         type="button"
         onClick={() => {
-          onUpdateAddress(stop.originalStopNumber, draftAddress);
-          onUpdateCity(stop.originalStopNumber, draftCity);
-          onConfirmStop(stop.originalStopNumber);
+          onConfirmStop(
+            stop.originalStopNumber,
+            draftAddress,
+            draftCity,
+          );
         }}
-        style={{ ...createButtonStyle, minHeight: 52, marginTop: 14, fontSize: 13 }}
+        style={{
+          ...createButtonStyle,
+          minHeight: 52,
+          marginTop: 14,
+          fontSize: 13,
+          background: "linear-gradient(135deg,#f97316 0%,#ea580c 100%)",
+          boxShadow: "0 12px 28px rgba(234,88,12,0.22)",
+        }}
       >
-        Conferma stop
+        Conferma correzione
       </button>
     </article>
   );
@@ -665,7 +849,17 @@ function ReviewStopCard({
 
 function FieldLabel({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label style={{ display: "grid", gap: 8, color: "#64748b", fontSize: 11, fontWeight: 950, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+    <label
+      style={{
+        display: "grid",
+        gap: 8,
+        color: "#cbd5e1",
+        fontSize: 11,
+        fontWeight: 950,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+      }}
+    >
       {label}
       {children}
     </label>
@@ -674,27 +868,114 @@ function FieldLabel({ label, children }: { label: string; children: ReactNode })
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div style={{ borderRadius: 24, border: "1px solid #e2e8f0", background: "#f8fafc", padding: 16 }}>
-      <div style={{ color: "#0f172a", fontSize: 34, lineHeight: 1, fontWeight: 950, letterSpacing: "-0.04em" }}>{value}</div>
-      <div style={{ marginTop: 8, color: "#64748b", fontSize: 11, fontWeight: 950, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+    <div
+      style={{
+        borderRadius: 20,
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(255,255,255,0.05)",
+        padding: 16,
+      }}
+    >
+      <div
+        style={{
+          color: "#ffffff",
+          fontSize: 34,
+          lineHeight: 1,
+          fontWeight: 950,
+          letterSpacing: "-0.04em",
+        }}
+      >
+        {value}
+      </div>
+
+      <div
+        style={{
+          marginTop: 8,
+          color: "#94a3b8",
+          fontSize: 11,
+          fontWeight: 950,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {label}
+      </div>
     </div>
   );
 }
 
-function CounterBadge({ value, label }: { value: string | number; label: string }) {
+function CounterBadge({
+  value,
+  label,
+}: {
+  value: string | number;
+  label: string;
+}) {
   return (
-    <div style={{ minWidth: 86, borderRadius: 22, background: "#0f172a", color: "#ffffff", padding: "12px 14px", textAlign: "center" }}>
-      <div style={{ fontSize: 26, lineHeight: 1, fontWeight: 950 }}>{value}</div>
-      <div style={{ marginTop: 5, fontSize: 10, fontWeight: 900, color: "#cbd5e1", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+    <div
+      style={{
+        minWidth: 86,
+        borderRadius: 20,
+        background: "rgba(2,6,23,0.72)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        color: "#ffffff",
+        padding: "12px 14px",
+        textAlign: "center",
+      }}
+    >
+      <div style={{ fontSize: 26, lineHeight: 1, fontWeight: 950 }}>
+        {value}
+      </div>
+
+      <div
+        style={{
+          marginTop: 5,
+          fontSize: 10,
+          fontWeight: 900,
+          color: "#94a3b8",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {label}
+      </div>
     </div>
   );
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ borderRadius: 16, background: "#ffffff", border: "1px solid #e2e8f0", padding: 10 }}>
-      <div style={{ color: "#0f172a", fontSize: 15, lineHeight: 1.1, fontWeight: 950 }}>{value}</div>
-      <div style={{ marginTop: 5, color: "#64748b", fontSize: 10, fontWeight: 950, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+    <div
+      style={{
+        borderRadius: 18,
+        background: "rgba(255,255,255,0.05)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        padding: 12,
+      }}
+    >
+      <div
+        style={{
+          color: "#ffffff",
+          fontSize: 20,
+          lineHeight: 1,
+          fontWeight: 950,
+        }}
+      >
+        {value}
+      </div>
+
+      <div
+        style={{
+          marginTop: 6,
+          color: "#94a3b8",
+          fontSize: 10,
+          fontWeight: 900,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        {label}
+      </div>
     </div>
   );
 }
@@ -718,18 +999,85 @@ function MessageBox({
   children: ReactNode;
 }) {
   const colors = getToneColors(tone);
+
   return (
-    <div style={{ borderRadius: 22, border: `1px solid ${colors.border}`, background: colors.background, padding: 14 }}>
-      <p style={{ margin: 0, color: colors.strong, fontSize: 14, fontWeight: 950 }}>{title}</p>
-      <p style={{ margin: "5px 0 0", color: colors.text, fontSize: 13, lineHeight: 1.5, fontWeight: 700 }}>{children}</p>
+    <div
+      style={{
+        borderRadius: 20,
+        border: `1px solid ${colors.border}`,
+        background: colors.background,
+        padding: 14,
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          color: colors.strong,
+          fontSize: 14,
+          fontWeight: 950,
+        }}
+      >
+        {title}
+      </p>
+
+      <p
+        style={{
+          margin: "5px 0 0",
+          color: colors.text,
+          fontSize: 13,
+          lineHeight: 1.5,
+          fontWeight: 700,
+        }}
+      >
+        {children}
+      </p>
     </div>
   );
 }
 
-function getToneColors(tone: "idle" | "active" | "success" | "warning" | "danger") {
-  if (tone === "success") return { background: "#ecfdf5", border: "#bbf7d0", text: "#047857", strong: "#064e3b" };
-  if (tone === "warning") return { background: "#fffbeb", border: "#fde68a", text: "#b45309", strong: "#78350f" };
-  if (tone === "danger") return { background: "#fef2f2", border: "#fecaca", text: "#b91c1c", strong: "#7f1d1d" };
-  if (tone === "active") return { background: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8", strong: "#1e3a8a" };
-  return { background: "#f8fafc", border: "#e2e8f0", text: "#64748b", strong: "#0f172a" };
+function getToneColors(
+  tone: "idle" | "active" | "success" | "warning" | "danger",
+) {
+  if (tone === "success") {
+    return {
+      background: "rgba(16,185,129,0.1)",
+      border: "rgba(52,211,153,0.28)",
+      text: "#a7f3d0",
+      strong: "#d1fae5",
+    };
+  }
+
+  if (tone === "warning") {
+    return {
+      background: "rgba(245,158,11,0.1)",
+      border: "rgba(251,191,36,0.28)",
+      text: "#fde68a",
+      strong: "#fef3c7",
+    };
+  }
+
+  if (tone === "danger") {
+    return {
+      background: "rgba(239,68,68,0.1)",
+      border: "rgba(248,113,113,0.28)",
+      text: "#fecaca",
+      strong: "#fee2e2",
+    };
+  }
+
+  if (tone === "active") {
+    return {
+      background: "rgba(59,130,246,0.1)",
+      border: "rgba(96,165,250,0.28)",
+      text: "#bfdbfe",
+      strong: "#dbeafe",
+    };
+  }
+
+  return {
+    background: "rgba(148,163,184,0.08)",
+    border: "rgba(148,163,184,0.18)",
+    text: "#cbd5e1",
+    strong: "#ffffff",
+  };
 }

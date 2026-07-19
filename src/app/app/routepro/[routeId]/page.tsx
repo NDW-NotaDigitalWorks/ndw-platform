@@ -16,6 +16,7 @@ import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
 import { RouteProSubmitButton } from "@/modules/routepro/ui/RouteProSubmitButton";
 import { RouteProWorkflowHeader } from "@/modules/routepro/v2/ui/RouteProWorkflowHeader";
+import { calculateRouteProMetrics } from "@/modules/routepro/server/routepro.metrics";
 
 type Props = {
   params: Promise<{ routeId: string }>;
@@ -887,7 +888,11 @@ const readyStopsCount = readyStops.length;
 
       {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
       {geocoded === "1" ? <div style={successStyle}>Geocoding completato. Controlla eventuali stop da rivedere.</div> : null}
-      {updated === "1" ? <div style={successStyle}>Stop aggiornato. Rilancia il geocoding per validarlo.</div> : null}
+      {updated === "1" ? (
+  <div style={successStyle}>
+    Stop aggiornato. Ora verifica gli indirizzi per aggiornare le coordinate.
+  </div>
+) : null}
       {deleted === "1" ? <div style={successStyle}>Stop eliminato correttamente.</div> : null}
       {optimized === "1" ? <div style={successStyle}>Rotta ottimizzata. L’ordine degli stop è stato aggiornato.</div> : null}
       {csvImported === "1" ? <div style={successStyle}>CSV importato correttamente.</div> : null}
@@ -1041,96 +1046,6 @@ const readyStopsCount = readyStops.length;
         </div>
       </section>
 
-      <div style={successStyle}>
-  Import screenshot disponibile dal workflow AI Import.
-</div>
-
-      <section style={premiumPanelStyle}>
-        <p style={premiumPanelTitleStyle}>Import Methods</p>
-
-        <div style={premiumGridStyle}>
-          <div style={darkActionCardStyle}>
-            <div style={darkActionIconStyle}>📍</div>
-            <h3 style={darkActionTitleStyle}>Manuale</h3>
-            <p style={darkActionTextStyle}>
-              Aggiungi uno stop singolo quando devi correggere o integrare la rotta.
-            </p>
-
-            <form action={addManualRouteProStop} style={formStyle}>
-              <input type="hidden" name="route_id" value={route.id} />
-
-              <label style={darkActionLabelStyle}>
-                Indirizzo
-                <input
-                  name="address"
-                  type="text"
-                  placeholder="Via Roma 10, Milano"
-                  style={darkActionInputStyle}
-                />
-              </label>
-
-              <button type="submit" style={routeProUi.primaryButton}>
-                Aggiungi
-              </button>
-            </form>
-          </div>
-
-          <div style={darkActionCardStyle}>
-            <div style={darkActionIconStyle}>📋</div>
-            <h3 style={darkActionTitleStyle}>Lista</h3>
-            <p style={darkActionTextStyle}>
-              Incolla più indirizzi insieme, uno per riga, e crea velocemente una rotta.
-            </p>
-
-            <form action={addBulkRouteProStops} style={formStyle}>
-              <input type="hidden" name="route_id" value={route.id} />
-
-              <label style={darkActionLabelStyle}>
-                Uno per riga
-                <textarea
-                  name="bulk_addresses"
-                  rows={5}
-                  placeholder={`Via Roma 10, Milano
-Via Torino 5, Milano`}
-                  style={darkActionTextareaStyle}
-                />
-              </label>
-
-              <button type="submit" style={routeProUi.primaryButton}>
-                Importa lista
-              </button>
-            </form>
-          </div>
-
-          <div style={darkActionCardStyle}>
-            <div style={darkActionIconStyle}>📄</div>
-            <h3 style={darkActionTitleStyle}>CSV</h3>
-            <p style={darkActionTextStyle}>
-              Importa file con colonna <strong>address</strong>. Se presenti, RoutePro usa anche city, province e country.
-            </p>
-
-            <form action={addCsvRouteProStops} style={formStyle}>
-              <input type="hidden" name="route_id" value={route.id} />
-
-              <label style={darkActionLabelStyle}>
-                File CSV
-                <input
-                  name="csv_file"
-                  type="file"
-                  accept=".csv,text/csv"
-                  style={darkActionInputStyle}
-                />
-              </label>
-
-              <RouteProSubmitButton
-                idleLabel="Importa CSV"
-                pendingLabel="Import CSV in corso..."
-              />
-            </form>
-          </div>
-        </div>
-      </section>
-
       <section style={premiumPanelStyle}>
         <p style={premiumPanelTitleStyle}>Route Workflow</p>
 
@@ -1150,7 +1065,7 @@ Via Torino 5, Milano`}
               <input type="hidden" name="route_id" value={route.id} />
 
               <RouteProSubmitButton
-                idleLabel="Riconosci indirizzi"
+                idleLabel="Verifica indirizzi"
                 pendingLabel="Riconoscimento in corso..."
               />
             </form>

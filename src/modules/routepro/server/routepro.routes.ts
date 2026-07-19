@@ -49,15 +49,23 @@ export type RouteProStopSummary = {
   source: RouteProStopSource;
   created_at: string;
   updated_at: string;
+  completed_at: string | null;
+  skipped_at: string | null;
 };
 
 export type RouteProRouteDetail = RouteProRouteSummary & {
   stops: RouteProStopSummary[];
 };
 
-function withSessionFallback<T extends Omit<RouteProRouteSummary, "started_at" | "last_activity_at" | "completed_at">>(
+function withSessionFallback<
+  T extends Omit<
+    RouteProRouteSummary,
+    "started_at" | "last_activity_at" | "completed_at"
+  >,
+>(
   route: T,
-): T & Pick<RouteProRouteSummary, "started_at" | "last_activity_at" | "completed_at"> {
+): T &
+  Pick<RouteProRouteSummary, "started_at" | "last_activity_at" | "completed_at"> {
   return {
     ...route,
     started_at: null,
@@ -147,12 +155,12 @@ export async function getMyRouteProRouteDetail(
     .maybeSingle();
 
   if (routeError) {
-  console.error(
-    "RoutePro route detail fetch error:",
-    JSON.stringify(routeError, null, 2),
-  );
-  return null;
-}
+    console.error(
+      "RoutePro route detail fetch error:",
+      JSON.stringify(routeError, null, 2),
+    );
+    return null;
+  }
 
   if (!route) {
     return null;
@@ -175,7 +183,9 @@ export async function getMyRouteProRouteDetail(
       status,
       source,
       created_at,
-      updated_at
+      updated_at,
+      completed_at,
+      skipped_at
     `,
     )
     .eq("route_id", routeId)
@@ -200,19 +210,23 @@ export async function getRouteProHistoryStats() {
 
   const { data: routes } = await supabase
     .from("routepro_routes")
-    .select(`
+    .select(
+      `
       id,
       status,
       started_at,
       completed_at
-    `);
+    `,
+    );
 
   const { data: stops } = await supabase
     .from("routepro_stops")
-    .select(`
+    .select(
+      `
       route_id,
       status
-    `);
+    `,
+    );
 
   const completedRoutes =
     routes?.filter((route) => route.status === "completed") ?? [];
@@ -249,10 +263,7 @@ export async function getRouteProHistoryStats() {
 
   const avgStopsPerRoute =
     completedRoutes.length > 0
-      ? Math.round(
-          totalStops /
-            Math.max(1, completedRoutes.length),
-        )
+      ? Math.round(totalStops / Math.max(1, completedRoutes.length))
       : 0;
 
   return {

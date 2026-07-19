@@ -362,6 +362,12 @@ export async function optimizeRouteProRoute(formData: FormData) {
 
   const routeId = String(formData.get("route_id") ?? "").trim();
 
+  const isWorkflowV2 = String(formData.get("workflow") ?? "") === "v2";
+
+const optimizeRedirectBase = isWorkflowV2
+  ? `/app/routepro/routes/${routeId}/optimize`
+  : `/app/routepro/${routeId}`;
+
   if (!routeId) redirect("/app/routepro");
 
   const { data: route, error: routeError } = await supabase
@@ -372,7 +378,7 @@ export async function optimizeRouteProRoute(formData: FormData) {
 
   if (routeError || !route) {
     console.error("RoutePro optimize route fetch error:", routeError?.message);
-    redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+    redirect(`${optimizeRedirectBase}?error=optimize-failed`);
   }
 
   const { data: invalidStops, error: invalidStopsError } = await supabase
@@ -386,11 +392,11 @@ export async function optimizeRouteProRoute(formData: FormData) {
       "RoutePro optimize invalid stops fetch error:",
       invalidStopsError.message,
     );
-    redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+    redirect(`${optimizeRedirectBase}?error=optimize-failed`);
   }
 
   if (invalidStops && invalidStops.length > 0) {
-    redirect(`/app/routepro/${routeId}?error=optimize-needs-review`);
+    redirect(`${optimizeRedirectBase}?error=optimize-needs-review`);
   }
 
   const { data: stops, error: stopsError } = await supabase
@@ -404,11 +410,11 @@ export async function optimizeRouteProRoute(formData: FormData) {
 
   if (stopsError) {
     console.error("RoutePro optimize stops fetch error:", stopsError.message);
-    redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+    redirect(`${optimizeRedirectBase}?error=optimize-failed`);
   }
 
   if (!stops || stops.length < 2) {
-    redirect(`/app/routepro/${routeId}?error=optimize-not-enough-stops`);
+    redirect(`${optimizeRedirectBase}?error=optimize-not-enough-stops`);
   }
 
   const startPoint =
@@ -493,7 +499,7 @@ const optimizationMethod = orsResult.ok
 
     if (error) {
       console.error("RoutePro optimize stop update error:", error.message);
-      redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+      redirect(`${optimizeRedirectBase}?error=optimize-failed`);
     }
   }
 
@@ -509,11 +515,11 @@ const optimizationMethod = orsResult.ok
 
   if (routeUpdateError) {
     console.error("RoutePro optimize route update error:", routeUpdateError.message);
-    redirect(`/app/routepro/${routeId}?error=optimize-failed`);
+    redirect(`${optimizeRedirectBase}?error=optimize-failed`);
   }
 
   revalidatePath(`/app/routepro/${routeId}`);
-  redirect(`/app/routepro/${routeId}?optimized=1`);
+  redirect(`${optimizeRedirectBase}?optimized=1`);
 }
 
 export async function completeRouteProStop(formData: FormData) {
@@ -576,9 +582,11 @@ export async function completeRouteProStop(formData: FormData) {
   const { error } = await supabase
     .from("routepro_stops")
     .update({
-      status: "completed",
-      updated_at: now,
-    })
+  status: "completed",
+  completed_at: now,
+  skipped_at: null,
+  updated_at: now,
+})
     .in("id", duplicateIds);
 
   if (error) {
@@ -627,9 +635,11 @@ export async function skipRouteProStop(formData: FormData) {
   const { error } = await supabase
     .from("routepro_stops")
     .update({
-      status: "skipped",
-      updated_at: now,
-    })
+  status: "skipped",
+  skipped_at: now,
+  completed_at: null,
+  updated_at: now,
+})
     .eq("id", stopId);
 
   if (error) {
@@ -674,11 +684,11 @@ export async function completeRouteProRoute(formData: FormData) {
   const { error } = await supabase
     .from("routepro_routes")
     .update({
-      status: "completed",
-      completed_at: now,
-      last_activity_at: now,
-      updated_at: now,
-    })
+  status: "completed",
+  completed_at: now,
+  last_activity_at: now,
+  updated_at: now,
+})
     .eq("id", routeId);
 
   if (error) {

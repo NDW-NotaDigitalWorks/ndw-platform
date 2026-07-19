@@ -9,6 +9,7 @@ import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.rou
 import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { ui } from "@/styles/ui";
+import { calculateRouteProMetrics } from "@/modules/routepro/server/routepro.metrics";
 
 type Props = {
   params: Promise<{ routeId: string }>;
@@ -75,8 +76,8 @@ fontWeight: 950,
 };
 
 const cockpitHeroStyle: React.CSSProperties = {
-  marginTop: 20,
-  padding: 26,
+  marginTop: 14,
+  padding: 18,
   borderRadius: 28,
   background:
     "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,64,175,0.92) 100%)",
@@ -111,7 +112,7 @@ const cockpitSubtitleStyle: React.CSSProperties = {
 };
 
 const statCardStyle: React.CSSProperties = {
-  padding: 22,
+  padding: 16,
   borderRadius: 24,
   background: "linear-gradient(180deg,#16255f 0%,#203b9b 100%)",
   border: "1px solid rgba(96,165,250,.25)",
@@ -129,7 +130,7 @@ const statLabelStyle: React.CSSProperties = {
 
 const statValueStyle: React.CSSProperties = {
   margin: "8px 0 0",
-  fontSize: 42,
+  fontSize: 34,
   lineHeight: 1,
   fontWeight: 950,
   color: "#ffffff",
@@ -137,7 +138,7 @@ const statValueStyle: React.CSSProperties = {
 
 const progressTrackStyle: React.CSSProperties = {
   marginTop: 20,
-  height: 12,
+  height: 14,
   borderRadius: 999,
   background: "rgba(255,255,255,.10)",
   overflow: "hidden",
@@ -157,7 +158,7 @@ const intelligenceGridStyle: React.CSSProperties = {
 };
 
 const intelligenceCardStyle: React.CSSProperties = {
-  padding: 16,
+  padding: 12,
   borderRadius: 18,
   background: "rgba(255,255,255,0.10)",
   border: "1px solid rgba(255,255,255,0.16)",
@@ -174,7 +175,7 @@ const intelligenceLabelStyle: React.CSSProperties = {
 
 const intelligenceValueStyle: React.CSSProperties = {
   margin: "7px 0 0",
-  fontSize: 24,
+  fontSize: 20,
   lineHeight: 1,
   fontWeight: 950,
   color: "#ffffff",
@@ -195,8 +196,8 @@ const intelligenceBadgeStyle: React.CSSProperties = {
 };
 
 const currentStopCardStyle: React.CSSProperties = {
-  marginTop: 18,
-  padding: "20px 24px",
+  marginTop: 14,
+  padding: "16px 18px",
   borderRadius: 28,
   background: "linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)",
   border: "1px solid #cbd5e1",
@@ -519,6 +520,20 @@ export default async function RouteProExecutePage({ params, searchParams }: Prop
     (stop) => stop.status === "completed",
   );
   const skippedStops = route.stops.filter((stop) => stop.status === "skipped");
+  const metrics = calculateRouteProMetrics({
+  status: route.status,
+  started_at: route.started_at,
+  completed_at: route.completed_at,
+  last_activity_at: route.last_activity_at,
+  shift_start_time: route.shift_start_time,
+  shift_end_time: route.shift_end_time,
+  stops: route.stops.map((stop) => ({
+    id: stop.id,
+    status: stop.status,
+    completed_at: stop.completed_at,
+    skipped_at: stop.skipped_at,
+  })),
+});
   const executableStops = route.stops.filter(
     (stop) => stop.status === "valid" && stop.lat !== null && stop.lng !== null,
   );
@@ -561,56 +576,36 @@ const estimatedEndTime = getEstimatedEndTime(estimatedRemainingMinutes);
   ? new Date(route.started_at)
   : null;
 
-const elapsedMinutes =
-  routeStartedAt
-    ? Math.max(
-        1,
-        Math.round(
-          (Date.now() - routeStartedAt.getTime()) / 60000,
-        ),
-      )
-    : null;
+const elapsedMinutes = metrics.operatingMinutes;
 
-const realStopsPerHour =
-  elapsedMinutes && completedStops.length > 0
-    ? Math.round(
-        ((completedStops.length / elapsedMinutes) * 60) * 10,
-      ) / 10
-    : null;
+const realStopsPerHour = metrics.realStopsPerHour;
 
-const realMinutesPerStop =
-  realStopsPerHour && realStopsPerHour > 0
-    ? Math.round((60 / realStopsPerHour) * 10) / 10
-    : null;
+const realMinutesPerStop = metrics.averageMinutesPerStop;
 
-const realRemainingMinutes =
-  realMinutesPerStop
-    ? Math.round(realMinutesPerStop * remainingCount)
-    : null;
+const realEta = metrics.etaAt;
 
-const realEta =
-  realRemainingMinutes
-    ? new Date(Date.now() + realRemainingMinutes * 60000)
-    : null;
+const paceStatus = metrics.paceLabel;
 
-   const paceDelta =
-  realStopsPerHour !== null &&
-  requiredStopsPerHour !== null &&
-  requiredStopsPerHour > 0
-    ? Math.round(
-        ((realStopsPerHour - requiredStopsPerHour) / requiredStopsPerHour) *
-          100,
-      )
-    : null;
+const paceDelta = metrics.deviationMinutes;
 
-const paceStatus =
-  paceDelta === null
-    ? "In attesa dati"
-    : paceDelta >= 10
-      ? "In anticipo"
-      : paceDelta >= -10
-        ? "Nei tempi"
-        : "In ritardo";
+const completionRate =
+  totalStops > 0
+    ? Math.round((metrics.doneStops / totalStops) * 100)
+    : 0;
+
+const performanceScore = metrics.score ?? "-";
+
+const performanceLabel =
+  performanceScore === "A+"
+    ? "Elite"
+    : performanceScore === "A"
+      ? "Ottimo"
+      : performanceScore === "B"
+        ? "Buono"
+        : performanceScore === "C"
+          ? "Da migliorare"
+          : "In attesa dati";
+
 
   const isRouteCompleted = route.status === "completed";
 
@@ -620,28 +615,6 @@ const paceStatus =
     currentStopLat !== null &&
     currentStopLng !== null;
 
-    const completionRate =
-  totalStops > 0
-    ? Math.round((completedStops.length / totalStops) * 100)
-    : 0;
-
-const performanceScore =
-  completionRate >= 98
-    ? "A+"
-    : completionRate >= 95
-      ? "A"
-      : completionRate >= 90
-        ? "B"
-        : "C";
-
-const performanceLabel =
-  performanceScore === "A+"
-    ? "Elite"
-    : performanceScore === "A"
-      ? "Ottimo"
-      : performanceScore === "B"
-        ? "Buono"
-        : "Da migliorare";
 
   return (
     <section style={{ ...ui.page.section, paddingBottom: showBottomBar ? 112 : 0 }}>
@@ -669,7 +642,7 @@ const performanceLabel =
         <h1 style={cockpitTitleStyle}>{route.name}</h1>
 
         <p style={cockpitSubtitleStyle}>
-          Segui la rotta stop per stop. Naviga, completa, salta e tieni sotto controllo la giornata.
+          Prepara, verifica, ottimizza e guida la tua rotta in un unico workflow.
         </p>
 
         <div style={actionsStyle}>
@@ -851,7 +824,9 @@ const performanceLabel =
       color: "rgba(255,255,255,0.72)",
     }}
   >
-    {paceDelta !== null ? `${paceDelta >= 0 ? "+" : ""}${paceDelta}% vs obiettivo` : "Completa almeno uno stop"}
+    {paceDelta !== null
+  ? `${paceDelta >= 0 ? "+" : ""}${paceDelta} min`
+  : "Completa almeno 3 stop"}
   </p>
 </article>
         </div>
@@ -986,7 +961,7 @@ const performanceLabel =
           <div
   style={{
     ...bigStopNumberStyle,
-    fontSize: "clamp(54px, 8vw, 88px)",
+    fontSize: "clamp(38px, 6vw, 58px)",
   }}
 >
   #{currentStop.position}
@@ -1077,29 +1052,37 @@ const performanceLabel =
       )}
 
       {nextStops.length > 0 ? (
-  <div style={nextStopsCardStyle}>
-    <p style={statLabelStyle}>Prossimi Stop</p>
+  <details style={nextStopsCardStyle}>
+    <summary
+      style={{
+        cursor: "pointer",
+        fontWeight: 950,
+        color: "#0f172a",
+      }}
+    >
+      Prossimi stop ({nextStops.length})
+    </summary>
 
-    {nextStops.map((stop) => {
-  const duplicateStops = getDuplicateStopsForAddress(
-    executableStops,
-    stop.address,
-  );
+    <div style={{ marginTop: 10 }}>
+      {nextStops.map((stop) => {
+        const duplicateStops = getDuplicateStopsForAddress(
+          executableStops,
+          stop.address,
+        );
 
-  return (
-    <div key={stop.id} style={nextStopRowStyle}>
-      <span style={nextStopNumberStyle}>
-        #{stop.position}
-      </span>
+        return (
+          <div key={stop.id} style={nextStopRowStyle}>
+            <span style={nextStopNumberStyle}>#{stop.position}</span>
 
-      <span style={nextStopAddressStyle}>
-        {stop.address}
-        {duplicateStops.length > 1 ? ` (${duplicateStops.length}x)` : ""}
-      </span>
+            <span style={nextStopAddressStyle}>
+              {stop.address}
+              {duplicateStops.length > 1 ? ` (${duplicateStops.length}x)` : ""}
+            </span>
+          </div>
+        );
+      })}
     </div>
-  );
-})}
-  </div>
+  </details>
 ) : null}
 
       {showBottomBar ? (

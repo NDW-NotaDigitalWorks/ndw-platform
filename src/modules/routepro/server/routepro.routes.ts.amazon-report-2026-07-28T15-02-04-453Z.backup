@@ -1,6 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import type { AmazonAssistAnalysisResult } from "@/modules/routepro/server/routepro.amazon-analysis";
-import type { AmazonAssistAppliedCorrection } from "@/modules/routepro/server/routepro.amazon-optimizer";
 
 export type RouteProRouteStatus = "draft" | "in_progress" | "completed";
 export type RouteProStopStatus =
@@ -11,19 +9,6 @@ export type RouteProStopStatus =
   | "skipped";
 
 export type RouteProStopSource = "manual" | "paste" | "csv" | "screenshot";
-
-export type RouteProAmazonAssistReport = {
-  version: 1;
-  generated_at: string;
-  method: string;
-  changed: boolean;
-  changed_stop_count: number;
-  applied_saving_meters: number;
-  applied_saving_seconds: number;
-  original_analysis: AmazonAssistAnalysisResult;
-  final_analysis: AmazonAssistAnalysisResult;
-  corrections: AmazonAssistAppliedCorrection[];
-};
 
 export type RouteProRouteSummary = {
   id: string;
@@ -47,7 +32,6 @@ export type RouteProRouteSummary = {
   is_optimized: boolean;
   optimized_at: string | null;
   optimization_method: string | null;
-  amazon_assist_report: RouteProAmazonAssistReport | null;
   created_at: string;
   updated_at: string;
 };
@@ -118,7 +102,6 @@ export async function getMyRouteProRoutes(): Promise<RouteProRouteSummary[]> {
       is_optimized,
       optimized_at,
       optimization_method,
-      amazon_assist_report,
       created_at,
       updated_at
     `,
@@ -164,7 +147,6 @@ export async function getMyRouteProRouteDetail(
       is_optimized,
       optimized_at,
       optimization_method,
-      amazon_assist_report,
       created_at,
       updated_at
     `,

@@ -7,6 +7,7 @@ import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/ro
 import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
 import { optimizeStopsWithOpenRouteService } from "@/modules/routepro/server/routepro.ors-optimization";
 import { optimizeAmazonAssistRoute } from "@/modules/routepro/server/routepro.amazon-optimizer";
+import { analyzeAmazonRoute } from "@/modules/routepro/server/routepro.amazon-analysis";
 import { extractTextFromImageWithGoogleVision } from "@/modules/routepro/server/routepro.ocr";
 import { encryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
 import { parseAmazonFlexStopsFromVisionLayout } from "@/modules/routepro/server/routepro.flex-layout-parser";
@@ -481,19 +482,6 @@ const optimizeRedirectBase = isWorkflowV2
 
 let optimizationMethod = "analysis_only";
 
-let amazonAssistReport: {
-  version: 1;
-  generated_at: string;
-  method: string;
-  changed: boolean;
-  changed_stop_count: number;
-  applied_saving_meters: number;
-  applied_saving_seconds: number;
-  original_analysis: unknown;
-  final_analysis: unknown;
-  corrections: unknown[];
-} | null = null;
-
 const normalizedProfile = String(
   route.route_profile ?? "generic",
 ).toLowerCase();
@@ -526,29 +514,15 @@ if (normalizedProfile === "amazon_flex") {
   );
   console.log("======================================");
 
-  amazonAssistReport = {
-    version: 1,
-    generated_at: new Date().toISOString(),
-    method: amazonResult.method,
-    changed: amazonResult.changed,
-    changed_stop_count: amazonResult.changedStopCount,
-    applied_saving_meters: amazonResult.appliedSavingMeters,
-    applied_saving_seconds: amazonResult.appliedSavingSeconds,
-    original_analysis: amazonResult.originalAnalysis,
-    final_analysis: amazonResult.analysis,
-    corrections: amazonResult.corrections,
-  };
-
   optimizedStops = amazonResult.orderedStops
-    .map((amazonStop) =>
-      optimizationStops.find((stop) => stop.id === amazonStop.id),
-    )
-    .filter(
-      (
-        stop,
-      ): stop is (typeof optimizationStops)[number] => Boolean(stop),
-    );
-
+  .map((amazonStop) =>
+    optimizationStops.find((stop) => stop.id === amazonStop.id),
+  )
+  .filter(
+    (
+      stop,
+    ): stop is (typeof optimizationStops)[number] => Boolean(stop),
+  );
   optimizationMethod = amazonResult.method;
 } else {
   const orsResult = await optimizeStopsWithOpenRouteService(
@@ -612,7 +586,6 @@ const optimizedDeliveryStops = optimizedDeliveryStopIds
       is_optimized: true,
       optimized_at: new Date().toISOString(),
       optimization_method: optimizationMethod,
-      amazon_assist_report: amazonAssistReport,
       updated_at: new Date().toISOString(),
     })
     .eq("id", routeId);

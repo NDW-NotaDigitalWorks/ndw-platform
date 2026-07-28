@@ -1,0 +1,3049 @@
+﻿ROUTEPRO DRIVE BACKEND AUDIT
+Generated: 07/26/2026 10:57:01
+
+
+============================================================
+FILE: src\modules\routepro\server\routepro.actions.ts
+============================================================
+
+"use server";
+
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/routepro.geocoding";
+import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
+import { optimizeStopsWithOpenRouteService } from "@/modules/routepro/server/routepro.ors-optimization";
+import { extractTextFromImageWithGoogleVision } from "@/modules/routepro/server/routepro.ocr";
+import { encryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
+import { parseAmazonFlexStopsFromVisionLayout } from "@/modules/routepro/server/routepro.flex-layout-parser";
+
+function getDefaultRouteName(routeDate: string): string {
+  return `Route ${routeDate}`;
+}
+
+async function runRouteProGeocodingInBatches<T>(
+  items: T[],
+  batchSize: number,
+  handler: (item: T) => Promise<void>,
+): Promise<void> {
+  for (let index = 0; index < items.length; index += batchSize) {
+    const batch = items.slice(index, index + batchSize);
+    await Promise.all(batch.map((item) => handler(item)));
+  }
+}
+
+export async function createRouteProRoute(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) redirect("/login");
+
+  const rawName = String(formData.get("name") ?? "").trim();
+  const routeDate = String(formData.get("route_date") ?? "").trim();
+  const startAddress = String(formData.get("start_address") ?? "").trim();
+  const returnAddress = String(formData.get("return_address") ?? "").trim();
+  const shiftStartTime = String(formData.get("shift_start_time") ?? "").trim();
+  const shiftEndTime = String(formData.get("shift_end_time") ?? "").trim();
+  const breakMinutesRaw = String(formData.get("break_minutes") ?? "30").trim();
+  const routeProfile = String(formData.get("route_profile") ?? "generic").trim();
+
+  const breakMinutes = Number.parseInt(breakMinutesRaw, 10);
+
+  if (!routeDate) redirect("/app/routepro/new?error=missing-date");
+
+  const name = rawName || getDefaultRouteName(routeDate);
+  const startGeocodeResult = startAddress
+  ? await geocodeAddressWithOpenRouteService(startAddress)
+  : null;
+
+  const returnGeocodeResult = returnAddress
+  ? await geocodeAddressWithOpenRouteService(returnAddress)
+  : null;
+
+  const { data, error } = await supabase
+    .from("routepro_routes")
+    .insert({
+      user_id: user.id,
+      name,
+      route_date: routeDate,
+      start_address: startAddress || null,
+      start_lat: startGeocodeResult?.ok ? startGeocodeResult.lat : null,
+      start_lng: startGeocodeResult?.ok ? startGeocodeResult.lng : null,
+
+      return_address: returnAddress || null,
+      return_lat: returnGeocodeResult?.ok ? returnGeocodeResult.lat : null,
+      return_lng: returnGeocodeResult?.ok ? returnGeocodeResult.lng : null,
+      shift_start_time: shiftStartTime || null,
+      shift_end_time: shiftEndTime || null,
+      break_minutes: Number.isFinite(breakMinutes) ? breakMinutes : 30,
+      route_profile: routeProfile || "generic",
+      status: "draft",
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    console.error("RoutePro create route error:", error?.message);
+    redirect("/app/routepro/new?error=create-failed");
+  }
+
+  redirect("/app/routepro");
+}
+
+export async function addManualRouteProStop(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const address = String(formData.get("address") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+  if (!address) redirect(`/app/routepro/${routeId}?error=missing-address`);
+
+  const { count, error: countError } = await supabase
+    .from("routepro_stops")
+    .select("id", { count: "exact", head: true })
+    .eq("route_id", routeId);
+
+  if (countError) {
+    console.error("RoutePro stop count error:", countError.message);
+    redirect(`/app/routepro/${routeId}?error=add-stop-failed`);
+  }
+
+  const nextPosition = (count ?? 0) + 1;
+
+  const { error } = await supabase.from("routepro_stops").insert({
+    route_id: routeId,
+    position: nextPosition,
+    original_position: nextPosition,
+    raw_text: address,
+    address,
+    status: "raw",
+    source: "manual",
+  });
+
+  if (error) {
+    console.error("RoutePro add manual stop error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=add-stop-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}`);
+}
+
+export async function addBulkRouteProStops(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const rawText = String(formData.get("bulk_addresses") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+  if (!rawText) redirect(`/app/routepro/${routeId}?error=missing-address`);
+
+  const lines = rawText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) {
+    redirect(`/app/routepro/${routeId}?error=missing-address`);
+  }
+
+  const { count } = await supabase
+    .from("routepro_stops")
+    .select("id", { count: "exact", head: true })
+    .eq("route_id", routeId);
+
+  let nextPosition = (count ?? 0) + 1;
+
+  const rows = lines.map((address) => {
+    const row = {
+      route_id: routeId,
+      position: nextPosition,
+      original_position: nextPosition,
+      raw_text: address,
+      address,
+      status: "raw",
+      source: "paste",
+    };
+
+    nextPosition += 1;
+    return row;
+  });
+
+  const { error } = await supabase.from("routepro_stops").insert(rows);
+
+  if (error) {
+    console.error("Bulk stop insert error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=add-stop-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}`);
+}
+
+export async function saveRouteProOpenRouteServiceKey(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) redirect("/login");
+
+  const apiKey = String(formData.get("openrouteservice_key") ?? "").trim();
+
+  if (!apiKey) redirect("/app/routepro/settings?error=missing-key");
+
+  const { error } = await supabase.from("routepro_api_keys").upsert(
+    {
+      user_id: user.id,
+      provider: "openrouteservice",
+      encrypted_key: encryptRouteProSecret(apiKey),
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,provider" },
+  );
+
+  if (error) {
+    console.error("RoutePro API key save error:", error.message);
+    redirect("/app/routepro/settings?error=save-failed");
+  }
+
+  redirect("/app/routepro/settings?saved=1");
+}
+
+export async function geocodeRouteProStops(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+
+  const { data: stops, error: stopsError } = await supabase
+  .from("routepro_stops")
+  .select("id, address, status, lat, lng")
+  .eq("route_id", routeId)
+  .order("position", { ascending: true });
+
+const stopsToGeocode =
+  stops?.filter((stop) => {
+    const hasCoordinates = stop.lat !== null && stop.lng !== null;
+
+    return (
+      stop.status === "raw" ||
+      stop.status === "needs_review" ||
+      !hasCoordinates
+    );
+  }) ?? [];
+
+  if (stopsError) {
+    console.error("RoutePro stops geocode fetch error:", stopsError.message);
+    redirect(`/app/routepro/${routeId}?error=geocode-failed`);
+  }
+
+  if (stopsToGeocode.length === 0) {
+  redirect(`/app/routepro/${routeId}?geocoded=0`);
+}
+
+  const GEOCODING_BATCH_SIZE = 5;
+
+  await runRouteProGeocodingInBatches(
+  stopsToGeocode,
+    GEOCODING_BATCH_SIZE,
+    async (stop) => {
+      const result = await geocodeAddressWithOpenRouteService(stop.address);
+
+      if (result.ok) {
+        const { error } = await supabase
+          .from("routepro_stops")
+          .update({
+            lat: result.lat,
+            lng: result.lng,
+            status: "valid",
+            geocoding_provider: result.provider,
+            geocoding_status: "success",
+            geocoding_confidence: result.confidence,
+            geocoding_error: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", stop.id);
+
+        if (error) {
+          console.error("RoutePro geocode update success error:", error.message);
+        }
+
+        return;
+      }
+
+      const { error } = await supabase
+        .from("routepro_stops")
+        .update({
+          status: "needs_review",
+          geocoding_provider: result.provider,
+          geocoding_status:
+            result.reason === "missing_key" ? "missing_key" : "failed",
+          geocoding_error: result.message,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", stop.id);
+
+      if (error) {
+        console.error("RoutePro geocode update failed error:", error.message);
+      }
+    },
+  );
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?geocoded=1`);
+}
+
+export async function updateRouteProStopAddress(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const stopId = String(formData.get("stop_id") ?? "").trim();
+  const address = String(formData.get("address") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+
+  if (!stopId || !address) {
+    redirect(`/app/routepro/${routeId}?error=update-stop-failed`);
+  }
+
+  const { error } = await supabase
+    .from("routepro_stops")
+    .update({
+      address,
+      raw_text: address,
+      lat: null,
+      lng: null,
+      status: "raw",
+      geocoding_provider: null,
+      geocoding_status: null,
+      geocoding_confidence: null,
+      geocoding_error: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", stopId);
+
+  if (error) {
+    console.error("RoutePro update stop error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=update-stop-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?updated=1`);
+}
+
+export async function deleteRouteProStop(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const stopId = String(formData.get("stop_id") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+  if (!stopId) redirect(`/app/routepro/${routeId}?error=delete-stop-failed`);
+
+  const { error } = await supabase
+    .from("routepro_stops")
+    .delete()
+    .eq("id", stopId);
+
+  if (error) {
+    console.error("RoutePro delete stop error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=delete-stop-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?deleted=1`);
+}
+
+export async function optimizeRouteProRoute(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+
+  const isWorkflowV2 = String(formData.get("workflow") ?? "") === "v2";
+
+const optimizeRedirectBase = isWorkflowV2
+  ? `/app/routepro/routes/${routeId}/optimize`
+  : `/app/routepro/${routeId}`;
+
+  if (!routeId) redirect("/app/routepro");
+
+  const { data: route, error: routeError } = await supabase
+    .from("routepro_routes")
+    .select("id, start_lat, start_lng, return_lat, return_lng")
+    .eq("id", routeId)
+    .maybeSingle();
+
+  if (routeError || !route) {
+    console.error("RoutePro optimize route fetch error:", routeError?.message);
+    redirect(`${optimizeRedirectBase}?error=optimize-failed`);
+  }
+
+  const { data: invalidStops, error: invalidStopsError } = await supabase
+    .from("routepro_stops")
+    .select("id")
+    .eq("route_id", routeId)
+    .in("status", ["raw", "needs_review"]);
+
+  if (invalidStopsError) {
+    console.error(
+      "RoutePro optimize invalid stops fetch error:",
+      invalidStopsError.message,
+    );
+    redirect(`${optimizeRedirectBase}?error=optimize-failed`);
+  }
+
+  if (invalidStops && invalidStops.length > 0) {
+    redirect(`${optimizeRedirectBase}?error=optimize-needs-review`);
+  }
+
+  const { data: stops, error: stopsError } = await supabase
+    .from("routepro_stops")
+    .select("id, position, original_position, address, lat, lng")
+    .eq("route_id", routeId)
+    .eq("status", "valid")
+    .not("lat", "is", null)
+    .not("lng", "is", null)
+    .order("position", { ascending: true });
+
+  if (stopsError) {
+    console.error("RoutePro optimize stops fetch error:", stopsError.message);
+    redirect(`${optimizeRedirectBase}?error=optimize-failed`);
+  }
+
+  if (!stops || stops.length < 2) {
+    redirect(`${optimizeRedirectBase}?error=optimize-not-enough-stops`);
+  }
+
+  const startPoint =
+    route.start_lat !== null && route.start_lng !== null
+      ? {
+          lat: Number(route.start_lat),
+          lng: Number(route.start_lng),
+        }
+      : null;
+
+  const optimizationStops = stops.map((stop) => ({
+  id: stop.id,
+  position: Number(stop.position),
+  original_position: Number(stop.original_position),
+  address: String(stop.address ?? ""),
+  lat: Number(stop.lat),
+  lng: Number(stop.lng),
+}));
+
+
+
+const sortedByOriginalPosition = [...optimizationStops].sort(
+  (a, b) => a.original_position - b.original_position,
+);
+
+const hasRouteBoundaries =
+  route.start_lat !== null &&
+  route.start_lng !== null &&
+  route.return_lat !== null &&
+  route.return_lng !== null &&
+  sortedByOriginalPosition.length >= 3;
+
+const fixedStartStop = hasRouteBoundaries ? sortedByOriginalPosition[0] : null;
+
+const fixedReturnStop = hasRouteBoundaries
+  ? sortedByOriginalPosition[sortedByOriginalPosition.length - 1]
+  : null;
+
+const stopsToOptimize =
+  fixedStartStop && fixedReturnStop
+    ? optimizationStops.filter(
+        (stop) =>
+          stop.id !== fixedStartStop.id &&
+          stop.id !== fixedReturnStop.id,
+      )
+    : optimizationStops;
+
+ const orsResult = await optimizeStopsWithOpenRouteService(
+  stopsToOptimize.map((stop) => ({
+    id: stop.id,
+    lat: stop.lat,
+    lng: stop.lng,
+  })),
+  startPoint,
+);   
+
+const optimizedMiddleStops = orsResult.ok
+  ? orsResult.orderedStopIds
+      .map((stopId) => stopsToOptimize.find((stop) => stop.id === stopId))
+      .filter((stop): stop is (typeof optimizationStops)[number] => Boolean(stop))
+  : optimizeStopsNearestNeighbor(stopsToOptimize, startPoint);
+
+const optimizedStops =
+  fixedStartStop && fixedReturnStop
+    ? [fixedStartStop, ...optimizedMiddleStops, fixedReturnStop]
+    : optimizedMiddleStops;
+
+const optimizationMethod = orsResult.ok
+  ? "ors_optimization_v1"
+  : "cluster_nearest_neighbor_2opt_centroid_v1";
+
+  for (let index = 0; index < optimizedStops.length; index += 1) {
+    const stop = optimizedStops[index];
+
+    const { error } = await supabase
+      .from("routepro_stops")
+      .update({
+        position: index + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", stop.id);
+
+    if (error) {
+      console.error("RoutePro optimize stop update error:", error.message);
+      redirect(`${optimizeRedirectBase}?error=optimize-failed`);
+    }
+  }
+
+  const { error: routeUpdateError } = await supabase
+    .from("routepro_routes")
+    .update({
+      is_optimized: true,
+      optimized_at: new Date().toISOString(),
+      optimization_method: optimizationMethod,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", routeId);
+
+  if (routeUpdateError) {
+    console.error("RoutePro optimize route update error:", routeUpdateError.message);
+    redirect(`${optimizeRedirectBase}?error=optimize-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`${optimizeRedirectBase}?optimized=1`);
+}
+
+export async function completeRouteProStop(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const stopId = String(formData.get("stop_id") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+  if (!stopId) {
+    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  }
+
+  const now = new Date().toISOString();
+
+  const { data: currentStop, error: currentStopError } = await supabase
+    .from("routepro_stops")
+    .select("id,address,status")
+    .eq("id", stopId)
+    .maybeSingle();
+
+  if (currentStopError || !currentStop) {
+    console.error(
+      "RoutePro current stop fetch error:",
+      currentStopError?.message,
+    );
+
+    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  }
+
+  const normalizedAddress = currentStop.address.trim().toLowerCase();
+
+  const { data: duplicateStops, error: duplicateStopsError } = await supabase
+    .from("routepro_stops")
+    .select("id,address,status")
+    .eq("route_id", routeId);
+
+  if (duplicateStopsError) {
+    console.error(
+      "RoutePro duplicate stop fetch error:",
+      duplicateStopsError.message,
+    );
+
+    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  }
+
+  const duplicateIds = (duplicateStops ?? [])
+    .filter((stop) => {
+      const sameAddress =
+        stop.address?.trim().toLowerCase() === normalizedAddress;
+
+      const stillOpen =
+        stop.status !== "completed" &&
+        stop.status !== "skipped";
+
+      return sameAddress && stillOpen;
+    })
+    .map((stop) => stop.id);
+
+  const { error } = await supabase
+    .from("routepro_stops")
+    .update({
+  status: "completed",
+  completed_at: now,
+  skipped_at: null,
+  updated_at: now,
+})
+    .in("id", duplicateIds);
+
+  if (error) {
+    console.error("RoutePro complete stop error:", error.message);
+
+    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+  }
+
+  await supabase
+    .from("routepro_routes")
+    .update({
+      status: "in_progress",
+      started_at: now,
+      last_activity_at: now,
+      updated_at: now,
+    })
+    .eq("id", routeId)
+    .is("started_at", null);
+
+  await supabase
+    .from("routepro_routes")
+    .update({
+      status: "in_progress",
+      last_activity_at: now,
+      updated_at: now,
+    })
+    .eq("id", routeId)
+    .not("started_at", "is", null);
+
+  revalidatePath(`/app/routepro/${routeId}/execute`);
+
+  redirect(`/app/routepro/${routeId}/execute?completed=1`);
+}
+
+export async function skipRouteProStop(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const stopId = String(formData.get("stop_id") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+  if (!stopId) redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
+
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("routepro_stops")
+    .update({
+  status: "skipped",
+  skipped_at: now,
+  completed_at: null,
+  updated_at: now,
+})
+    .eq("id", stopId);
+
+  if (error) {
+    console.error("RoutePro skip stop error:", error.message);
+    redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
+  }
+
+  await supabase
+    .from("routepro_routes")
+    .update({
+      status: "in_progress",
+      started_at: now,
+      last_activity_at: now,
+      updated_at: now,
+    })
+    .eq("id", routeId)
+    .is("started_at", null);
+
+  await supabase
+    .from("routepro_routes")
+    .update({
+      status: "in_progress",
+      last_activity_at: now,
+      updated_at: now,
+    })
+    .eq("id", routeId)
+    .not("started_at", "is", null);
+
+  revalidatePath(`/app/routepro/${routeId}/execute`);
+  redirect(`/app/routepro/${routeId}/execute?skipped=1`);
+}
+
+export async function completeRouteProRoute(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+
+  const now = new Date().toISOString();
+
+  const { error } = await supabase
+    .from("routepro_routes")
+    .update({
+  status: "completed",
+  completed_at: now,
+  last_activity_at: now,
+  updated_at: now,
+})
+    .eq("id", routeId);
+
+  if (error) {
+    console.error("RoutePro complete route error:", error.message);
+    redirect(`/app/routepro/${routeId}/execute?error=route-complete-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  revalidatePath(`/app/routepro/${routeId}/execute`);
+  revalidatePath("/app/routepro");
+
+  redirect(`/app/routepro/${routeId}/execute?routeCompleted=1`);
+}
+
+export async function addCsvRouteProStops(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const file = formData.get("csv_file");
+
+  if (!routeId) redirect("/app/routepro");
+
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`/app/routepro/${routeId}?error=csv-missing`);
+  }
+
+  const text = await file.text();
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length < 2) {
+    redirect(`/app/routepro/${routeId}?error=csv-invalid`);
+  }
+
+  const headers = lines[0].split(",").map((header) => header.trim().toLowerCase());
+const addressIndex = headers.indexOf("address");
+const cityIndex = headers.indexOf("city");
+const provinceIndex = headers.indexOf("province");
+const countryIndex = headers.indexOf("country");
+const postalCodeIndex = headers.indexOf("postal_code");
+
+if (addressIndex === -1) {
+  redirect(`/app/routepro/${routeId}?error=csv-missing-address-column`);
+}
+
+const addresses = lines
+  .slice(1)
+  .map((line) => {
+    const columns = line.split(",");
+
+    const address = columns[addressIndex]?.trim() ?? "";
+    const city = cityIndex >= 0 ? columns[cityIndex]?.trim() ?? "" : "";
+    const province = provinceIndex >= 0 ? columns[provinceIndex]?.trim() ?? "" : "";
+    const country = countryIndex >= 0 ? columns[countryIndex]?.trim() ?? "" : "";
+    const postalCode = postalCodeIndex >= 0 ? columns[postalCodeIndex]?.trim() ?? "" : "";
+
+    return [address, postalCode, city, province, country]
+      .filter((value) => value.length > 0)
+      .join(", ");
+  })
+  .filter((address) => address.length > 0);
+
+  if (addresses.length === 0) {
+    redirect(`/app/routepro/${routeId}?error=csv-invalid`);
+  }
+
+  const { count, error: countError } = await supabase
+    .from("routepro_stops")
+    .select("id", { count: "exact", head: true })
+    .eq("route_id", routeId);
+
+  if (countError) {
+    console.error("RoutePro CSV stop count error:", countError.message);
+    redirect(`/app/routepro/${routeId}?error=csv-failed`);
+  }
+
+  let nextPosition = (count ?? 0) + 1;
+
+  const rows = addresses.map((address) => {
+    const row = {
+      route_id: routeId,
+      position: nextPosition,
+      original_position: nextPosition,
+      raw_text: address,
+      address,
+      status: "raw",
+      source: "csv",
+    };
+
+    nextPosition += 1;
+    return row;
+  });
+
+  const { error } = await supabase.from("routepro_stops").insert(rows);
+
+  if (error) {
+    console.error("RoutePro CSV import error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=csv-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?csvImported=1`);
+}
+
+export async function saveRouteProGoogleVisionKey(formData: FormData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) redirect("/login");
+
+  const apiKey = String(formData.get("google_vision_key") ?? "").trim();
+
+  if (!apiKey) redirect("/app/routepro/settings?error=missing-vision-key");
+
+  const { error } = await supabase.from("routepro_api_keys").upsert(
+    {
+      user_id: user.id,
+      provider: "google_vision",
+      encrypted_key: encryptRouteProSecret(apiKey),
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,provider" },
+  );
+
+  if (error) {
+    console.error("RoutePro Google Vision key save error:", error.message);
+    redirect("/app/routepro/settings?error=vision-save-failed");
+  }
+
+  redirect("/app/routepro/settings?visionSaved=1");
+}
+
+export async function previewRouteProScreenshotOcr(formData: FormData) {
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const files = formData.getAll("screenshot_file");
+
+  if (!routeId) redirect("/app/routepro");
+
+  const imageFiles = files.filter(
+    (file): file is File => file instanceof File && file.size > 0,
+  );
+
+  if (imageFiles.length === 0) {
+    redirect(`/app/routepro/${routeId}?error=screenshot-missing`);
+  }
+
+  const BATCH_SIZE = 10;
+
+  const allParsedStops: {
+    originalPosition: number;
+    address: string;
+    city: string | null;
+  }[] = [];
+
+  const fallbackTexts: string[] = [];
+
+  for (let index = 0; index < imageFiles.length; index += BATCH_SIZE) {
+    const batch = imageFiles.slice(index, index + BATCH_SIZE);
+
+    for (const file of batch) {
+      const result = await extractTextFromImageWithGoogleVision(file);
+
+      if (!result.ok) {
+        console.error("RoutePro OCR preview error:", result.message);
+
+        if (result.reason === "missing_key") {
+          redirect(`/app/routepro/${routeId}?error=ocr-missing-key`);
+        }
+
+        redirect(`/app/routepro/${routeId}?error=ocr-failed`);
+      }
+
+      const parsedStops = parseAmazonFlexStopsFromVisionLayout(result.words);
+
+      if (parsedStops.length > 0) {
+        allParsedStops.push(
+          ...parsedStops.map((stop) => ({
+            originalPosition: stop.originalPosition,
+            address: stop.address,
+            city: stop.city,
+          })),
+        );
+      } else {
+        fallbackTexts.push(result.text);
+      }
+    }
+  }
+
+  const uniqueStops = new Map<
+    number,
+    {
+      originalPosition: number;
+      address: string;
+      city: string | null;
+    }
+  >();
+
+  for (const stop of allParsedStops) {
+    if (!uniqueStops.has(stop.originalPosition)) {
+      uniqueStops.set(stop.originalPosition, stop);
+    }
+  }
+
+  const orderedStops = Array.from(uniqueStops.values()).sort(
+    (a, b) => a.originalPosition - b.originalPosition,
+  );
+
+  const previewText =
+    orderedStops.length > 0
+      ? orderedStops
+          .map((stop) => {
+            const cityPart = stop.city ? `, ${stop.city}` : "";
+            return `${stop.originalPosition} | ${stop.address}${cityPart}`;
+          })
+          .join("\n")
+      : fallbackTexts.join("\n\n--- screenshot ---\n\n");
+
+  const encodedText = encodeURIComponent(previewText);
+
+  redirect(`/app/routepro/${routeId}?ocrPreview=${encodedText}`);
+}
+
+export async function addScreenshotOcrRouteProStops(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+  const rawText = String(formData.get("ocr_addresses") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+
+  if (!rawText) {
+    redirect(`/app/routepro/${routeId}?error=ocr-import-empty`);
+  }
+
+  const parsedStops = rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => {
+      const match = line.match(/^(\d{1,3})\s*\|\s*(.+)$/);
+
+      if (!match?.[1] || !match?.[2]) return null;
+
+      return {
+        originalPosition: Number(match[1]),
+        address: match[2].trim(),
+      };
+    })
+    .filter((item): item is { originalPosition: number; address: string } =>
+      Boolean(item),
+    )
+    .filter((item) => item.originalPosition >= 1 && item.originalPosition <= 200)
+    .sort((a, b) => a.originalPosition - b.originalPosition);
+
+  if (parsedStops.length === 0) {
+    redirect(`/app/routepro/${routeId}?error=ocr-import-empty`);
+  }
+
+  const uniqueStops = new Map<number, { originalPosition: number; address: string }>();
+
+  for (const stop of parsedStops) {
+    if (!uniqueStops.has(stop.originalPosition)) {
+      uniqueStops.set(stop.originalPosition, stop);
+    }
+  }
+
+  const orderedStops = Array.from(uniqueStops.values());
+
+  const { count, error: countError } = await supabase
+    .from("routepro_stops")
+    .select("id", { count: "exact", head: true })
+    .eq("route_id", routeId);
+
+  if (countError) {
+    console.error("RoutePro OCR stop count error:", countError.message);
+    redirect(`/app/routepro/${routeId}?error=ocr-import-failed`);
+  }
+
+  let nextPosition = (count ?? 0) + 1;
+
+  const rows = orderedStops.map((stop) => {
+    const row = {
+      route_id: routeId,
+      position: nextPosition,
+      original_position: stop.originalPosition,
+      raw_text: stop.address,
+      address: stop.address,
+      status: "raw",
+      source: "screenshot",
+    };
+
+    nextPosition += 1;
+    return row;
+  });
+
+  const { error } = await supabase.from("routepro_stops").insert(rows);
+
+  if (error) {
+    console.error("RoutePro OCR import error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=ocr-import-failed`);
+  }
+
+  revalidatePath(`/app/routepro/${routeId}`);
+  redirect(`/app/routepro/${routeId}?screenshotImported=1`);
+}
+
+export async function deleteRouteProRoute(formData: FormData) {
+  const supabase = await createClient();
+
+  const routeId = String(formData.get("route_id") ?? "").trim();
+
+  if (!routeId) redirect("/app/routepro");
+
+  const { error } = await supabase
+    .from("routepro_routes")
+    .delete()
+    .eq("id", routeId);
+
+  if (error) {
+    console.error("RoutePro delete route error:", error.message);
+    redirect(`/app/routepro/${routeId}?error=delete-route-failed`);
+  }
+
+  revalidatePath("/app/routepro");
+  redirect("/app/routepro?routeDeleted=1");
+}
+
+
+============================================================
+FILE: src\modules\routepro\server\routepro.routes.ts
+============================================================
+
+import { createClient } from "@/lib/supabase/server";
+
+export type RouteProRouteStatus = "draft" | "in_progress" | "completed";
+export type RouteProStopStatus =
+  | "raw"
+  | "needs_review"
+  | "valid"
+  | "completed"
+  | "skipped";
+
+export type RouteProStopSource = "manual" | "paste" | "csv" | "screenshot";
+
+export type RouteProRouteSummary = {
+  id: string;
+  user_id: string;
+  name: string;
+  route_date: string;
+  start_address: string | null;
+  start_lat: number | null;
+  start_lng: number | null;
+  return_address: string | null;
+  return_lat: number | null;
+  return_lng: number | null;
+  shift_start_time: string | null;
+  shift_end_time: string | null;
+  break_minutes: number | null;
+  route_profile: string | null;
+  started_at: string | null;
+  last_activity_at: string | null;
+  completed_at: string | null;
+  status: RouteProRouteStatus;
+  is_optimized: boolean;
+  optimized_at: string | null;
+  optimization_method: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RouteProStopSummary = {
+  id: string;
+  route_id: string;
+  position: number;
+  original_position: number;
+  raw_text: string | null;
+  address: string;
+  lat: number | null;
+  lng: number | null;
+  status: RouteProStopStatus;
+  source: RouteProStopSource;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  skipped_at: string | null;
+};
+
+export type RouteProRouteDetail = RouteProRouteSummary & {
+  stops: RouteProStopSummary[];
+};
+
+function withSessionFallback<
+  T extends Omit<
+    RouteProRouteSummary,
+    "started_at" | "last_activity_at" | "completed_at"
+  >,
+>(
+  route: T,
+): T &
+  Pick<RouteProRouteSummary, "started_at" | "last_activity_at" | "completed_at"> {
+  return {
+    ...route,
+    started_at: null,
+    last_activity_at: null,
+    completed_at: null,
+  };
+}
+
+export async function getMyRouteProRoutes(): Promise<RouteProRouteSummary[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("routepro_routes")
+    .select(
+      `
+      id,
+      user_id,
+      name,
+      route_date,
+      start_address,
+      start_lat,
+      start_lng,
+      return_address,
+      return_lat,
+      return_lng,
+      shift_start_time,
+      shift_end_time,
+      break_minutes,
+      route_profile,
+      started_at,
+      last_activity_at,
+      completed_at,
+      status,
+      is_optimized,
+      optimized_at,
+      optimization_method,
+      created_at,
+      updated_at
+    `,
+    )
+    .order("route_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("RoutePro routes fetch error:", error.message);
+    return [];
+  }
+
+  return data ?? [];
+}
+
+export async function getMyRouteProRouteDetail(
+  routeId: string,
+): Promise<RouteProRouteDetail | null> {
+  const supabase = await createClient();
+
+  const { data: route, error: routeError } = await supabase
+    .from("routepro_routes")
+    .select(
+      `
+      id,
+      user_id,
+      name,
+      route_date,
+      start_address,
+      start_lat,
+      start_lng,
+      return_address,
+      return_lat,
+      return_lng,
+      shift_start_time,
+      shift_end_time,
+      break_minutes,
+      route_profile,
+      started_at,
+      last_activity_at,
+      completed_at,
+      status,
+      is_optimized,
+      optimized_at,
+      optimization_method,
+      created_at,
+      updated_at
+    `,
+    )
+    .eq("id", routeId)
+    .maybeSingle();
+
+  if (routeError) {
+    console.error(
+      "RoutePro route detail fetch error:",
+      JSON.stringify(routeError, null, 2),
+    );
+    return null;
+  }
+
+  if (!route) {
+    return null;
+  }
+
+  const routeWithSessionFallback = withSessionFallback(route);
+
+  const { data: stops, error: stopsError } = await supabase
+    .from("routepro_stops")
+    .select(
+      `
+      id,
+      route_id,
+      position,
+      original_position,
+      raw_text,
+      address,
+      lat,
+      lng,
+      status,
+      source,
+      created_at,
+      updated_at,
+      completed_at,
+      skipped_at
+    `,
+    )
+    .eq("route_id", routeId)
+    .order("position", { ascending: true });
+
+  if (stopsError) {
+    console.error("RoutePro stops fetch error:", stopsError.message);
+    return {
+      ...routeWithSessionFallback,
+      stops: [],
+    };
+  }
+
+  return {
+    ...routeWithSessionFallback,
+    stops: stops ?? [],
+  };
+}
+
+export async function getRouteProHistoryStats() {
+  const supabase = await createClient();
+
+  const { data: routes } = await supabase
+    .from("routepro_routes")
+    .select(
+      `
+      id,
+      status,
+      started_at,
+      completed_at
+    `,
+    );
+
+  const { data: stops } = await supabase
+    .from("routepro_stops")
+    .select(
+      `
+      route_id,
+      status
+    `,
+    );
+
+  const completedRoutes =
+    routes?.filter((route) => route.status === "completed") ?? [];
+
+  const totalStops = stops?.length ?? 0;
+
+  const stopsPerRoute = new Map<string, number>();
+
+  (stops ?? []).forEach((stop) => {
+    stopsPerRoute.set(
+      stop.route_id,
+      (stopsPerRoute.get(stop.route_id) ?? 0) + 1,
+    );
+  });
+
+  const bestDay = completedRoutes.reduce(
+    (best, route) => {
+      const count = stopsPerRoute.get(route.id) ?? 0;
+
+      if (count > best.stopCount) {
+        return {
+          routeName: route.id,
+          stopCount: count,
+        };
+      }
+
+      return best;
+    },
+    {
+      routeName: "",
+      stopCount: 0,
+    },
+  );
+
+  const avgStopsPerRoute =
+    completedRoutes.length > 0
+      ? Math.round(totalStops / Math.max(1, completedRoutes.length))
+      : 0;
+
+  return {
+    routesCompleted: completedRoutes.length,
+    stopsManaged: totalStops,
+    avgStopsPerRoute,
+    bestDayStops: bestDay.stopCount,
+  };
+}
+
+
+============================================================
+FILE: src\modules\routepro\server\routepro.metrics.ts
+============================================================
+
+export type RouteProMetricStop = {
+  id: string;
+  status: string;
+  completed_at: string | null;
+  skipped_at: string | null;
+};
+
+export type RouteProMetricRoute = {
+  status?: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  last_activity_at: string | null;
+  shift_start_time?: string | null;
+  shift_end_time?: string | null;
+  stops: RouteProMetricStop[];
+};
+
+export type RouteProPaceStatus =
+  | "waiting"
+  | "ahead"
+  | "on_time"
+  | "slightly_late"
+  | "late";
+
+export type RouteProMetrics = {
+  totalStops: number;
+  completedStops: number;
+  skippedStops: number;
+  doneStops: number;
+  remainingStops: number;
+  operatingMinutes: number | null;
+  averageMinutesPerStop: number | null;
+  realStopsPerHour: number | null;
+  requiredStopsPerHour: number | null;
+  etaAt: Date | null;
+  deviationMinutes: number | null;
+  paceStatus: RouteProPaceStatus;
+  paceLabel: string;
+  score: string | null;
+  hasEnoughData: boolean;
+};
+
+function toDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getMinutesBetween(start: Date, end: Date): number {
+  return Math.max(0, (end.getTime() - start.getTime()) / 60000);
+}
+
+function roundNumber(value: number, decimals = 1): number {
+  const multiplier = 10 ** decimals;
+  return Math.round(value * multiplier) / multiplier;
+}
+
+function getLatestStopEventAt(stops: RouteProMetricStop[]): Date | null {
+  const dates = stops
+    .map((stop) => toDate(stop.completed_at) ?? toDate(stop.skipped_at))
+    .filter((date): date is Date => Boolean(date))
+    .sort((a, b) => b.getTime() - a.getTime());
+
+  return dates[0] ?? null;
+}
+
+function getFirstStopEventAt(stops: RouteProMetricStop[]): Date | null {
+  const dates = stops
+    .map((stop) => toDate(stop.completed_at) ?? toDate(stop.skipped_at))
+    .filter((date): date is Date => Boolean(date))
+    .sort((a, b) => a.getTime() - b.getTime());
+
+  return dates[0] ?? null;
+}
+
+function getShiftEndDate(route: RouteProMetricRoute, fallbackDate: Date): Date | null {
+  if (!route.shift_end_time) return null;
+
+  const [hours, minutes] = route.shift_end_time.split(":").map(Number);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  const date = new Date(fallbackDate);
+  date.setHours(hours, minutes, 0, 0);
+
+  return date;
+}
+
+function getPaceStatus(params: {
+  hasEnoughData: boolean;
+  deviationMinutes: number | null;
+}): RouteProPaceStatus {
+  if (!params.hasEnoughData || params.deviationMinutes === null) {
+    return "waiting";
+  }
+
+  if (params.deviationMinutes <= -20) return "ahead";
+  if (params.deviationMinutes <= 10) return "on_time";
+  if (params.deviationMinutes <= 25) return "slightly_late";
+  return "late";
+}
+
+function getPaceLabel(status: RouteProPaceStatus): string {
+  if (status === "ahead") return "In anticipo";
+  if (status === "on_time") return "Nei tempi";
+  if (status === "slightly_late") return "Leggermente in ritardo";
+  if (status === "late") return "In ritardo";
+  return "In attesa dati";
+}
+
+function getScore(params: {
+  hasEnoughData: boolean;
+  paceStatus: RouteProPaceStatus;
+  completedStops: number;
+  skippedStops: number;
+}): string | null {
+  if (!params.hasEnoughData) return null;
+
+  const skippedRatio =
+    params.completedStops + params.skippedStops > 0
+      ? params.skippedStops / (params.completedStops + params.skippedStops)
+      : 0;
+
+  if (params.paceStatus === "ahead" && skippedRatio <= 0.02) return "A+";
+  if (params.paceStatus === "on_time" && skippedRatio <= 0.05) return "A";
+  if (params.paceStatus === "slightly_late") return "B";
+  return "C";
+}
+
+export function calculateRouteProMetrics(route: RouteProMetricRoute): RouteProMetrics {
+  const totalStops = route.stops.length;
+  const completedStops = route.stops.filter(
+    (stop) => stop.status === "completed",
+  ).length;
+  const skippedStops = route.stops.filter((stop) => stop.status === "skipped").length;
+  const doneStops = completedStops + skippedStops;
+  const remainingStops = Math.max(0, totalStops - doneStops);
+  const hasEnoughData = doneStops >= 3;
+
+  const firstEventAt =
+    getFirstStopEventAt(route.stops) ?? toDate(route.started_at);
+  const isCompletedRoute = route.status === "completed";
+
+const latestEventAt = isCompletedRoute
+  ? toDate(route.completed_at) ?? getLatestStopEventAt(route.stops)
+  : getLatestStopEventAt(route.stops) ??
+    toDate(route.completed_at) ??
+    toDate(route.last_activity_at);
+
+  const operatingMinutes =
+    firstEventAt && latestEventAt
+      ? getMinutesBetween(firstEventAt, latestEventAt)
+      : null;
+
+  const averageMinutesPerStop =
+    hasEnoughData && operatingMinutes !== null && doneStops > 0
+      ? roundNumber(operatingMinutes / doneStops, 1)
+      : null;
+
+  const realStopsPerHour =
+    hasEnoughData && operatingMinutes !== null && operatingMinutes > 0
+      ? roundNumber(doneStops / (operatingMinutes / 60), 1)
+      : null;
+
+  const etaAt = isCompletedRoute
+  ? latestEventAt
+  : averageMinutesPerStop !== null && remainingStops > 0
+    ? new Date(
+        (latestEventAt ?? new Date()).getTime() +
+          averageMinutesPerStop * remainingStops * 60000,
+      )
+    : null;
+
+  const shiftEndAt = getShiftEndDate(route, latestEventAt ?? new Date());
+
+  const requiredStopsPerHour =
+  isCompletedRoute || remainingStops === 0
+    ? null
+    : shiftEndAt && latestEventAt
+      ? roundNumber(
+          remainingStops /
+            Math.max(0.01, getMinutesBetween(latestEventAt, shiftEndAt) / 60),
+          1,
+        )
+      : null;
+
+  const deviationMinutes =
+    etaAt && shiftEndAt && hasEnoughData
+      ? roundNumber(getMinutesBetween(shiftEndAt, etaAt), 0)
+      : null;
+
+  const paceStatus = getPaceStatus({
+    hasEnoughData,
+    deviationMinutes,
+  });
+
+  const score = getScore({
+    hasEnoughData,
+    paceStatus,
+    completedStops,
+    skippedStops,
+  });
+
+  return {
+    totalStops,
+    completedStops,
+    skippedStops,
+    doneStops,
+    remainingStops,
+    operatingMinutes:
+      hasEnoughData && operatingMinutes !== null
+        ? roundNumber(operatingMinutes, 1)
+        : null,
+    averageMinutesPerStop,
+    realStopsPerHour,
+    requiredStopsPerHour,
+    etaAt,
+    deviationMinutes,
+    paceStatus,
+    paceLabel: getPaceLabel(paceStatus),
+    score,
+    hasEnoughData,
+  };
+}
+
+
+============================================================
+FILE: src\modules\routepro\v2\domain\routepro.clusters.ts
+============================================================
+
+export type RouteProClusterStop = {
+  id: string;
+  position: number;
+  original_position: number;
+  address: string;
+  status: string;
+  lat: number | null;
+  lng: number | null;
+};
+
+export type RouteProDeliveryCluster = {
+  normalizedAddress: string;
+  address: string;
+  stops: RouteProClusterStop[];
+  workflowPosition: number;
+};
+
+export function normalizeAddressForCluster(address: string): string {
+  return address
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.,]/g, "");
+}
+
+export function buildDeliveryClusters(
+  stops: RouteProClusterStop[],
+): RouteProDeliveryCluster[] {
+  const groups = new Map<string, RouteProClusterStop[]>();
+
+  for (const stop of stops) {
+    const key = normalizeAddressForCluster(stop.address);
+    const current = groups.get(key) ?? [];
+    current.push(stop);
+    groups.set(key, current);
+  }
+
+  return Array.from(groups.entries())
+    .map(([normalizedAddress, groupedStops]) => {
+      const sortedStops = [...groupedStops].sort(
+        (a, b) => a.position - b.position,
+      );
+
+      return {
+        normalizedAddress,
+        address: sortedStops[0]?.address ?? normalizedAddress,
+        stops: sortedStops,
+        workflowPosition: sortedStops[0]?.position ?? 0,
+      };
+    })
+    .sort((a, b) => a.workflowPosition - b.workflowPosition);
+}
+
+export function getMultiStopDeliveryClusters(
+  stops: RouteProClusterStop[],
+): RouteProDeliveryCluster[] {
+  return buildDeliveryClusters(stops).filter(
+    (cluster) => cluster.stops.length > 1,
+  );
+}
+
+export function getClusterStopsForCurrentStop(
+  currentStop: RouteProClusterStop | undefined,
+  stops: RouteProClusterStop[],
+): RouteProClusterStop[] {
+  if (!currentStop) return [];
+
+  const currentKey = normalizeAddressForCluster(currentStop.address);
+
+  return stops
+    .filter((stop) => normalizeAddressForCluster(stop.address) === currentKey)
+    .sort((a, b) => a.original_position - b.original_position);
+}
+
+
+============================================================
+FILE: src\app\app\routepro\[routeId]\execute\page.tsx
+============================================================
+
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import {
+  completeRouteProRoute,
+  completeRouteProStop,
+  skipRouteProStop,
+} from "@/modules/routepro/server/routepro.actions";
+import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
+import { RouteProHeader } from "@/modules/routepro/ui/RouteProHeader";
+import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
+import { ui } from "@/styles/ui";
+import { calculateRouteProMetrics } from "@/modules/routepro/server/routepro.metrics";
+
+type Props = {
+  params: Promise<{ routeId: string }>;
+  searchParams?: Promise<{
+    error?: string;
+    completed?: string;
+    skipped?: string;
+    routeCompleted?: string;
+  }>;
+};
+
+const mutedTextStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 15,
+  lineHeight: 1.6,
+  color: "#cbd5e1",
+  fontWeight: 700,
+};
+
+const lightMutedTextStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 15,
+  lineHeight: 1.6,
+  color: "#334155",
+  fontWeight: 700,
+};
+
+const actionsStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 12,
+  marginTop: 18,
+};
+
+const mobileActionsStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 12,
+  marginTop: 16,
+};
+
+const statGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: 12,
+  marginTop: 20,
+};
+
+const bigStopNumberStyle: React.CSSProperties = {
+  margin: "16px 0 0",
+  fontSize: "clamp(38px, 5vw, 62px)",
+  lineHeight: 0.92,
+  fontWeight: 950,
+  letterSpacing: "-0.08em",
+  color: "#0f172a",
+};
+
+const addressStyle: React.CSSProperties = {
+  margin: "20px 0 0",
+  fontSize: "clamp(24px, 3vw, 34px)",
+lineHeight: 1.2,
+fontWeight: 950,
+  color: "#0f172a",
+};
+
+const cockpitHeroStyle: React.CSSProperties = {
+  marginTop: 14,
+  padding: 18,
+  borderRadius: 28,
+  background:
+    "linear-gradient(135deg, rgba(15,23,42,0.98) 0%, rgba(30,64,175,0.92) 100%)",
+  border: "1px solid rgba(96,165,250,0.30)",
+  boxShadow: "0 24px 60px rgba(15,23,42,0.22)",
+};
+
+const cockpitEyebrowStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.12em",
+  color: "#ff7a00",
+};
+
+const cockpitTitleStyle: React.CSSProperties = {
+  margin: "10px 0 0",
+  fontSize: "clamp(34px, 5vw, 58px)",
+  lineHeight: 1,
+  fontWeight: 950,
+  letterSpacing: "-0.05em",
+  color: "#ffffff",
+};
+
+const cockpitSubtitleStyle: React.CSSProperties = {
+  margin: "12px 0 0",
+  fontSize: 16,
+  lineHeight: 1.6,
+  fontWeight: 700,
+  color: "#cbd5e1",
+};
+
+const statCardStyle: React.CSSProperties = {
+  padding: 16,
+  borderRadius: 24,
+  background: "linear-gradient(180deg,#16255f 0%,#203b9b 100%)",
+  border: "1px solid rgba(96,165,250,.25)",
+  boxShadow: "0 18px 42px rgba(15,23,42,.15)",
+};
+
+const statLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 12,
+  fontWeight: 900,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "#93c5fd",
+};
+
+const statValueStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  fontSize: 34,
+  lineHeight: 1,
+  fontWeight: 950,
+  color: "#ffffff",
+};
+
+const progressTrackStyle: React.CSSProperties = {
+  marginTop: 20,
+  height: 14,
+  borderRadius: 999,
+  background: "rgba(255,255,255,.10)",
+  overflow: "hidden",
+};
+
+const progressFillStyle: React.CSSProperties = {
+  height: "100%",
+  borderRadius: 999,
+  background: "linear-gradient(90deg,#ff7a00,#ffb347)",
+};
+
+const intelligenceGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+  gap: 12,
+  marginTop: 18,
+};
+
+const intelligenceCardStyle: React.CSSProperties = {
+  padding: 12,
+  borderRadius: 18,
+  background: "rgba(255,255,255,0.10)",
+  border: "1px solid rgba(255,255,255,0.16)",
+};
+
+const intelligenceLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 11,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "#93c5fd",
+};
+
+const intelligenceValueStyle: React.CSSProperties = {
+  margin: "7px 0 0",
+  fontSize: 20,
+  lineHeight: 1,
+  fontWeight: 950,
+  color: "#ffffff",
+};
+
+const intelligenceBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  marginTop: 8,
+  padding: "7px 11px",
+  borderRadius: 999,
+  background: "rgba(255,122,0,0.16)",
+  color: "#fed7aa",
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+};
+
+const currentStopCardStyle: React.CSSProperties = {
+  marginTop: 14,
+  padding: "16px 18px",
+  borderRadius: 28,
+  background: "linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)",
+  border: "1px solid #cbd5e1",
+  boxShadow: "0 24px 60px rgba(15,23,42,.12)",
+};
+
+const stopBadgeRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 10,
+  marginTop: 18,
+};
+
+const originalStopBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "9px 15px",
+  borderRadius: 999,
+  background: "#0f172a",
+  color: "#ffffff",
+  fontWeight: 950,
+  fontSize: 14,
+};
+
+const optimizedStopBadgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "9px 15px",
+  borderRadius: 999,
+  background: "#dbeafe",
+  color: "#1d4ed8",
+  fontWeight: 950,
+  fontSize: 14,
+};
+
+
+const driverFocusGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 12,
+  marginTop: 18,
+};
+
+const driverFocusCardStyle: React.CSSProperties = {
+  padding: "14px 16px",
+  borderRadius: 18,
+  background: "#f8fafc",
+  border: "1px solid #cbd5e1",
+};
+
+const driverFocusLabelStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 11,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+  color: "#475569",
+};
+
+const driverFocusValueStyle: React.CSSProperties = {
+  margin: "6px 0 0",
+  fontSize: "clamp(24px, 5vw, 34px)",
+  lineHeight: 1,
+  fontWeight: 950,
+  color: "#0f172a",
+};
+
+const stickyDriverHeaderStyle: React.CSSProperties = {
+  position: "sticky",
+  top: 0,
+  zIndex: 40,
+  marginTop: 12,
+  padding: "10px 12px",
+  borderRadius: 18,
+  background: "rgba(15,23,42,0.96)",
+  border: "1px solid rgba(96,165,250,0.22)",
+  boxShadow: "0 12px 28px rgba(15,23,42,0.18)",
+  backdropFilter: "blur(10px)",
+};
+
+const stickyDriverHeaderTopStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 10,
+};
+
+const stickyDriverHeaderNumberStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 13,
+  fontWeight: 950,
+  color: "#ffffff",
+  letterSpacing: "0.02em",
+};
+
+const stickyDriverHeaderAddressStyle: React.CSSProperties = {
+  margin: "6px 0 0",
+  fontSize: 14,
+  lineHeight: 1.25,
+  fontWeight: 800,
+  color: "#cbd5e1",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const primaryNavigateStyle: React.CSSProperties = {
+  ...routeProUi.primaryButton,
+  width: "100%",
+  minHeight: 52,
+  padding: "14px",
+  fontSize: 20,
+  borderRadius: 18,
+  background: "#ff7a00",
+  borderColor: "#ff7a00",
+  color: "#ffffff",
+  boxShadow: "0 16px 36px rgba(255,122,0,0.30)",
+};
+
+const successStyle: React.CSSProperties = {
+  marginTop: 16,
+  padding: 12,
+  borderRadius: 12,
+  background: "#ecfdf5",
+  color: "#047857",
+  fontWeight: 700,
+};
+
+const errorStyle: React.CSSProperties = {
+  marginTop: 16,
+  padding: 12,
+  borderRadius: 12,
+  background: "#fff1f2",
+  color: "#be123c",
+  fontWeight: 700,
+};
+
+const bottomBarStyle: React.CSSProperties = {
+  position: "fixed",
+  left: 0,
+  right: 0,
+  bottom: 0,
+  zIndex: 50,
+  padding: "12px 16px",
+  background: "rgba(15,23,42,0.96)",
+  borderTop: "1px solid rgba(96,165,250,0.22)",
+  boxShadow: "0 -10px 30px rgba(15, 23, 42, 0.30)",
+};
+
+const bottomBarInnerStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: 12,
+  maxWidth: 720,
+  margin: "0 auto",
+};
+
+const nextStopsCardStyle: React.CSSProperties = {
+  marginTop: 18,
+  padding: 20,
+  borderRadius: 20,
+  background: "#ffffff",
+  border: "1px solid #e2e8f0",
+  boxShadow: "0 8px 24px rgba(15,23,42,.06)",
+};
+
+const nextStopRowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  padding: "10px 0",
+  borderBottom: "1px solid #f1f5f9",
+};
+
+const nextStopNumberStyle: React.CSSProperties = {
+  fontWeight: 900,
+  color: "#ff7a00",
+  minWidth: 60,
+};
+
+const nextStopAddressStyle: React.CSSProperties = {
+  flex: 1,
+  marginLeft: 12,
+  color: "#0f172a",
+  fontWeight: 600,
+};
+
+function getGoogleMapsUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+}
+
+function getWazeUrl(lat: number, lng: number): string {
+  return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
+}
+
+function getErrorMessage(error?: string): string | null {
+  if (error === "complete-failed") {
+    return "Non siamo riusciti a completare lo stop. Riprova.";
+  }
+
+  if (error === "skip-failed") {
+    return "Non siamo riusciti a saltare lo stop. Riprova.";
+  }
+
+  if (error === "route-complete-failed") {
+    return "Non siamo riusciti a terminare la rotta. Riprova.";
+  }
+
+  return null;
+}
+
+function getTimeMinutes(value?: string | null): number | null {
+  if (!value) return null;
+
+  const [hours, minutes] = value.split(":").map(Number);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function getShiftMinutes(
+  shiftStartTime?: string | null,
+  shiftEndTime?: string | null,
+  breakMinutes?: number | null,
+): number | null {
+  const start = getTimeMinutes(shiftStartTime);
+  const end = getTimeMinutes(shiftEndTime);
+
+  if (start === null || end === null) return null;
+
+  const rawMinutes = end > start ? end - start : end + 1440 - start;
+  return Math.max(rawMinutes - (breakMinutes ?? 0), 0);
+}
+
+function getRequiredStopsPerHour(
+  stops: number,
+  availableMinutes: number | null,
+): number | null {
+  if (availableMinutes === null || availableMinutes <= 0) return null;
+
+  return Math.round((stops / (availableMinutes / 60)) * 10) / 10;
+}
+
+function getMinutesPerStop(requiredStopsPerHour: number | null): number | null {
+  if (requiredStopsPerHour === null || requiredStopsPerHour <= 0) return null;
+
+  return Math.round((60 / requiredStopsPerHour) * 10) / 10;
+}
+
+function getOperationalStatus(requiredStopsPerHour: number | null): string {
+  if (requiredStopsPerHour === null) return "Profilo incompleto";
+  if (requiredStopsPerHour <= 18) return "Nei tempi";
+  if (requiredStopsPerHour <= 24) return "Ritmo alto";
+  return "Critico";
+}
+
+function formatMinutes(minutes: number | null): string {
+  if (minutes === null) return "-";
+
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  if (hours <= 0) return `${mins}m`;
+  return `${hours}h ${mins}m`;
+}
+
+function getEstimatedRemainingMinutes(
+  remainingStops: number,
+  minutesPerStop: number | null,
+): number | null {
+  if (minutesPerStop === null) return null;
+  return Math.round(remainingStops * minutesPerStop);
+}
+
+function getEstimatedEndTime(remainingMinutes: number | null): string {
+  if (remainingMinutes === null) return "-";
+
+  const end = new Date(Date.now() + remainingMinutes * 60 * 1000);
+
+  return end.toLocaleTimeString("it-IT", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function normalizeAddress(address: string): string {
+  return address.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function getDuplicateStopsForAddress(
+  stops: Array<{ address: string; original_position: number }>,
+  address: string,
+) {
+  const normalizedAddress = normalizeAddress(address);
+
+  return stops.filter(
+    (stop) => normalizeAddress(stop.address) === normalizedAddress,
+  );
+}
+
+export default async function RouteProExecutePage({ params, searchParams }: Props) {
+  const { routeId } = await params;
+  const resolvedSearchParams = await searchParams;
+
+  const errorMessage = getErrorMessage(resolvedSearchParams?.error);
+  const completed = resolvedSearchParams?.completed;
+  const skipped = resolvedSearchParams?.skipped;
+  const routeCompleted = resolvedSearchParams?.routeCompleted;
+
+  const route = await getMyRouteProRouteDetail(routeId);
+
+  if (!route) {
+    notFound();
+  }
+
+  const completedStops = route.stops.filter(
+    (stop) => stop.status === "completed",
+  );
+  const skippedStops = route.stops.filter((stop) => stop.status === "skipped");
+  const metrics = calculateRouteProMetrics({
+  status: route.status,
+  started_at: route.started_at,
+  completed_at: route.completed_at,
+  last_activity_at: route.last_activity_at,
+  shift_start_time: route.shift_start_time,
+  shift_end_time: route.shift_end_time,
+  stops: route.stops.map((stop) => ({
+    id: stop.id,
+    status: stop.status,
+    completed_at: stop.completed_at,
+    skipped_at: stop.skipped_at,
+  })),
+});
+  const executableStops = route.stops.filter(
+    (stop) => stop.status === "valid" && stop.lat !== null && stop.lng !== null,
+  );
+
+  const currentStop = executableStops[0];
+  const nextStops = executableStops.slice(1, 4);
+  const currentStopLat = currentStop?.lat ?? null;
+  const currentStopLng = currentStop?.lng ?? null;
+  const currentDuplicateStops = currentStop
+  ? getDuplicateStopsForAddress(executableStops, currentStop.address)
+  : [];
+
+const currentDuplicateOriginalStops = currentDuplicateStops
+  .map((stop) => `#${stop.original_position}`)
+  .join(", ");
+
+  const totalStops = route.stops.length;
+  const doneCount = completedStops.length + skippedStops.length;
+  const remainingCount = executableStops.length;
+  const shiftMinutes = getShiftMinutes(
+    route.shift_start_time,
+    route.shift_end_time,
+    route.break_minutes,
+  );
+  const requiredStopsPerHour = getRequiredStopsPerHour(
+    remainingCount,
+    shiftMinutes,
+  );
+  const minutesPerStop = getMinutesPerStop(requiredStopsPerHour);
+  const operationalStatus = getOperationalStatus(requiredStopsPerHour);
+  const estimatedRemainingMinutes = getEstimatedRemainingMinutes(
+  remainingCount,
+  minutesPerStop,
+);
+const estimatedEndTime = getEstimatedEndTime(estimatedRemainingMinutes);
+
+  const progressPercent =
+    totalStops > 0 ? Math.round((doneCount / totalStops) * 100) : 0;
+  const routeStartedAt = route.started_at
+  ? new Date(route.started_at)
+  : null;
+
+const elapsedMinutes = metrics.operatingMinutes;
+
+const realStopsPerHour = metrics.realStopsPerHour;
+
+const realMinutesPerStop = metrics.averageMinutesPerStop;
+
+const realEta = metrics.etaAt;
+
+const paceStatus = metrics.paceLabel;
+
+const paceDelta = metrics.deviationMinutes;
+
+const completionRate =
+  totalStops > 0
+    ? Math.round((metrics.doneStops / totalStops) * 100)
+    : 0;
+
+const performanceScore = metrics.score ?? "-";
+
+const performanceLabel =
+  performanceScore === "A+"
+    ? "Elite"
+    : performanceScore === "A"
+      ? "Ottimo"
+      : performanceScore === "B"
+        ? "Buono"
+        : performanceScore === "C"
+          ? "Da migliorare"
+          : "In attesa dati";
+
+
+  const isRouteCompleted = route.status === "completed";
+
+  const showBottomBar =
+    !isRouteCompleted &&
+    currentStop &&
+    currentStopLat !== null &&
+    currentStopLng !== null;
+
+
+  return (
+    <section style={{ ...ui.page.section, paddingBottom: showBottomBar ? 112 : 0 }}>
+      <RouteProHeader subtitle="Modalita driver" />
+
+      {!isRouteCompleted && currentStop ? (
+        <div style={stickyDriverHeaderStyle}>
+          <div style={stickyDriverHeaderTopStyle}>
+            <p style={stickyDriverHeaderNumberStyle}>
+              Workflow #{currentStop.position}
+            </p>
+
+            <p style={stickyDriverHeaderNumberStyle}>
+              Originale #{currentStop.original_position}
+            </p>
+          </div>
+
+          <p style={stickyDriverHeaderAddressStyle}>{currentStop.address}</p>
+        </div>
+      ) : null}
+
+      <div style={cockpitHeroStyle}>
+        <p style={cockpitEyebrowStyle}>Driver Command Center</p>
+
+        <h1 style={cockpitTitleStyle}>{route.name}</h1>
+
+        <p style={cockpitSubtitleStyle}>
+          Prepara, verifica, ottimizza e guida la tua rotta in un unico workflow.
+        </p>
+
+        <div style={actionsStyle}>
+          <Link href={`/app/routepro/${route.id}`} style={routeProUi.secondaryButton}>
+            Torna alla rotta
+          </Link>
+
+          <Link href="/app/routepro" style={routeProUi.secondaryButton}>
+            Storico rotte
+          </Link>
+        </div>
+
+        <div style={statGridStyle}>
+          <article style={statCardStyle}>
+            <p style={statLabelStyle}>Gestiti</p>
+            <h2 style={statValueStyle}>
+              {doneCount}/{totalStops}
+            </h2>
+          </article>
+
+          <article style={statCardStyle}>
+            <p style={statLabelStyle}>Rimanenti</p>
+            <h2 style={statValueStyle}>
+              {remainingCount}
+            </h2>
+          </article>
+
+          <article style={statCardStyle}>
+            <p style={statLabelStyle}>Saltati</p>
+            <h2 style={statValueStyle}>
+              {skippedStops.length}
+            </h2>
+          </article>
+        </div>
+
+        <div style={progressTrackStyle}>
+          <div style={{ ...progressFillStyle, width: `${progressPercent}%` }} />
+        </div>
+
+        <div
+          style={{
+            marginTop: 18,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+            gap: 12,
+          }}
+        >
+          <div>
+            <p style={mutedTextStyle}>Stop corrente</p>
+            <h3
+              style={{
+                margin: "4px 0 0",
+                color: "#fff",
+                fontSize: 30,
+                fontWeight: 950,
+              }}
+            >
+              {currentStop?.position ?? doneCount}/{totalStops}
+            </h3>
+          </div>
+
+          <div>
+            <p style={mutedTextStyle}>Rimanenti</p>
+            <h3
+              style={{
+                margin: "4px 0 0",
+                color: "#fff",
+                fontSize: 30,
+                fontWeight: 950,
+              }}
+            >
+              {remainingCount}
+            </h3>
+          </div>
+
+          <div>
+            <p style={mutedTextStyle}>Completamento</p>
+            <h3
+              style={{
+                margin: "4px 0 0",
+                color: "#fff",
+                fontSize: 30,
+                fontWeight: 950,
+              }}
+            >
+              {progressPercent}%
+            </h3>
+          </div>
+        </div>
+
+        <div style={intelligenceGridStyle}>
+          <article style={intelligenceCardStyle}>
+            <p style={intelligenceLabelStyle}>Tempo turno</p>
+            <h3 style={intelligenceValueStyle}>{formatMinutes(shiftMinutes)}</h3>
+          </article>
+
+          <article style={intelligenceCardStyle}>
+            <p style={intelligenceLabelStyle}>Ritmo richiesto</p>
+            <h3 style={intelligenceValueStyle}>
+              {requiredStopsPerHour !== null ? `${requiredStopsPerHour}/h` : "-"}
+            </h3>
+          </article>
+
+          <article style={intelligenceCardStyle}>
+            <p style={intelligenceLabelStyle}>Media stop</p>
+            <h3 style={intelligenceValueStyle}>
+              {minutesPerStop !== null ? `${minutesPerStop} min` : "-"}
+            </h3>
+          </article>
+
+          <article style={intelligenceCardStyle}>
+            <p style={intelligenceLabelStyle}>Stato operativo</p>
+            <span style={intelligenceBadgeStyle}>{operationalStatus}</span>
+          </article>
+
+          <article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>Tempo residuo stimato</p>
+  <h3 style={intelligenceValueStyle}>
+    {formatMinutes(estimatedRemainingMinutes)}
+  </h3>
+</article>
+
+<article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>ETA fine rotta</p>
+  <h3 style={intelligenceValueStyle}>{estimatedEndTime}</h3>
+</article>
+
+<article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>Ritmo reale</p>
+
+  <h3 style={intelligenceValueStyle}>
+    {realStopsPerHour !== null
+      ? `${realStopsPerHour}/h`
+      : "-"}
+  </h3>
+</article>
+
+<article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>ETA reale</p>
+
+  <h3 style={intelligenceValueStyle}>
+    {realEta
+      ? realEta.toLocaleTimeString("it-IT", {
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : "-"}
+  </h3>
+</article>
+
+<article style={intelligenceCardStyle}>
+  <p style={intelligenceLabelStyle}>Pace Status</p>
+
+  <span
+    style={{
+      ...intelligenceBadgeStyle,
+      background:
+        paceStatus === "In anticipo"
+          ? "rgba(34,197,94,0.16)"
+          : paceStatus === "In ritardo"
+            ? "rgba(239,68,68,0.16)"
+            : "rgba(255,122,0,0.16)",
+      color:
+        paceStatus === "In anticipo"
+          ? "#bbf7d0"
+          : paceStatus === "In ritardo"
+            ? "#fecaca"
+            : "#fed7aa",
+    }}
+  >
+    {paceStatus}
+  </span>
+
+  <p
+    style={{
+      margin: "8px 0 0",
+      fontSize: 12,
+      fontWeight: 700,
+      color: "rgba(255,255,255,0.72)",
+    }}
+  >
+    {paceDelta !== null
+  ? `${paceDelta >= 0 ? "+" : ""}${paceDelta} min`
+  : "Completa almeno 3 stop"}
+  </p>
+</article>
+        </div>
+      </div>
+
+      {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
+      {completed === "1" ? <div style={successStyle}>Stop completato. Passa al prossimo.</div> : null}
+      {skipped === "1" ? <div style={successStyle}>Stop saltato. Passa al prossimo.</div> : null}
+      {routeCompleted === "1" ? <div style={successStyle}>Rotta terminata correttamente.</div> : null}
+
+      {isRouteCompleted ? (
+        <div style={cockpitHeroStyle}>
+          <p style={cockpitEyebrowStyle}>Riepilogo rotta</p>
+
+          <h2 style={cockpitTitleStyle}>Rotta completata</h2>
+
+          <p style={cockpitSubtitleStyle}>
+            Giornata chiusa. Qui trovi i numeri principali della rotta e una lettura rapida della performance.
+          </p>
+
+          <div style={intelligenceGridStyle}>
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Stop totali</p>
+              <h3 style={intelligenceValueStyle}>{totalStops}</h3>
+            </article>
+
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Completati</p>
+              <h3 style={intelligenceValueStyle}>{completedStops.length}</h3>
+            </article>
+
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Saltati</p>
+              <h3 style={intelligenceValueStyle}>{skippedStops.length}</h3>
+            </article>
+
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Completamento</p>
+              <h3 style={intelligenceValueStyle}>{completionRate}%</h3>
+            </article>
+
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Tempo operativo</p>
+              <h3 style={intelligenceValueStyle}>{formatMinutes(elapsedMinutes)}</h3>
+            </article>
+
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Ritmo reale</p>
+              <h3 style={intelligenceValueStyle}>
+                {realStopsPerHour !== null ? `${realStopsPerHour}/h` : "-"}
+              </h3>
+            </article>
+
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Tempo medio stop</p>
+              <h3 style={intelligenceValueStyle}>
+                {realMinutesPerStop !== null ? `${realMinutesPerStop} min` : "-"}
+              </h3>
+            </article>
+
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Obiettivo ritmo</p>
+              <h3 style={intelligenceValueStyle}>
+                {requiredStopsPerHour !== null ? `${requiredStopsPerHour}/h` : "-"}
+              </h3>
+            </article>
+
+            <article style={intelligenceCardStyle}>
+              <p style={intelligenceLabelStyle}>Score RoutePro</p>
+              <h3
+                style={{
+                  ...intelligenceValueStyle,
+                  color: "#ff7a00",
+                }}
+              >
+                {performanceScore}
+              </h3>
+              <p
+                style={{
+                  margin: "6px 0 0",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.75)",
+                }}
+              >
+                {performanceLabel}
+              </p>
+            </article>
+          </div>
+
+          <div style={progressTrackStyle}>
+            <div
+              style={{
+                ...progressFillStyle,
+                width: "100%",
+              }}
+            />
+          </div>
+
+          <p style={mutedTextStyle}>
+            Riepilogo pronto per valutare velocita, continuita e qualita della rotta.
+          </p>
+        </div>
+      ) : !currentStop || currentStopLat === null || currentStopLng === null ? (
+        <div style={currentStopCardStyle}>
+          <h2 style={ui.page.sectionTitle}>Fine rotta</h2>
+          <p style={lightMutedTextStyle}>
+            Non ci sono altri stop validi da eseguire. Puoi terminare la rotta.
+          </p>
+
+          <form action={completeRouteProRoute} style={{ marginTop: 18 }}>
+            <input type="hidden" name="route_id" value={route.id} />
+
+            <button
+              type="submit"
+              style={{
+                ...routeProUi.primaryButton,
+                width: "100%",
+                padding: "18px",
+                fontSize: 18,
+                borderRadius: 14,
+              }}
+            >
+              Termina rotta
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div style={currentStopCardStyle}>
+          <p style={statLabelStyle}>Stop corrente</p>
+
+          <div
+  style={{
+    ...bigStopNumberStyle,
+    fontSize: "clamp(38px, 6vw, 58px)",
+  }}
+>
+  #{currentStop.position}
+</div>
+
+          <div style={driverFocusGridStyle}>
+            <article style={driverFocusCardStyle}>
+              <p style={driverFocusLabelStyle}>Posizione RoutePro</p>
+              <h3 style={driverFocusValueStyle}>#{currentStop.position}</h3>
+            </article>
+
+            <article style={driverFocusCardStyle}>
+              <p style={driverFocusLabelStyle}>Numero originale app</p>
+              <h3 style={driverFocusValueStyle}>#{currentStop.original_position}</h3>
+            </article>
+          </div>
+
+          {currentDuplicateStops.length > 1 ? (
+  <div style={stopBadgeRowStyle}>
+    <span style={originalStopBadgeStyle}>
+      {currentDuplicateStops.length} STOPS
+    </span>
+
+    <span style={optimizedStopBadgeStyle}>
+      Originali: {currentDuplicateOriginalStops}
+    </span>
+  </div>
+) : null}
+
+          <div
+  style={{
+    ...addressStyle,
+    marginTop: 24,
+  }}
+>
+  {currentStop.address}
+</div>
+
+          <div style={{ marginTop: 16 }}>
+            <a
+              href={getGoogleMapsUrl(currentStopLat, currentStopLng)}
+              target="_blank"
+              rel="noreferrer"
+              style={primaryNavigateStyle}
+            >
+              NAVIGA ORA
+            </a>
+          </div>
+
+                    <div style={mobileActionsStyle}>
+            <a
+              href={getGoogleMapsUrl(currentStopLat, currentStopLng)}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                ...routeProUi.secondaryButton,
+                minHeight: 46,
+                padding: "12px 14px",
+                fontSize: 14,
+                borderRadius: 14,
+                background: "#0f2345",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#ffffff",
+              }}
+            >
+              Google Maps
+            </a>
+
+            <a
+              href={getWazeUrl(currentStopLat, currentStopLng)}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                ...routeProUi.secondaryButton,
+                minHeight: 46,
+                padding: "12px 14px",
+                fontSize: 14,
+                borderRadius: 14,
+                background: "#0f2345",
+                border: "1px solid rgba(255,255,255,0.08)",
+                color: "#ffffff",
+              }}
+            >
+              Waze
+            </a>
+          </div>
+        </div>
+      )}
+
+      {nextStops.length > 0 ? (
+  <details style={nextStopsCardStyle}>
+    <summary
+      style={{
+        cursor: "pointer",
+        fontWeight: 950,
+        color: "#0f172a",
+      }}
+    >
+      Prossimi stop ({nextStops.length})
+    </summary>
+
+    <div style={{ marginTop: 10 }}>
+      {nextStops.map((stop) => {
+        const duplicateStops = getDuplicateStopsForAddress(
+          executableStops,
+          stop.address,
+        );
+
+        return (
+          <div key={stop.id} style={nextStopRowStyle}>
+            <span style={nextStopNumberStyle}>#{stop.position}</span>
+
+            <span style={nextStopAddressStyle}>
+              {stop.address}
+              {duplicateStops.length > 1 ? ` (${duplicateStops.length}x)` : ""}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  </details>
+) : null}
+
+      {showBottomBar ? (
+        <div style={bottomBarStyle}>
+          <div style={bottomBarInnerStyle}>
+            <form action={completeRouteProStop}>
+              <input type="hidden" name="route_id" value={route.id} />
+              <input type="hidden" name="stop_id" value={currentStop.id} />
+
+              <button
+                type="submit"
+                style={{
+                  ...routeProUi.primaryButton,
+                  width: "100%",
+                  padding: "18px",
+                  fontSize: 17,
+                  borderRadius: 14,
+                  background: "#ff7a00",
+                  borderColor: "#ff7a00",
+                  color: "#ffffff",
+                }}
+              >
+                COMPLETA
+              </button>
+            </form>
+
+            <form action={skipRouteProStop}>
+              <input type="hidden" name="route_id" value={route.id} />
+              <input type="hidden" name="stop_id" value={currentStop.id} />
+
+              <button
+                type="submit"
+                style={{
+                  ...routeProUi.secondaryButton,
+                  width: "100%",
+                  padding: "18px",
+                  fontSize: 17,
+                  borderRadius: 14,
+                  background: "#ffffff",
+                  color: "#0f172a",
+                }}
+              >
+                SALTA
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+
+
+============================================================
+FILE: src\styles\ndw\ndw-tokens.ts
+============================================================
+
+export const ndwTokens = {
+  colors: {
+    background: "#050B14",
+    backgroundSoft: "#07111F",
+
+    surface: "#08111F",
+    surfaceSoft: "#0D1A2B",
+    surfaceRaised: "#102238",
+    surfaceOverlay: "#132B46",
+
+    border: "rgba(255,255,255,0.08)",
+    borderStrong: "rgba(255,255,255,0.14)",
+
+    textPrimary: "#F8FAFC",
+    textSecondary: "#CBD5E1",
+    textMuted: "#64748B",
+    textInverse: "#020617",
+
+    primary: "#1D9BF0",
+    primarySoft: "rgba(29,155,240,0.14)",
+
+    success: "#22C55E",
+    successSoft: "rgba(34,197,94,0.14)",
+
+    warning: "#F59E0B",
+    warningSoft: "rgba(245,158,11,0.14)",
+
+    danger: "#EF4444",
+    dangerSoft: "rgba(239,68,68,0.14)",
+
+    info: "#38BDF8",
+    infoSoft: "rgba(56,189,248,0.14)",
+
+    neutral: "#94A3B8",
+    neutralSoft: "rgba(148,163,184,0.14)",
+  },
+
+  spacing: {
+    xs: 4,
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 24,
+    "2xl": 32,
+    "3xl": 48,
+    "4xl": 64,
+  },
+
+  radius: {
+    sm: 8,
+    md: 12,
+    lg: 16,
+    xl: 20,
+    "2xl": 24,
+    full: 999,
+  },
+
+  shadows: {
+    sm: "0 8px 24px rgba(0,0,0,0.18)",
+    md: "0 16px 40px rgba(0,0,0,0.24)",
+    lg: "0 24px 70px rgba(0,0,0,0.32)",
+    accent: "0 0 32px rgba(29,155,240,0.18)",
+  },
+
+  typography: {
+    fontFamily:
+      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+
+    sizes: {
+      caption: 12,
+      small: 13,
+      body: 15,
+      bodyLarge: 17,
+      cardTitle: 18,
+      sectionTitle: 22,
+      pageTitle: 32,
+      display: 48,
+    },
+
+    weights: {
+      regular: 400,
+      medium: 500,
+      semibold: 600,
+      bold: 700,
+      black: 800,
+    },
+
+    lineHeights: {
+      tight: 1.05,
+      snug: 1.2,
+      normal: 1.5,
+    },
+  },
+
+  layout: {
+    pageMaxWidth: 1280,
+    contentMaxWidth: 1120,
+    narrowMaxWidth: 760,
+    sidebarWidth: 280,
+    mobileBreakpoint: 768,
+  },
+
+  zIndex: {
+    base: 1,
+    dropdown: 20,
+    sticky: 30,
+    modal: 50,
+    toast: 60,
+  },
+
+  motion: {
+    fast: "120ms ease-out",
+    normal: "180ms ease-out",
+    slow: "260ms ease-out",
+  },
+} as const;
+
+export type NdwTokens = typeof ndwTokens;
+
+
+============================================================
+FILE: src\styles\ndw\ndw-module-accents.ts
+============================================================
+
+export const ndwModuleAccents = {
+  core: {
+    accent: "#1D9BF0",
+    accentSoft: "rgba(29,155,240,0.14)",
+    accentBorder: "rgba(29,155,240,0.28)",
+    accentText: "#7DD3FC",
+  },
+
+  routepro: {
+    accent: "#FF7A00",
+    accentSoft: "rgba(255,122,0,0.14)",
+    accentBorder: "rgba(255,122,0,0.24)",
+    accentText: "#FDBA74",
+  },
+
+  ops: {
+    accent: "#14B8A6",
+    accentSoft: "rgba(20,184,166,0.14)",
+    accentBorder: "rgba(20,184,166,0.24)",
+    accentText: "#5EEAD4",
+  },
+
+  agenda: {
+    accent: "#8B5CF6",
+    accentSoft: "rgba(139,92,246,0.14)",
+    accentBorder: "rgba(139,92,246,0.24)",
+    accentText: "#C4B5FD",
+  },
+} as const;
+
+export type NdwModuleKey = keyof typeof ndwModuleAccents;
+
+
+============================================================
+RICERCA RIFERIMENTI EXECUTE E DRIVE
+============================================================
+
+src\app\app\routepro\routes\[routeId]\drive\page.tsx:4
+completeRouteProRoute,
+
+src\app\app\routepro\routes\[routeId]\drive\page.tsx:5
+completeRouteProStop,
+
+src\app\app\routepro\routes\[routeId]\drive\page.tsx:6
+skipRouteProStop,
+
+src\app\app\routepro\routes\[routeId]\drive\page.tsx:296
+<form action={completeRouteProRoute} style={{ marginTop: 24 }}>
+
+src\app\app\routepro\routes\[routeId]\drive\page.tsx:386
+<form action={skipRouteProStop}>
+
+src\app\app\routepro\routes\[routeId]\drive\page.tsx:406
+<RouteProCompleteSlider action={completeRouteProStop} routeId={route.id} stopId={currentStop.id} />
+
+src\app\app\routepro\routes\[routeId]\optimize\page.tsx:328
+href={`/app/routepro/routes/${route.id}/drive`}
+
+src\app\app\routepro\routes\[routeId]\optimize\page.tsx:473
+href={`/app/routepro/routes/${route.id}/drive`}
+
+src\app\app\routepro\routes\[routeId]\summary\page.tsx:319
+<Link href={`/app/routepro/routes/${route.id}/drive`} style={routeProUi.secondaryButton}>
+
+src\app\app\routepro\[routeId]\execute\page.tsx:4
+completeRouteProRoute,
+
+src\app\app\routepro\[routeId]\execute\page.tsx:5
+completeRouteProStop,
+
+src\app\app\routepro\[routeId]\execute\page.tsx:6
+skipRouteProStop,
+
+src\app\app\routepro\[routeId]\execute\page.tsx:940
+<form action={completeRouteProRoute} style={{ marginTop: 18 }}>
+
+src\app\app\routepro\[routeId]\execute\page.tsx:1091
+<form action={completeRouteProStop}>
+
+src\app\app\routepro\[routeId]\execute\page.tsx:1112
+<form action={skipRouteProStop}>
+
+src\app\app\routepro\[routeId]\page.tsx:809
+workflowHref = `/app/routepro/routes/${route.id}/drive`;
+
+src\app\app\routepro\[routeId]\page.tsx:912
+<Link href={`/app/routepro/${route.id}/execute`} style={routeProUi.secondaryButton}>
+
+src\modules\routepro\server\routepro.actions.ts:525
+export async function completeRouteProStop(formData: FormData) {
+
+src\modules\routepro\server\routepro.actions.ts:533
+redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+
+src\modules\routepro\server\routepro.actions.ts:550
+redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+
+src\modules\routepro\server\routepro.actions.ts:566
+redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+
+src\modules\routepro\server\routepro.actions.ts:595
+redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+
+src\modules\routepro\server\routepro.actions.ts:619
+revalidatePath(`/app/routepro/${routeId}/execute`);
+
+src\modules\routepro\server\routepro.actions.ts:621
+redirect(`/app/routepro/${routeId}/execute?completed=1`);
+
+src\modules\routepro\server\routepro.actions.ts:624
+export async function skipRouteProStop(formData: FormData) {
+
+src\modules\routepro\server\routepro.actions.ts:631
+if (!stopId) redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
+
+src\modules\routepro\server\routepro.actions.ts:647
+redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
+
+src\modules\routepro\server\routepro.actions.ts:671
+revalidatePath(`/app/routepro/${routeId}/execute`);
+
+src\modules\routepro\server\routepro.actions.ts:672
+redirect(`/app/routepro/${routeId}/execute?skipped=1`);
+
+src\modules\routepro\server\routepro.actions.ts:675
+export async function completeRouteProRoute(formData: FormData) {
+
+src\modules\routepro\server\routepro.actions.ts:696
+redirect(`/app/routepro/${routeId}/execute?error=route-complete-failed`);
+
+src\modules\routepro\server\routepro.actions.ts:700
+revalidatePath(`/app/routepro/${routeId}/execute`);
+
+src\modules\routepro\server\routepro.actions.ts:703
+redirect(`/app/routepro/${routeId}/execute?routeCompleted=1`);
+
+src\modules\routepro\ui\driver-hero.ts:38
+primaryHref: `/app/routepro/${route.id}/execute`,
+
+src\modules\routepro\ui\driver-hero.ts:66
+primaryHref: `/app/routepro/${route.id}/execute`,
+
+src\modules\routepro\ui\RouteProModulePage.tsx:18
+import { getDriverHeroState } from "@/modules/routepro/ui/driver-hero";
+
+src\modules\routepro\ui\RouteProModulePage.tsx:594
+href={`/app/routepro/${route.id}/execute`}
+
+src\modules\routepro\ui\RouteProRoutesArchiveClient.tsx:400
+href={`/app/routepro/${route.id}/execute`}
+

@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { optimizeRouteProRoute } from "@/modules/routepro/server/routepro.actions";
-import { buildAmazonAssistDashboard } from "@/modules/routepro/server/routepro.amazon-assist.presenter";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
-import { RouteProAmazonAssistDashboard } from "@/modules/routepro/ui/RouteProAmazonAssistDashboard";
 import { RouteProSubmitButton } from "@/modules/routepro/ui/RouteProSubmitButton";
 import {
   buildDeliveryClusters,
@@ -255,11 +253,6 @@ export default async function RouteProOptimizePage({
   const optimizationCompleted =
     route.is_optimized || resolvedSearchParams?.optimized === "1";
 
-  const amazonAssistDashboard =
-    route.route_profile === "amazon_flex" && route.amazon_assist_report
-      ? buildAmazonAssistDashboard(route.amazon_assist_report)
-      : null;
-
   return (
     <RouteProWorkflowShell
       routeId={routeId}
@@ -318,7 +311,6 @@ export default async function RouteProOptimizePage({
             canOptimize ? (
               <form action={optimizeRouteProRoute}>
                 <input type="hidden" name="route_id" value={route.id} />
-                <input type="hidden" name="workflow" value="v2" />
 
                 <RouteProSubmitButton
                   idleLabel="Ottimizza percorso"
@@ -326,9 +318,7 @@ export default async function RouteProOptimizePage({
                 />
               </form>
             ) : (
-              <span style={disabledButtonStyle}>
-                Ottimizzazione non disponibile
-              </span>
+              <span style={disabledButtonStyle}>Ottimizzazione non disponibile</span>
             )
           ) : (
             <>
@@ -365,10 +355,6 @@ export default async function RouteProOptimizePage({
               <li>✓ Percorso pronto per il Driver Command Center</li>
             </ul>
           </section>
-        ) : null}
-
-        {optimizationCompleted && amazonAssistDashboard ? (
-          <RouteProAmazonAssistDashboard dashboard={amazonAssistDashboard} />
         ) : null}
       </div>
 

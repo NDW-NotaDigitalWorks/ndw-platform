@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/routepro.geocoding";
 import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
 import { optimizeStopsWithOpenRouteService } from "@/modules/routepro/server/routepro.ors-optimization";
+import { optimizeAmazonAssistRoute } from "@/modules/routepro/server/routepro.amazon-optimizer";
+import { analyzeAmazonRoute } from "@/modules/routepro/server/routepro.amazon-analysis";
 import { extractTextFromImageWithGoogleVision } from "@/modules/routepro/server/routepro.ocr";
 import { encryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
 import { parseAmazonFlexStopsFromVisionLayout } from "@/modules/routepro/server/routepro.flex-layout-parser";
@@ -372,7 +374,9 @@ const optimizeRedirectBase = isWorkflowV2
 
   const { data: route, error: routeError } = await supabase
     .from("routepro_routes")
-    .select("id, start_lat, start_lng, return_lat, return_lng")
+    .select(
+  "id, route_profile, start_address, start_lat, start_lng, return_address, return_lat, return_lng",
+)
     .eq("id", routeId)
     .maybeSingle();
 
@@ -401,7 +405,9 @@ const optimizeRedirectBase = isWorkflowV2
 
   const { data: stops, error: stopsError } = await supabase
     .from("routepro_stops")
-    .select("id, position, original_position, address, lat, lng")
+    .select(
+  "id, position, original_position, address, lat, lng, stop_role",
+)
     .eq("route_id", routeId)
     .eq("status", "valid")
     .not("lat", "is", null)
@@ -417,74 +423,145 @@ const optimizeRedirectBase = isWorkflowV2
     redirect(`${optimizeRedirectBase}?error=optimize-not-enough-stops`);
   }
 
-  const startPoint =
-    route.start_lat !== null && route.start_lng !== null
+    const optimizationStops = stops.map((stop) => {
+    const normalizedStopRole = String(
+      stop.stop_role ?? "delivery",
+    ).toLowerCase();
+
+    const stopRole =
+      normalizedStopRole === "start" || normalizedStopRole === "return"
+        ? normalizedStopRole
+        : "delivery";
+
+    return {
+      id: stop.id,
+      position: Number(stop.position),
+      original_position: Number(stop.original_position),
+      address: String(stop.address ?? ""),
+      lat: Number(stop.lat),
+      lng: Number(stop.lng),
+      stop_role: stopRole as "start" | "delivery" | "return",
+    };
+  });
+
+  const fixedStartStop =
+    optimizationStops.find((stop) => stop.stop_role === "start") ?? null;
+
+  const fixedReturnStop =
+    optimizationStops.find((stop) => stop.stop_role === "return") ?? null;
+
+  const stopsToOptimize = optimizationStops.filter(
+    (stop) => stop.stop_role === "delivery",
+  );
+
+  const startPoint = fixedStartStop
+    ? {
+        lat: fixedStartStop.lat,
+        lng: fixedStartStop.lng,
+      }
+    : route.start_lat !== null && route.start_lng !== null
       ? {
           lat: Number(route.start_lat),
           lng: Number(route.start_lng),
         }
       : null;
 
-  const optimizationStops = stops.map((stop) => ({
-  id: stop.id,
-  position: Number(stop.position),
-  original_position: Number(stop.original_position),
-  address: String(stop.address ?? ""),
-  lat: Number(stop.lat),
-  lng: Number(stop.lng),
-}));
+  const endPoint = fixedReturnStop
+    ? {
+        lat: fixedReturnStop.lat,
+        lng: fixedReturnStop.lng,
+      }
+    : route.return_lat !== null && route.return_lng !== null
+      ? {
+          lat: Number(route.return_lat),
+          lng: Number(route.return_lng),
+        }
+      : null;
 
+  let optimizedStops = optimizationStops;
 
+let optimizationMethod = "analysis_only";
 
-const sortedByOriginalPosition = [...optimizationStops].sort(
-  (a, b) => a.original_position - b.original_position,
-);
+const normalizedProfile = String(
+  route.route_profile ?? "generic",
+).toLowerCase();
 
-const hasRouteBoundaries =
-  route.start_lat !== null &&
-  route.start_lng !== null &&
-  route.return_lat !== null &&
-  route.return_lng !== null &&
-  sortedByOriginalPosition.length >= 3;
+if (normalizedProfile === "amazon_flex") {
+  const amazonResult = optimizeAmazonAssistRoute(
+    optimizationStops,
+    startPoint,
+    endPoint,
+  );
 
-const fixedStartStop = hasRouteBoundaries ? sortedByOriginalPosition[0] : null;
+  console.log("======================================");
+  console.log("AMAZON ASSIST ANALYSIS");
+  console.log("======================================");
+  console.log("Route score:", amazonResult.analysis.routeScore);
+  console.log("Recommendation:", amazonResult.analysis.recommendation);
+  console.log("Street revisits:", amazonResult.analysis.counts.streetRevisits);
+  console.log(
+    "Nearby revisits:",
+    amazonResult.analysis.counts.nearbyStopRevisits,
+  );
+  console.log("Route jumps:", amazonResult.analysis.counts.routeJumps);
+  console.log(
+    "Estimated corrections:",
+    amazonResult.analysis.estimatedCorrections,
+  );
+  console.log(
+    "Estimated saving:",
+    `${amazonResult.analysis.estimatedSavingMeters} m`,
+  );
+  console.log("======================================");
 
-const fixedReturnStop = hasRouteBoundaries
-  ? sortedByOriginalPosition[sortedByOriginalPosition.length - 1]
-  : null;
+  optimizedStops = amazonResult.orderedStops
+  .map((amazonStop) =>
+    optimizationStops.find((stop) => stop.id === amazonStop.id),
+  )
+  .filter(
+    (
+      stop,
+    ): stop is (typeof optimizationStops)[number] => Boolean(stop),
+  );
+  optimizationMethod = amazonResult.method;
+} else {
+  const orsResult = await optimizeStopsWithOpenRouteService(
+    stopsToOptimize.map((stop) => ({
+      id: stop.id,
+      lat: stop.lat,
+      lng: stop.lng,
+    })),
+    startPoint,
+    endPoint,
+  );
 
-const stopsToOptimize =
-  fixedStartStop && fixedReturnStop
-    ? optimizationStops.filter(
-        (stop) =>
-          stop.id !== fixedStartStop.id &&
-          stop.id !== fixedReturnStop.id,
-      )
-    : optimizationStops;
-
- const orsResult = await optimizeStopsWithOpenRouteService(
-  stopsToOptimize.map((stop) => ({
-    id: stop.id,
-    lat: stop.lat,
-    lng: stop.lng,
-  })),
-  startPoint,
-);   
-
-const optimizedMiddleStops = orsResult.ok
+  const optimizedDeliveryStopIds = orsResult.ok
   ? orsResult.orderedStopIds
-      .map((stopId) => stopsToOptimize.find((stop) => stop.id === stopId))
-      .filter((stop): stop is (typeof optimizationStops)[number] => Boolean(stop))
-  : optimizeStopsNearestNeighbor(stopsToOptimize, startPoint);
+  : optimizeStopsNearestNeighbor(
+      stopsToOptimize,
+      startPoint,
+    ).map((stop) => stop.id);
 
-const optimizedStops =
-  fixedStartStop && fixedReturnStop
-    ? [fixedStartStop, ...optimizedMiddleStops, fixedReturnStop]
-    : optimizedMiddleStops;
+const optimizedDeliveryStops = optimizedDeliveryStopIds
+  .map((stopId) =>
+    stopsToOptimize.find((stop) => stop.id === stopId),
+  )
+  .filter(
+    (
+      stop,
+    ): stop is (typeof stopsToOptimize)[number] => Boolean(stop),
+  );
 
-const optimizationMethod = orsResult.ok
-  ? "ors_optimization_v1"
-  : "cluster_nearest_neighbor_2opt_centroid_v1";
+  optimizedStops = [
+    ...(fixedStartStop ? [fixedStartStop] : []),
+    ...optimizedDeliveryStops,
+    ...(fixedReturnStop ? [fixedReturnStop] : []),
+  ];
+
+  optimizationMethod = orsResult.ok
+    ? "ors_optimization_v2_boundaries"
+    : "nearest_neighbor_boundaries_v2";
+}
 
   for (let index = 0; index < optimizedStops.length; index += 1) {
     const stop = optimizedStops[index];
@@ -530,7 +607,7 @@ export async function completeRouteProStop(formData: FormData) {
 
   if (!routeId) redirect("/app/routepro");
   if (!stopId) {
-    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+    redirect(`/app/routepro/routes/${routeId}/drive?error=complete-failed`);
   }
 
   const now = new Date().toISOString();
@@ -547,7 +624,7 @@ export async function completeRouteProStop(formData: FormData) {
       currentStopError?.message,
     );
 
-    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+    redirect(`/app/routepro/routes/${routeId}/drive?error=complete-failed`);
   }
 
   const normalizedAddress = currentStop.address.trim().toLowerCase();
@@ -563,7 +640,7 @@ export async function completeRouteProStop(formData: FormData) {
       duplicateStopsError.message,
     );
 
-    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+    redirect(`/app/routepro/routes/${routeId}/drive?error=complete-failed`);
   }
 
   const duplicateIds = (duplicateStops ?? [])
@@ -592,7 +669,7 @@ export async function completeRouteProStop(formData: FormData) {
   if (error) {
     console.error("RoutePro complete stop error:", error.message);
 
-    redirect(`/app/routepro/${routeId}/execute?error=complete-failed`);
+    redirect(`/app/routepro/routes/${routeId}/drive?error=complete-failed`);
   }
 
   await supabase
@@ -616,9 +693,9 @@ export async function completeRouteProStop(formData: FormData) {
     .eq("id", routeId)
     .not("started_at", "is", null);
 
-  revalidatePath(`/app/routepro/${routeId}/execute`);
+  revalidatePath(`/app/routepro/routes/${routeId}/drive`);
 
-  redirect(`/app/routepro/${routeId}/execute?completed=1`);
+  redirect(`/app/routepro/routes/${routeId}/drive?completed=1`);
 }
 
 export async function skipRouteProStop(formData: FormData) {
@@ -628,7 +705,7 @@ export async function skipRouteProStop(formData: FormData) {
   const stopId = String(formData.get("stop_id") ?? "").trim();
 
   if (!routeId) redirect("/app/routepro");
-  if (!stopId) redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
+  if (!stopId) redirect(`/app/routepro/routes/${routeId}/drive?error=skip-failed`);
 
   const now = new Date().toISOString();
 
@@ -644,7 +721,7 @@ export async function skipRouteProStop(formData: FormData) {
 
   if (error) {
     console.error("RoutePro skip stop error:", error.message);
-    redirect(`/app/routepro/${routeId}/execute?error=skip-failed`);
+    redirect(`/app/routepro/routes/${routeId}/drive?error=skip-failed`);
   }
 
   await supabase
@@ -668,8 +745,8 @@ export async function skipRouteProStop(formData: FormData) {
     .eq("id", routeId)
     .not("started_at", "is", null);
 
-  revalidatePath(`/app/routepro/${routeId}/execute`);
-  redirect(`/app/routepro/${routeId}/execute?skipped=1`);
+  revalidatePath(`/app/routepro/routes/${routeId}/drive`);
+  redirect(`/app/routepro/routes/${routeId}/drive?skipped=1`);
 }
 
 export async function completeRouteProRoute(formData: FormData) {
@@ -693,14 +770,14 @@ export async function completeRouteProRoute(formData: FormData) {
 
   if (error) {
     console.error("RoutePro complete route error:", error.message);
-    redirect(`/app/routepro/${routeId}/execute?error=route-complete-failed`);
+    redirect(`/app/routepro/routes/${routeId}/drive?error=route-complete-failed`);
   }
 
   revalidatePath(`/app/routepro/${routeId}`);
-  revalidatePath(`/app/routepro/${routeId}/execute`);
+  revalidatePath(`/app/routepro/routes/${routeId}/drive`);
   revalidatePath("/app/routepro");
 
-  redirect(`/app/routepro/${routeId}/execute?routeCompleted=1`);
+  redirect(`/app/routepro/routes/${routeId}/drive?routeCompleted=1`);
 }
 
 export async function addCsvRouteProStops(formData: FormData) {

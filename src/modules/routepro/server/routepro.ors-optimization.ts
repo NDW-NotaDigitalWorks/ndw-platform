@@ -6,6 +6,11 @@ export type RouteProOrsOptimizationStop = {
   lng: number;
 };
 
+export type RouteProOrsOptimizationPoint = {
+  lat: number;
+  lng: number;
+};
+
 export type RouteProOrsOptimizationResult =
   | {
       ok: true;
@@ -24,6 +29,13 @@ export type RouteProOrsOptimizationResult =
 type OrsOptimizationJob = {
   id: number;
   location: [number, number];
+};
+
+type OrsOptimizationVehicle = {
+  id: number;
+  profile: "driving-car";
+  start?: [number, number];
+  end?: [number, number];
 };
 
 type OrsOptimizationStep = {
@@ -48,7 +60,8 @@ type OrsOptimizationResponse = {
 
 export async function optimizeStopsWithOpenRouteService(
   stops: RouteProOrsOptimizationStop[],
-  startPoint?: { lat: number; lng: number } | null,
+  startPoint?: RouteProOrsOptimizationPoint | null,
+  endPoint?: RouteProOrsOptimizationPoint | null,
 ): Promise<RouteProOrsOptimizationResult> {
   let apiKey: string;
 
@@ -69,7 +82,7 @@ export async function optimizeStopsWithOpenRouteService(
     return {
       ok: false,
       reason: "invalid_response",
-      message: "At least 2 stops are required for ORS optimization.",
+      message: "At least 2 delivery stops are required for ORS optimization.",
       provider: "openrouteservice_optimization",
     };
   }
@@ -85,11 +98,18 @@ export async function optimizeStopsWithOpenRouteService(
     jobIdToStopId.set(index + 1, stop.id);
   });
 
-  const vehicleStart = startPoint
-    ? {
-        start: [startPoint.lng, startPoint.lat],
-      }
-    : {};
+  const vehicle: OrsOptimizationVehicle = {
+    id: 1,
+    profile: "driving-car",
+  };
+
+  if (startPoint) {
+    vehicle.start = [startPoint.lng, startPoint.lat];
+  }
+
+  if (endPoint) {
+    vehicle.end = [endPoint.lng, endPoint.lat];
+  }
 
   try {
     const response = await fetch(
@@ -103,18 +123,20 @@ export async function optimizeStopsWithOpenRouteService(
         cache: "no-store",
         body: JSON.stringify({
           jobs,
-          vehicles: [
-            {
-              id: 1,
-              profile: "driving-car",
-              ...vehicleStart,
-            },
-          ],
+          vehicles: [vehicle],
         }),
       },
     );
 
     if (!response.ok) {
+      const responseText = await response.text();
+
+      console.error(
+        "RoutePro ORS optimization provider error:",
+        response.status,
+        responseText,
+      );
+
       return {
         ok: false,
         reason: "provider_error",
@@ -150,11 +172,20 @@ export async function optimizeStopsWithOpenRouteService(
       .map((step) => jobIdToStopId.get(Number(step.job)))
       .filter((stopId): stopId is string => Boolean(stopId));
 
-    if (orderedStopIds.length === 0) {
+    if (orderedStopIds.length !== stops.length) {
+      console.error(
+        "RoutePro ORS optimization returned an incomplete job sequence:",
+        {
+          expectedStops: stops.length,
+          returnedStops: orderedStopIds.length,
+        },
+      );
+
       return {
         ok: false,
         reason: "invalid_response",
-        message: "OpenRouteService returned no ordered stops.",
+        message:
+          "OpenRouteService returned an incomplete optimized stop sequence.",
         provider: "openrouteservice_optimization",
       };
     }

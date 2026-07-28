@@ -20,7 +20,7 @@ type Props = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
   gap: 14,
   marginTop: 18,
 };
@@ -81,8 +81,8 @@ const listStyle: React.CSSProperties = {
 };
 
 const rowStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "120px 1fr 130px",
+  display: "flex",
+  flexWrap: "wrap",
   gap: 12,
   alignItems: "center",
   padding: "12px 14px",
@@ -95,7 +95,7 @@ const stopNumberStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minWidth: 90,
+  minWidth: 110,
   padding: "7px 10px",
   borderRadius: 999,
   background: "#eff6ff",
@@ -104,11 +104,17 @@ const stopNumberStyle: React.CSSProperties = {
   fontWeight: 950,
 };
 
+const addressGroupStyle: React.CSSProperties = {
+  flex: "1 1 240px",
+  minWidth: 0,
+};
+
 const addressTextStyle: React.CSSProperties = {
   color: "#0f172a",
   fontSize: 14,
   fontWeight: 850,
   lineHeight: 1.35,
+  overflowWrap: "anywhere",
 };
 
 const mutedTextStyle: React.CSSProperties = {
@@ -116,15 +122,17 @@ const mutedTextStyle: React.CSSProperties = {
   color: "#64748b",
   fontSize: 12,
   fontWeight: 750,
+  overflowWrap: "anywhere",
 };
 
 const successStyle: React.CSSProperties = {
   marginTop: 16,
-  padding: 12,
-  borderRadius: 12,
+  padding: 14,
+  borderRadius: 14,
   background: "#ecfdf5",
   color: "#047857",
-  fontWeight: 700,
+  border: "1px solid #a7f3d0",
+  fontWeight: 800,
 };
 
 const errorStyle: React.CSSProperties = {
@@ -133,6 +141,7 @@ const errorStyle: React.CSSProperties = {
   borderRadius: 12,
   background: "#fff1f2",
   color: "#be123c",
+  border: "1px solid #fecdd3",
   fontWeight: 700,
 };
 
@@ -148,13 +157,65 @@ const badgeStyle: React.CSSProperties = {
   fontWeight: 950,
 };
 
+const completedPanelStyle: React.CSSProperties = {
+  marginTop: 18,
+  padding: 20,
+  borderRadius: 22,
+  background: "linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)",
+  border: "1px solid #86efac",
+  boxShadow: "0 14px 32px rgba(22,101,52,0.08)",
+};
+
+const completedEyebrowStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#047857",
+  fontSize: 12,
+  fontWeight: 950,
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+};
+
+const completedTitleStyle: React.CSSProperties = {
+  margin: "8px 0 0",
+  color: "#14532d",
+  fontSize: 24,
+  lineHeight: 1.15,
+  fontWeight: 950,
+};
+
+const completedListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 8,
+  margin: "16px 0 0",
+  padding: 0,
+  listStyle: "none",
+  color: "#166534",
+  fontSize: 14,
+  lineHeight: 1.45,
+  fontWeight: 800,
+};
+
+const completedButtonStyle: React.CSSProperties = {
+  ...routeProUi.secondaryButton,
+  cursor: "default",
+  opacity: 0.78,
+  pointerEvents: "none",
+};
+
+const disabledButtonStyle: React.CSSProperties = {
+  ...routeProUi.primaryButton,
+  cursor: "not-allowed",
+  opacity: 0.48,
+  pointerEvents: "none",
+};
+
 function getOptimizationError(error?: string): string | null {
   if (error === "optimize-failed") {
     return "Ottimizzazione non riuscita. Controlla gli stop validi e riprova.";
   }
 
   if (error === "optimize-needs-review") {
-    return "Alcuni stop devono ancora essere controllati prima dell'ottimizzazione.";
+    return "Alcuni stop devono ancora essere controllati prima dell’ottimizzazione.";
   }
 
   if (error === "optimize-not-enough-stops") {
@@ -188,6 +249,9 @@ export default async function RouteProOptimizePage({
   const deliveryClusters = buildDeliveryClusters(optimizedStops);
   const multiStopClusters = getMultiStopDeliveryClusters(optimizedStops);
   const errorMessage = getOptimizationError(resolvedSearchParams?.error);
+  const canOptimize = validStops >= 2 && needsReviewStops === 0;
+  const optimizationCompleted =
+    route.is_optimized || resolvedSearchParams?.optimized === "1";
 
   return (
     <RouteProWorkflowShell
@@ -198,8 +262,8 @@ export default async function RouteProOptimizePage({
     >
       {resolvedSearchParams?.optimized === "1" ? (
         <div style={successStyle}>
-          Percorso ottimizzato. Le posizioni RoutePro sono state aggiornate e i
-          numeri originali sono stati preservati.
+          ✓ Percorso ottimizzato. Le posizioni RoutePro sono state aggiornate e
+          i numeri originali sono stati preservati.
         </div>
       ) : null}
 
@@ -220,36 +284,77 @@ export default async function RouteProOptimizePage({
           <p style={labelStyle}>Da correggere</p>
           <h2 style={valueStyle}>{needsReviewStops}</h2>
         </article>
+
+        <article style={cardStyle}>
+          <p style={labelStyle}>Ottimizzata</p>
+          <h2 style={valueStyle}>{optimizationCompleted ? "SÌ" : "NO"}</h2>
+        </article>
       </div>
 
       <div style={{ marginTop: 28 }}>
-        <h2 style={sectionTitleStyle}>Ottimizzazione</h2>
+        <h2 style={sectionTitleStyle}>Ottimizza la rotta</h2>
         <p style={sectionTextStyle}>
-          RoutePro calcola l'ordine operativo della rotta senza eliminare stop e
-          senza perdere il numero originale dell'app di consegna.
+          RoutePro ricalcola automaticamente la sequenza operativa migliore,
+          senza eliminare stop e mantenendo sempre il numero originale dell’app
+          di consegna.
         </p>
 
-        <div style={{ marginTop: 18 }}>
-          <form action={optimizeRouteProRoute}>
-            <input type="hidden" name="route_id" value={route.id} />
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            marginTop: 18,
+          }}
+        >
+          {!optimizationCompleted ? (
+            canOptimize ? (
+              <form action={optimizeRouteProRoute}>
+                <input type="hidden" name="route_id" value={route.id} />
 
-            <RouteProSubmitButton
-              idleLabel={route.is_optimized ? "Ricalcola percorso" : "Ottimizza percorso"}
-              pendingLabel="Ottimizzazione in corso..."
-            />
-          </form>
+                <RouteProSubmitButton
+                  idleLabel="Ottimizza percorso"
+                  pendingLabel="Ottimizzazione in corso..."
+                />
+              </form>
+            ) : (
+              <span style={disabledButtonStyle}>Ottimizzazione non disponibile</span>
+            )
+          ) : (
+            <>
+              <span style={completedButtonStyle}>✓ Percorso ottimizzato</span>
+
+              <Link
+                href={`/app/routepro/routes/${route.id}/drive`}
+                style={routeProUi.primaryButton}
+              >
+                Avvia navigazione →
+              </Link>
+            </>
+          )}
         </div>
 
-        {route.is_optimized ? (
-          <div style={{ ...whiteCardStyle, marginTop: 18 }}>
-            <p style={{ ...sectionTextStyle, margin: 0 }}>
-              ✓ Numerazione originale preservata
-              <br />
-              ✓ Cluster intelligenti attivi
-              <br />
-              ✓ Percorso pronto per il Driver Command Center
-            </p>
+        {!canOptimize && !optimizationCompleted ? (
+          <div style={errorStyle}>
+            Correggi gli stop segnalati e assicurati di avere almeno 2 stop
+            validi prima di avviare l’ottimizzazione.
           </div>
+        ) : null}
+
+        {optimizationCompleted ? (
+          <section style={completedPanelStyle}>
+            <p style={completedEyebrowStyle}>Ottimizzazione completata</p>
+            <h3 style={completedTitleStyle}>
+              {validStops} stop pronti per la navigazione
+            </h3>
+
+            <ul style={completedListStyle}>
+              <li>✓ Numerazione originale preservata</li>
+              <li>✓ Cluster intelligenti applicati</li>
+              <li>✓ Sequenza RoutePro aggiornata</li>
+              <li>✓ Percorso pronto per il Driver Command Center</li>
+            </ul>
+          </section>
         ) : null}
       </div>
 
@@ -283,7 +388,7 @@ export default async function RouteProOptimizePage({
                     Workflow #{cluster.workflowPosition}
                   </span>
 
-                  <div>
+                  <div style={addressGroupStyle}>
                     <div style={addressTextStyle}>{cluster.address}</div>
                     <div style={mutedTextStyle}>
                       Originali:{" "}
@@ -314,8 +419,8 @@ export default async function RouteProOptimizePage({
         </summary>
 
         <p style={sectionTextStyle}>
-          Apri questa sezione solo se vuoi controllare l'ordine completo prima
-          della guida.
+          Apri questa sezione solo per controllare l’ordine completo prima della
+          guida.
         </p>
 
         {deliveryClusters.length === 0 ? (
@@ -334,7 +439,7 @@ export default async function RouteProOptimizePage({
                     Workflow #{cluster.workflowPosition}
                   </span>
 
-                  <div>
+                  <div style={addressGroupStyle}>
                     <div style={addressTextStyle}>{cluster.address}</div>
                     <div style={mutedTextStyle}>
                       Originali:{" "}
@@ -355,13 +460,24 @@ export default async function RouteProOptimizePage({
         )}
       </details>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24 }}>
-        <Link
-          href={`/app/routepro/routes/${route.id}/drive`}
-          style={routeProUi.primaryButton}
-        >
-          Apri Driver Command Center
-        </Link>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          marginTop: 24,
+        }}
+      >
+        {optimizationCompleted ? (
+          <Link
+            href={`/app/routepro/routes/${route.id}/drive`}
+            style={routeProUi.primaryButton}
+          >
+            Avvia navigazione →
+          </Link>
+        ) : (
+          <span style={disabledButtonStyle}>Ottimizza prima</span>
+        )}
 
         <Link
           href={`/app/routepro/routes/${route.id}/verify`}
@@ -370,7 +486,10 @@ export default async function RouteProOptimizePage({
           Torna a Verify
         </Link>
 
-        <Link href={`/app/routepro/${route.id}`} style={routeProUi.secondaryButton}>
+        <Link
+          href={`/app/routepro/${route.id}`}
+          style={routeProUi.secondaryButton}
+        >
           Vista completa rotta
         </Link>
       </div>

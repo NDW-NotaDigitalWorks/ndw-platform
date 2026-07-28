@@ -6,10 +6,10 @@ import {
   skipRouteProStop,
 } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
-import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 import { getClusterStopsForCurrentStop } from "@/modules/routepro/v2/domain/routepro.clusters";
+import { RouteProCompleteSlider } from "@/modules/routepro/ui/RouteProCompleteSlider";
 import { RouteProWorkflowShell } from "@/modules/routepro/v2/ui/RouteProWorkflowShell";
-import { ui } from "@/styles/ui";
+import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
 
 type Props = {
   params: Promise<{ routeId: string }>;
@@ -21,107 +21,180 @@ type Props = {
   }>;
 };
 
-const gridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-  gap: 14,
+const commandCardStyle: React.CSSProperties = {
   marginTop: 18,
+  overflow: "hidden",
+  borderRadius: 28,
+  border: "1px solid rgba(255,255,255,0.09)",
+  background:
+    "radial-gradient(circle at 88% 0%,rgba(249,115,22,0.16) 0%,transparent 30%), linear-gradient(160deg,#172033 0%,#0f172a 68%,#020617 100%)",
+  boxShadow: "0 28px 70px rgba(0,0,0,0.34)",
 };
 
-const cardStyle: React.CSSProperties = {
-  ...ui.card.base,
-  padding: 16,
+const commandHeaderStyle: React.CSSProperties = {
+  padding: "18px clamp(18px,4vw,30px)",
+  borderBottom: "1px solid rgba(148,163,184,0.14)",
 };
 
-const mutedTextStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  fontSize: 14,
-  lineHeight: 1.6,
+const stopGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(2,minmax(0,1fr))",
+  gap: 10,
+  marginTop: 16,
 };
 
-const bigStopNumberStyle: React.CSSProperties = {
-  margin: "12px 0 0",
-  fontSize: 64,
-  lineHeight: 1,
-  fontWeight: 900,
-  letterSpacing: "-2px",
+const numberCardStyle: React.CSSProperties = {
+  minWidth: 0,
+  padding: "16px 14px",
+  borderRadius: 20,
+  border: "1px solid rgba(148,163,184,0.15)",
+  background: "rgba(15,23,42,0.72)",
+  textAlign: "center",
+};
+
+const numberStyle: React.CSSProperties = {
+  margin: "5px 0 0",
+  color: "#ffffff",
+  fontSize: "clamp(42px,12vw,72px)",
+  lineHeight: 0.9,
+  fontWeight: 950,
+  letterSpacing: "-0.07em",
+};
+
+const eyebrowStyle: React.CSSProperties = {
+  margin: 0,
+  color: "#93c5fd",
+  fontSize: 10,
+  lineHeight: 1.2,
+  fontWeight: 950,
+  letterSpacing: "0.11em",
+  textTransform: "uppercase",
+};
+
+const addressPanelStyle: React.CSSProperties = {
+  padding: "clamp(22px,5vw,38px) clamp(18px,4vw,30px)",
+  borderBottom: "1px solid rgba(148,163,184,0.14)",
 };
 
 const addressStyle: React.CSSProperties = {
-  margin: "16px 0 0",
-  fontSize: 26,
-  lineHeight: 1.3,
-  fontWeight: 900,
+  margin: "9px 0 0",
+  color: "#ffffff",
+  fontSize: "clamp(27px,7vw,48px)",
+  lineHeight: 1.04,
+  fontWeight: 950,
+  letterSpacing: "-0.045em",
+  overflowWrap: "anywhere",
 };
 
-const actionsStyle: React.CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: 12,
-  marginTop: 18,
-};
-
-const mobileActionsStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-  gap: 12,
-  marginTop: 18,
-};
-
-const successStyle: React.CSSProperties = {
-  marginTop: 16,
-  padding: 12,
-  borderRadius: 12,
-  background: "#ecfdf5",
-  color: "#047857",
-  fontWeight: 700,
-};
-
-const errorStyle: React.CSSProperties = {
-  marginTop: 16,
-  padding: 12,
-  borderRadius: 12,
-  background: "#fff1f2",
-  color: "#be123c",
-  fontWeight: 700,
+const progressSectionStyle: React.CSSProperties = {
+  padding: "18px clamp(18px,4vw,30px)",
+  borderBottom: "1px solid rgba(148,163,184,0.14)",
 };
 
 const progressTrackStyle: React.CSSProperties = {
-  height: 12,
-  borderRadius: 999,
-  background: "#e5e7eb",
+  height: 11,
+  marginTop: 12,
   overflow: "hidden",
+  borderRadius: 999,
+  background: "rgba(71,85,105,0.48)",
+};
+
+const metricsGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))",
+  gap: 10,
   marginTop: 14,
 };
 
-const bottomBarStyle: React.CSSProperties = {
+const metricStyle: React.CSSProperties = {
+  padding: "13px 14px",
+  borderRadius: 16,
+  border: "1px solid rgba(148,163,184,0.14)",
+  background: "rgba(15,23,42,0.58)",
+};
+
+const navigationGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))",
+  gap: 12,
+  padding: "18px clamp(18px,4vw,30px) 24px",
+};
+
+const navButtonStyle: React.CSSProperties = {
+  minHeight: 62,
+  borderRadius: 18,
+  fontSize: 16,
+  fontWeight: 950,
+  textAlign: "center",
+};
+
+const clusterStyle: React.CSSProperties = {
+  marginTop: 18,
+  padding: 17,
+  borderRadius: 19,
+  border: "1px solid rgba(96,165,250,0.24)",
+  background: "rgba(30,64,175,0.14)",
+};
+
+const chipRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  marginTop: 12,
+};
+
+const chipStyle: React.CSSProperties = {
+  padding: "7px 11px",
+  borderRadius: 999,
+  background: "#f8fafc",
+  color: "#0f172a",
+  fontSize: 12,
+  fontWeight: 950,
+};
+
+const nextCardStyle: React.CSSProperties = {
+  marginTop: 16,
+  padding: "18px clamp(18px,4vw,24px)",
+  borderRadius: 22,
+  border: "1px solid rgba(148,163,184,0.14)",
+  background:
+    "linear-gradient(180deg,rgba(30,41,59,0.88) 0%,rgba(15,23,42,0.94) 100%)",
+};
+
+const noticeStyle: React.CSSProperties = {
+  marginTop: 14,
+  padding: "12px 14px",
+  borderRadius: 14,
+  fontSize: 13,
+  lineHeight: 1.45,
+  fontWeight: 850,
+};
+
+const actionDockStyle: React.CSSProperties = {
   position: "fixed",
   left: 0,
   right: 0,
   bottom: 0,
-  zIndex: 50,
-  padding: "12px 16px",
-  background: "rgba(255, 255, 255, 0.96)",
-  borderTop: "1px solid #e5e7eb",
-  boxShadow: "0 -10px 30px rgba(15, 23, 42, 0.12)",
+  zIndex: 60,
+  padding: "12px 14px max(12px,env(safe-area-inset-bottom))",
+  borderTop: "1px solid rgba(148,163,184,0.18)",
+  background: "rgba(2,6,23,0.94)",
+  boxShadow: "0 -18px 50px rgba(0,0,0,0.38)",
+  backdropFilter: "blur(18px)",
 };
 
-const bottomBarInnerStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: 12,
-  maxWidth: 720,
+const actionDockInnerStyle: React.CSSProperties = {
+  width: "min(760px,100%)",
   margin: "0 auto",
 };
 
-function getProgressFillStyle(progress: number): React.CSSProperties {
-  return {
-    height: "100%",
-    width: `${progress}%`,
-    borderRadius: 999,
-    background: "linear-gradient(135deg, #0ea5e9, #22c55e)",
-  };
-}
+const secondaryActionsStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "center",
+  flexWrap: "wrap",
+  gap: 9,
+  marginTop: 18,
+};
 
 function getGoogleMapsUrl(lat: number, lng: number): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -131,16 +204,16 @@ function getWazeUrl(lat: number, lng: number): string {
   return `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`;
 }
 
-function getErrorMessage(error?: string): string | null {
-  if (error === "complete-failed") return "Stop completion failed. Try again.";
-  if (error === "skip-failed") return "Stop skip failed. Try again.";
-  if (error === "route-complete-failed") return "Route completion failed. Try again.";
-  return null;
-}
-
 function getProgressPercent(doneCount: number, totalStops: number): number {
   if (totalStops === 0) return 0;
   return Math.round((doneCount / totalStops) * 100);
+}
+
+function getErrorMessage(error?: string): string | null {
+  if (error === "complete-failed") return "Non è stato possibile completare lo stop.";
+  if (error === "skip-failed") return "Non è stato possibile saltare lo stop.";
+  if (error === "route-complete-failed") return "Non è stato possibile completare la rotta.";
+  return null;
 }
 
 export default async function RouteProDrivePage({ params, searchParams }: Props) {
@@ -148,9 +221,7 @@ export default async function RouteProDrivePage({ params, searchParams }: Props)
   const resolvedSearchParams = await searchParams;
   const route = await getMyRouteProRouteDetail(routeId);
 
-  if (!route) {
-    notFound();
-  }
+  if (!route) notFound();
 
   const completedStops = route.stops.filter((stop) => stop.status === "completed");
   const skippedStops = route.stops.filter((stop) => stop.status === "skipped");
@@ -160,381 +231,179 @@ export default async function RouteProDrivePage({ params, searchParams }: Props)
 
   const currentStop = executableStops[0];
   const nextStop = executableStops[1];
-
   const currentStopLat = currentStop?.lat ?? null;
   const currentStopLng = currentStop?.lng ?? null;
-
-  const currentClusterStops = getClusterStopsForCurrentStop(
-    currentStop,
-    route.stops,
-  );
+  const currentClusterStops = getClusterStopsForCurrentStop(currentStop, route.stops);
   const isClusteredDelivery = currentClusterStops.length > 1;
-
   const totalStops = route.stops.length;
   const doneCount = completedStops.length + skippedStops.length;
   const remainingCount = executableStops.length;
   const progressPercent = getProgressPercent(doneCount, totalStops);
   const isRouteCompleted = route.status === "completed";
-
   const errorMessage = getErrorMessage(resolvedSearchParams?.error);
-
-  const showBottomBar =
-    !isRouteCompleted &&
-    currentStop !== undefined &&
-    currentStopLat !== null &&
-    currentStopLng !== null;
+  const showActionDock =
+    !isRouteCompleted && currentStop !== undefined && currentStopLat !== null && currentStopLng !== null;
 
   return (
-    <div style={{ paddingBottom: showBottomBar ? 110 : 0 }}>
+    <div style={{ paddingBottom: showActionDock ? 150 : 0 }}>
       <RouteProWorkflowShell
         routeId={routeId}
         currentStep="Drive"
-        title="Drive route"
-        subtitle="Navigate, complete and manage your delivery workflow stop by stop."
+        title="Driver Command Center"
+        subtitle="Tutto ciò che serve durante la consegna, senza distrazioni."
       >
         {resolvedSearchParams?.completed === "1" ? (
-          <div style={successStyle}>Stop completed. Move to the next delivery.</div>
+          <div style={{ ...noticeStyle, background: "rgba(34,197,94,0.14)", border: "1px solid rgba(74,222,128,0.26)", color: "#bbf7d0" }}>
+            Stop completato. Il prossimo indirizzo è già pronto.
+          </div>
         ) : null}
 
         {resolvedSearchParams?.skipped === "1" ? (
-          <div style={successStyle}>Stop skipped. Continue your workflow.</div>
-        ) : null}
-
-        {resolvedSearchParams?.routeCompleted === "1" ? (
-          <div style={successStyle}>Route completed successfully.</div>
-        ) : null}
-
-        {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
-
-        <div style={{ ...ui.card.base, marginTop: 18 }}>
-          <p style={ui.page.eyebrow}>Driver progress</p>
-          <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>
-            {progressPercent}% completed
-          </h2>
-
-          <div style={progressTrackStyle}>
-            <div style={getProgressFillStyle(progressPercent)} />
+          <div style={{ ...noticeStyle, background: "rgba(245,158,11,0.12)", border: "1px solid rgba(251,191,36,0.24)", color: "#fde68a" }}>
+            Stop saltato. Puoi continuare la rotta.
           </div>
+        ) : null}
 
-          <p style={mutedTextStyle}>
-            {doneCount} handled · {remainingCount} ready to drive · {totalStops} total stops
-          </p>
-        </div>
-
-        <div style={gridStyle}>
-          <article style={cardStyle}>
-            <p style={ui.page.eyebrow}>Handled</p>
-            <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>
-              {doneCount}/{totalStops}
-            </h2>
-          </article>
-
-          <article style={cardStyle}>
-            <p style={ui.page.eyebrow}>Remaining</p>
-            <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>{remainingCount}</h2>
-          </article>
-
-          <article style={cardStyle}>
-            <p style={ui.page.eyebrow}>Skipped</p>
-            <h2 style={{ margin: "8px 0 0", fontSize: 30 }}>
-              {skippedStops.length}
-            </h2>
-          </article>
-        </div>
+        {errorMessage ? (
+          <div style={{ ...noticeStyle, background: "rgba(244,63,94,0.12)", border: "1px solid rgba(251,113,133,0.24)", color: "#fecdd3" }}>
+            {errorMessage}
+          </div>
+        ) : null}
 
         {isRouteCompleted ? (
-          <div style={{ ...ui.card.base, marginTop: 24 }}>
-            <h2 style={ui.page.sectionTitle}>Route completed</h2>
-            <p style={mutedTextStyle}>
-              You handled {doneCount} stops out of {totalStops}.
-            </p>
-
-            <div style={actionsStyle}>
-              <Link
-                href={`/app/routepro/routes/${route.id}/summary`}
-                style={routeProUi.primaryButton}
-              >
-                View summary
+          <section style={commandCardStyle}>
+            <div style={{ padding: "clamp(28px,7vw,54px)", textAlign: "center" }}>
+              <p style={{ ...eyebrowStyle, color: "#86efac" }}>Rotta conclusa</p>
+              <div style={{ marginTop: 14, color: "#4ade80", fontSize: 64, lineHeight: 1, fontWeight: 950 }}>✓</div>
+              <h2 style={{ margin: "14px 0 0", color: "#ffffff", fontSize: "clamp(30px,8vw,52px)", lineHeight: 1, fontWeight: 950, letterSpacing: "-0.05em" }}>
+                Ottimo lavoro
+              </h2>
+              <p style={{ margin: "12px auto 0", maxWidth: 560, color: "#94a3b8", fontSize: 15, lineHeight: 1.55, fontWeight: 700 }}>
+                Hai gestito {doneCount} stop su {totalStops}.
+              </p>
+              <Link href={`/app/routepro/routes/${route.id}/summary`} style={{ ...routeProUi.primaryButton, marginTop: 24, minHeight: 56, padding: "0 24px", borderRadius: 17 }}>
+                Apri il riepilogo
               </Link>
             </div>
-          </div>
+          </section>
         ) : !currentStop || currentStopLat === null || currentStopLng === null ? (
-          <div style={{ ...ui.card.base, marginTop: 24 }}>
-            <h2 style={ui.page.sectionTitle}>No more verified stops</h2>
-            <p style={mutedTextStyle}>
-              Complete the route when your delivery workflow is finished.
-            </p>
-
-            <form action={completeRouteProRoute} style={{ marginTop: 18 }}>
-              <input type="hidden" name="route_id" value={route.id} />
-
-              <button
-                type="submit"
-                style={{
-                  ...routeProUi.primaryButton,
-                  width: "100%",
-                  padding: "18px",
-                  fontSize: 18,
-                  borderRadius: 14,
-                }}
-              >
-                Complete route
-              </button>
-            </form>
-          </div>
+          <section style={commandCardStyle}>
+            <div style={{ padding: "clamp(24px,6vw,42px)" }}>
+              <p style={eyebrowStyle}>Fine degli stop verificati</p>
+              <h2 style={{ margin: "9px 0 0", color: "#ffffff", fontSize: "clamp(28px,7vw,44px)", lineHeight: 1.05, fontWeight: 950, letterSpacing: "-0.045em" }}>
+                La rotta è pronta per essere chiusa
+              </h2>
+              <form action={completeRouteProRoute} style={{ marginTop: 24 }}>
+                <input type="hidden" name="route_id" value={route.id} />
+                <button type="submit" style={{ ...routeProUi.primaryButton, width: "100%", minHeight: 62, borderRadius: 18, fontSize: 17 }}>
+                  Completa la rotta
+                </button>
+              </form>
+            </div>
+          </section>
         ) : (
           <>
-            <div style={{ ...ui.card.base, marginTop: 24 }}>
-              <p style={ui.page.eyebrow}>Current delivery</p>
-
-              <div style={bigStopNumberStyle}>#{currentStop.position}</div>
-
-              <p style={mutedTextStyle}>
-                Original stop: <strong>{currentStop.original_position}</strong>
-              </p>
-
-              {isClusteredDelivery ? (
-                <div
-                  style={{
-                    ...ui.card.base,
-                    marginTop: 16,
-                    padding: 14,
-                    background: "#f8fafc",
-                  }}
-                >
-                  <p
-  style={{
-    margin: 0,
-    fontSize: 13,
-    fontWeight: 900,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    color: "#1d4ed8",
-  }}
->
-  📦 Cluster Delivery
-</p>
-
-                  <p style={mutedTextStyle}>
-                    Original stops:{" "}
-                    <strong>
-                      {currentClusterStops
-                        .map((stop) => stop.original_position)
-                        .join(" • ")}
-                    </strong>
-                  </p>
-
-                  <p
-  style={{
-    marginTop: 10,
-    fontSize: 18,
-    fontWeight: 900,
-    color: "#0f172a",
-  }}
->
-  {currentClusterStops.length} deliveries at this location
-</p>
-
-<div
-  style={{
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 12,
-  }}
->
-  {currentClusterStops.map((stop) => (
-    <span
-      key={stop.id}
-      style={{
-        padding: "6px 12px",
-        borderRadius: 999,
-        background: "#0f172a",
-        color: "#ffffff",
-        fontWeight: 800,
-        fontSize: 13,
-      }}
-    >
-      STOP #{stop.original_position}
-    </span>
-  ))}
-</div>
+            <section style={commandCardStyle}>
+              <div style={commandHeaderStyle}>
+                <p style={eyebrowStyle}>Stop corrente</p>
+                <div style={stopGridStyle}>
+                  <div style={numberCardStyle}>
+                    <p style={{ ...eyebrowStyle, color: "#fb923c" }}>Ordine RoutePro</p>
+                    <div style={numberStyle}>{currentStop.position}</div>
+                  </div>
+                  <div style={numberCardStyle}>
+                    <p style={eyebrowStyle}>Numero originale</p>
+                    <div style={numberStyle}>{currentStop.original_position}</div>
+                  </div>
                 </div>
-              ) : null}
-
-              <div style={addressStyle}>{currentStop.address}</div>
-
-              <div style={mobileActionsStyle}>
-                <a
-                  href={getGoogleMapsUrl(currentStopLat, currentStopLng)}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    ...routeProUi.primaryButton,
-                    padding: "18px",
-                    fontSize: 17,
-                    borderRadius: 16,
-                    textAlign: "center",
-                  }}
-                >
-                  Open Google Maps
-                </a>
-
-                <a
-                  href={getWazeUrl(currentStopLat, currentStopLng)}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    ...routeProUi.secondaryButton,
-                    padding: "18px",
-                    fontSize: 17,
-                    borderRadius: 16,
-                    textAlign: "center",
-                  }}
-                >
-                  Open Waze
-                </a>
               </div>
 
-              <div style={mobileActionsStyle}>
-                <form action={completeRouteProStop}>
-                  <input type="hidden" name="route_id" value={route.id} />
-                  <input type="hidden" name="stop_id" value={currentStop.id} />
+              <div style={addressPanelStyle}>
+                <p style={eyebrowStyle}>Destinazione</p>
+                <div style={addressStyle}>{currentStop.address}</div>
 
-                  <button
-                    type="submit"
-                    style={{
-                      ...routeProUi.primaryButton,
-                      width: "100%",
-                      padding: "20px",
-                      fontSize: 18,
-                      borderRadius: 16,
-                    }}
-                  >
-                    Complete stop
-                  </button>
-                </form>
-
-                <form action={skipRouteProStop}>
-                  <input type="hidden" name="route_id" value={route.id} />
-                  <input type="hidden" name="stop_id" value={currentStop.id} />
-
-                  <button
-                    type="submit"
-                    style={{
-                      ...routeProUi.secondaryButton,
-                      width: "100%",
-                      padding: "20px",
-                      fontSize: 18,
-                      borderRadius: 16,
-                    }}
-                  >
-                    Skip stop
-                  </button>
-                </form>
+                {isClusteredDelivery ? (
+                  <div style={clusterStyle}>
+                    <p style={{ ...eyebrowStyle, color: "#93c5fd" }}>Consegna multipla</p>
+                    <p style={{ margin: "7px 0 0", color: "#ffffff", fontSize: 20, lineHeight: 1.25, fontWeight: 950 }}>
+                      {currentClusterStops.length} consegne allo stesso indirizzo
+                    </p>
+                    <div style={chipRowStyle}>
+                      {currentClusterStops.map((stop) => (
+                        <span key={stop.id} style={chipStyle}>Stop {stop.original_position}</span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
-            </div>
+
+              <div style={progressSectionStyle}>
+                <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14 }}>
+                  <div>
+                    <p style={eyebrowStyle}>Avanzamento rotta</p>
+                    <div style={{ marginTop: 5, color: "#ffffff", fontSize: 27, lineHeight: 1, fontWeight: 950 }}>{progressPercent}%</div>
+                  </div>
+                  <div style={{ color: "#cbd5e1", fontSize: 13, lineHeight: 1.35, fontWeight: 850, textAlign: "right" }}>
+                    {doneCount} gestiti<br />{totalStops} totali
+                  </div>
+                </div>
+
+                <div role="progressbar" aria-label="Avanzamento della rotta" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent} style={progressTrackStyle}>
+                  <div style={{ width: `${progressPercent}%`, height: "100%", borderRadius: 999, background: "linear-gradient(90deg,#f97316 0%,#22c55e 100%)" }} />
+                </div>
+
+                <div style={metricsGridStyle}>
+                  <div style={metricStyle}><p style={eyebrowStyle}>Rimanenti</p><div style={{ marginTop: 5, color: "#ffffff", fontSize: 25, fontWeight: 950 }}>{remainingCount}</div></div>
+                  <div style={metricStyle}><p style={eyebrowStyle}>Completati</p><div style={{ marginTop: 5, color: "#ffffff", fontSize: 25, fontWeight: 950 }}>{completedStops.length}</div></div>
+                  <div style={metricStyle}><p style={eyebrowStyle}>Saltati</p><div style={{ marginTop: 5, color: "#ffffff", fontSize: 25, fontWeight: 950 }}>{skippedStops.length}</div></div>
+                </div>
+              </div>
+
+              <div style={navigationGridStyle}>
+                <a href={getGoogleMapsUrl(currentStopLat, currentStopLng)} target="_blank" rel="noreferrer" style={{ ...routeProUi.primaryButton, ...navButtonStyle }}>
+                  Apri Google Maps
+                </a>
+                <a href={getWazeUrl(currentStopLat, currentStopLng)} target="_blank" rel="noreferrer" style={{ ...routeProUi.secondaryButton, ...navButtonStyle, background: "rgba(255,255,255,0.055)", border: "1px solid rgba(148,163,184,0.2)", color: "#ffffff" }}>
+                  Apri Waze
+                </a>
+              </div>
+            </section>
 
             {nextStop ? (
-              <div style={{ ...ui.card.base, marginTop: 18 }}>
-                <p style={ui.page.eyebrow}>Next delivery preview</p>
-                <div
-  style={{
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 10,
-    marginTop: 10,
-  }}
->
-  <span
-    style={{
-      padding: "6px 12px",
-      borderRadius: 999,
-      background: "#0f172a",
-      color: "#fff",
-      fontWeight: 800,
-    }}
-  >
-    STOP #{nextStop.original_position}
-  </span>
-
-  <span
-    style={{
-      padding: "6px 12px",
-      borderRadius: 999,
-      background: "#dbeafe",
-      color: "#1d4ed8",
-      fontWeight: 800,
-    }}
-  >
-    OPT #{nextStop.position}
-  </span>
-</div>
-                <p style={mutedTextStyle}>{nextStop.address}</p>
-              </div>
+              <section style={nextCardStyle}>
+                <p style={eyebrowStyle}>Prossimo stop</p>
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 9, marginTop: 10 }}>
+                  <span style={chipStyle}>Originale {nextStop.original_position}</span>
+                  <span style={{ ...chipStyle, background: "#ffedd5", color: "#9a3412" }}>RoutePro {nextStop.position}</span>
+                </div>
+                <p style={{ margin: "13px 0 0", color: "#ffffff", fontSize: "clamp(20px,5vw,29px)", lineHeight: 1.2, fontWeight: 900, overflowWrap: "anywhere" }}>
+                  {nextStop.address}
+                </p>
+              </section>
             ) : null}
+
+            <div style={secondaryActionsStyle}>
+              <form action={skipRouteProStop}>
+                <input type="hidden" name="route_id" value={route.id} />
+                <input type="hidden" name="stop_id" value={currentStop.id} />
+                <button type="submit" style={{ ...routeProUi.secondaryButton, minHeight: 42, borderRadius: 13, background: "transparent", color: "#cbd5e1" }}>
+                  Salta questo stop
+                </button>
+              </form>
+            </div>
           </>
         )}
 
-        <div style={actionsStyle}>
-          <Link
-            href={`/app/routepro/routes/${route.id}/optimize`}
-            style={routeProUi.secondaryButton}
-          >
-            Back to optimize
-          </Link>
-
-          <Link
-            href={`/app/routepro/routes/${route.id}/summary`}
-            style={routeProUi.secondaryButton}
-          >
-            Daily summary
-          </Link>
-
-          <Link href={`/app/routepro/${route.id}/execute`} style={routeProUi.secondaryButton}>
-            Classic execution
-          </Link>
+        <div style={secondaryActionsStyle}>
+          <Link href={`/app/routepro/routes/${route.id}/optimize`} style={routeProUi.secondaryButton}>Torna a ottimizzazione</Link>
+          <Link href={`/app/routepro/routes/${route.id}/summary`} style={routeProUi.secondaryButton}>Riepilogo</Link>
         </div>
       </RouteProWorkflowShell>
 
-      {showBottomBar ? (
-        <div style={bottomBarStyle}>
-          <div style={bottomBarInnerStyle}>
-            <form action={completeRouteProStop}>
-              <input type="hidden" name="route_id" value={route.id} />
-              <input type="hidden" name="stop_id" value={currentStop.id} />
-
-              <button
-                type="submit"
-                style={{
-                  ...routeProUi.primaryButton,
-                  width: "100%",
-                  padding: "18px",
-                  fontSize: 17,
-                  borderRadius: 14,
-                }}
-              >
-                Complete
-              </button>
-            </form>
-
-            <form action={skipRouteProStop}>
-              <input type="hidden" name="route_id" value={route.id} />
-              <input type="hidden" name="stop_id" value={currentStop.id} />
-
-              <button
-                type="submit"
-                style={{
-                  ...routeProUi.secondaryButton,
-                  width: "100%",
-                  padding: "18px",
-                  fontSize: 17,
-                  borderRadius: 14,
-                }}
-              >
-                Skip
-              </button>
-            </form>
+      {showActionDock ? (
+        <div style={actionDockStyle}>
+          <div style={actionDockInnerStyle}>
+            <RouteProCompleteSlider action={completeRouteProStop} routeId={route.id} stopId={currentStop.id} />
           </div>
         </div>
       ) : null}

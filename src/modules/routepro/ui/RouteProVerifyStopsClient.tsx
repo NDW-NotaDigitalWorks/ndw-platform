@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
+import type { CSSProperties } from "react";
 
 type Stop = {
   id: string;
@@ -12,40 +13,42 @@ type Stop = {
   lng: number | null;
 };
 
-const cardStyle: React.CSSProperties = {
-  borderRadius: 22,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "linear-gradient(180deg,#172033 0%,#111827 100%)",
-  padding: 16,
-  boxShadow: "0 18px 42px rgba(0,0,0,0.2)",
+const panelStyle: CSSProperties = {
+  borderRadius: 20,
+  border: "1px solid rgba(255,255,255,0.075)",
+  background:
+    "linear-gradient(180deg,rgba(30,41,59,0.94) 0%,rgba(15,23,42,0.98) 100%)",
+  padding: "16px clamp(14px, 2vw, 18px)",
+  boxShadow: "0 16px 38px rgba(0,0,0,0.18)",
 };
 
-const rowStyle: React.CSSProperties = {
+const compactRowStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "110px minmax(0,1fr) 150px",
+  gridTemplateColumns: "104px minmax(0,1fr) auto",
   gap: 12,
   alignItems: "center",
-  padding: "12px 14px",
-  borderRadius: 16,
-  border: "1px solid rgba(255,255,255,0.08)",
-  background: "rgba(255,255,255,0.045)",
+  padding: "11px 12px",
+  borderRadius: 15,
+  border: "1px solid rgba(255,255,255,0.07)",
+  background: "rgba(255,255,255,0.035)",
 };
 
-const stopNumberStyle: React.CSSProperties = {
+const stopNumberStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  minWidth: 82,
-  padding: "7px 10px",
+  minWidth: 76,
+  padding: "6px 9px",
   borderRadius: 999,
-  background: "rgba(59,130,246,0.14)",
+  background: "rgba(59,130,246,0.12)",
   color: "#bfdbfe",
-  border: "1px solid rgba(96,165,250,0.24)",
-  fontSize: 13,
+  border: "1px solid rgba(96,165,250,0.22)",
+  fontSize: 12,
   fontWeight: 950,
+  whiteSpace: "nowrap",
 };
 
-const addressStyle: React.CSSProperties = {
+const addressStyle: CSSProperties = {
   color: "#ffffff",
   fontSize: 14,
   fontWeight: 850,
@@ -53,69 +56,99 @@ const addressStyle: React.CSSProperties = {
   overflowWrap: "anywhere",
 };
 
-const detailStyle: React.CSSProperties = {
-  marginTop: 4,
+const detailStyle: CSSProperties = {
+  marginTop: 3,
   color: "#94a3b8",
-  fontSize: 12,
+  fontSize: 11,
+  lineHeight: 1.35,
   fontWeight: 750,
 };
 
-const searchStyle: React.CSSProperties = {
+const searchWrapperStyle: CSSProperties = {
+  position: "relative",
+  display: "flex",
+  alignItems: "center",
+};
+
+const searchIconStyle: CSSProperties = {
+  position: "absolute",
+  left: 16,
+  color: "#64748b",
+  fontSize: 15,
+  fontWeight: 950,
+  pointerEvents: "none",
+};
+
+const searchStyle: CSSProperties = {
   width: "100%",
-  minHeight: 52,
+  minHeight: 50,
   boxSizing: "border-box",
-  borderRadius: 18,
-  border: "1px solid rgba(255,255,255,0.1)",
-  background: "linear-gradient(180deg,#172033 0%,#111827 100%)",
-  padding: "0 16px",
+  borderRadius: 16,
+  border: "1px solid rgba(148,163,184,0.18)",
+  background:
+    "linear-gradient(180deg,rgba(30,41,59,0.92) 0%,rgba(15,23,42,0.98) 100%)",
+  padding: "0 46px 0 43px",
   color: "#ffffff",
   fontSize: 14,
   fontWeight: 700,
   outline: "none",
-  boxShadow: "0 14px 34px rgba(0,0,0,0.18)",
+  boxShadow: "0 12px 30px rgba(0,0,0,0.16)",
 };
 
-const verifiedBadgeStyle: React.CSSProperties = {
+const clearButtonStyle: CSSProperties = {
+  position: "absolute",
+  right: 9,
   display: "inline-flex",
-  justifyContent: "center",
-  padding: "7px 10px",
-  borderRadius: 999,
-  background: "rgba(34,197,94,0.12)",
-  color: "#bbf7d0",
-  border: "1px solid rgba(74,222,128,0.24)",
-  fontSize: 12,
-  fontWeight: 950,
-};
-
-const warningBadgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  justifyContent: "center",
-  padding: "7px 10px",
-  borderRadius: 999,
-  background: "rgba(245,158,11,0.12)",
-  color: "#fde68a",
-  border: "1px solid rgba(251,191,36,0.26)",
-  fontSize: 12,
-  fontWeight: 950,
-};
-
-const verifyIssueCardStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 12,
-  padding: 14,
-  borderRadius: 18,
-  background:
-    "linear-gradient(180deg,rgba(245,158,11,0.1) 0%,rgba(15,23,42,0.72) 100%)",
-  border: "1px solid rgba(251,191,36,0.24)",
-  overflow: "hidden",
-};
-
-const verifyIssueTopRowStyle: React.CSSProperties = {
-  display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: 10,
-  flexWrap: "wrap",
+  justifyContent: "center",
+  width: 32,
+  height: 32,
+  padding: 0,
+  borderRadius: 10,
+  border: "1px solid rgba(148,163,184,0.16)",
+  background: "rgba(255,255,255,0.045)",
+  color: "#cbd5e1",
+  fontSize: 16,
+  fontWeight: 900,
+  cursor: "pointer",
+};
+
+const verifiedBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  justifyContent: "center",
+  padding: "6px 9px",
+  borderRadius: 999,
+  background: "rgba(34,197,94,0.11)",
+  color: "#bbf7d0",
+  border: "1px solid rgba(74,222,128,0.22)",
+  fontSize: 11,
+  fontWeight: 950,
+  whiteSpace: "nowrap",
+};
+
+const warningBadgeStyle: CSSProperties = {
+  display: "inline-flex",
+  justifyContent: "center",
+  padding: "6px 9px",
+  borderRadius: 999,
+  background: "rgba(245,158,11,0.11)",
+  color: "#fde68a",
+  border: "1px solid rgba(251,191,36,0.24)",
+  fontSize: 11,
+  fontWeight: 950,
+  whiteSpace: "nowrap",
+};
+
+const issueRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "104px minmax(0,1fr) auto",
+  gap: 12,
+  alignItems: "center",
+  padding: "12px",
+  borderRadius: 15,
+  background:
+    "linear-gradient(90deg,rgba(245,158,11,0.075) 0%,rgba(15,23,42,0.52) 100%)",
+  border: "1px solid rgba(251,191,36,0.2)",
 };
 
 function hasCoordinates(stop: Stop): boolean {
@@ -180,86 +213,97 @@ export function RouteProVerifyStopsClient({
     <div
       style={{
         display: "grid",
-        gap: 16,
-        marginTop: 22,
+        gap: 14,
+        marginTop: 18,
       }}
     >
-      <input
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Cerca numero originale, posizione o indirizzo..."
-        style={searchStyle}
-      />
+      <div style={searchWrapperStyle}>
+        <span aria-hidden="true" style={searchIconStyle}>
+          ⌕
+        </span>
+
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Cerca numero originale, posizione o indirizzo..."
+          aria-label="Cerca tra gli indirizzi della rotta"
+          style={searchStyle}
+        />
+
+        {query ? (
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            aria-label="Cancella ricerca"
+            style={clearButtonStyle}
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
 
       {totalIssueStops > 0 ? (
-        <section style={cardStyle}>
-          <h3
+        <section style={panelStyle}>
+          <div
             style={{
-              margin: 0,
-              color: "#ffffff",
-              fontSize: 18,
-              fontWeight: 950,
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 10,
             }}
           >
-            Indirizzi da geolocalizzare ({issueStops.length})
-          </h3>
+            <div>
+              <h3
+                style={{
+                  margin: 0,
+                  color: "#ffffff",
+                  fontSize: 17,
+                  lineHeight: 1.25,
+                  fontWeight: 950,
+                }}
+              >
+                Indirizzi da verificare
+              </h3>
 
-          <p
-            style={{
-              margin: "7px 0 0",
-              color: "#94a3b8",
-              fontSize: 13,
-              lineHeight: 1.5,
-              fontWeight: 700,
-            }}
-          >
-            Controlla gli indirizzi ancora privi di coordinate valide.
-          </p>
+              <p
+                style={{
+                  margin: "5px 0 0",
+                  color: "#94a3b8",
+                  fontSize: 12,
+                  lineHeight: 1.45,
+                  fontWeight: 700,
+                }}
+              >
+                Stop ancora privi di coordinate valide o che richiedono attenzione.
+              </p>
+            </div>
+
+            <span style={warningBadgeStyle}>
+              {issueStops.length} visibili
+            </span>
+          </div>
 
           {issueStops.length > 0 ? (
             <div
               style={{
                 display: "grid",
-                gap: 12,
-                marginTop: 14,
-                maxHeight: 520,
+                gap: 8,
+                marginTop: 13,
+                maxHeight: 500,
                 overflowY: "auto",
-                paddingRight: 6,
+                paddingRight: 5,
               }}
             >
               {issueStops.map((stop) => (
-                <div key={stop.id} style={verifyIssueCardStyle}>
-                  <div style={verifyIssueTopRowStyle}>
-                    <span style={stopNumberStyle}>
-                      Orig. #{stop.original_position ?? stop.position}
-                    </span>
-
-                    <span style={warningBadgeStyle}>
-                      {hasCoordinates(stop)
-                        ? "Verifica richiesta"
-                        : "Da geolocalizzare"}
-                    </span>
-                  </div>
+                <div key={stop.id} style={issueRowStyle}>
+                  <span style={stopNumberStyle}>
+                    Orig. #{stop.original_position ?? stop.position}
+                  </span>
 
                   <div style={{ minWidth: 0 }}>
                     <div style={addressStyle}>
                       {stop.address ?? "Indirizzo non disponibile"}
-                    </div>
-
-                    <div
-                      style={{
-                        marginTop: 6,
-                        display: "inline-flex",
-                        padding: "4px 10px",
-                        borderRadius: 999,
-                        background: "rgba(245,158,11,0.12)",
-                        color: "#fde68a",
-                        border: "1px solid rgba(251,191,36,0.2)",
-                        fontSize: 11,
-                        fontWeight: 900,
-                      }}
-                    >
-                      Geolocalizzazione richiesta
                     </div>
 
                     <div style={detailStyle}>
@@ -272,46 +316,41 @@ export function RouteProVerifyStopsClient({
                         : "Coordinate mancanti"}
                     </div>
                   </div>
+
+                  <span style={warningBadgeStyle}>
+                    {hasCoordinates(stop)
+                      ? "Da controllare"
+                      : "Da geolocalizzare"}
+                  </span>
                 </div>
               ))}
             </div>
           ) : (
             <div
               style={{
-                marginTop: 14,
-                padding: "14px 16px",
-                borderRadius: 16,
-                background: "rgba(34,197,94,0.1)",
-                border: "1px solid rgba(74,222,128,0.22)",
+                marginTop: 13,
+                padding: "13px 15px",
+                borderRadius: 15,
+                background: "rgba(34,197,94,0.09)",
+                border: "1px solid rgba(74,222,128,0.2)",
               }}
             >
               <p
                 style={{
                   margin: 0,
                   color: "#d1fae5",
+                  fontSize: 13,
                   fontWeight: 900,
                 }}
               >
-                Nessun risultato da verificare.
-              </p>
-
-              <p
-                style={{
-                  margin: "5px 0 0",
-                  color: "#a7f3d0",
-                  fontSize: 13,
-                  fontWeight: 700,
-                }}
-              >
-                Modifica o cancella la ricerca per visualizzare gli altri
-                indirizzi.
+                Nessun indirizzo da verificare corrisponde alla ricerca.
               </p>
             </div>
           )}
         </section>
       ) : null}
 
-      <section style={cardStyle}>
+      <section style={panelStyle}>
         <button
           type="button"
           onClick={() => setShowVerified((value) => !value)}
@@ -329,25 +368,48 @@ export function RouteProVerifyStopsClient({
             textAlign: "left",
           }}
         >
-          <span
-            style={{
-              color: "#ffffff",
-              fontSize: 18,
-              fontWeight: 950,
-            }}
-          >
-            Indirizzi geolocalizzati ({totalVerifiedStops})
+          <span>
+            <span
+              style={{
+                display: "block",
+                color: "#ffffff",
+                fontSize: 17,
+                lineHeight: 1.25,
+                fontWeight: 950,
+              }}
+            >
+              Indirizzi geolocalizzati
+            </span>
+
+            <span
+              style={{
+                display: "block",
+                marginTop: 4,
+                color: "#94a3b8",
+                fontSize: 12,
+                lineHeight: 1.4,
+                fontWeight: 700,
+              }}
+            >
+              {totalVerifiedStops} stop pronti per l'ottimizzazione
+            </span>
           </span>
 
           <span
             style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 7,
               color: "#93c5fd",
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 900,
               whiteSpace: "nowrap",
             }}
           >
-            {showVerified ? "Nascondi elenco" : "Mostra elenco"}
+            {showVerified ? "Nascondi" : "Mostra"}
+            <span aria-hidden="true">
+              {showVerified ? "▲" : "▼"}
+            </span>
           </span>
         </button>
 
@@ -356,15 +418,15 @@ export function RouteProVerifyStopsClient({
             <div
               style={{
                 display: "grid",
-                gap: 8,
-                marginTop: 14,
-                maxHeight: 560,
+                gap: 7,
+                marginTop: 13,
+                maxHeight: 540,
                 overflowY: "auto",
-                paddingRight: 6,
+                paddingRight: 5,
               }}
             >
               {verifiedStops.map((stop) => (
-                <div key={stop.id} style={rowStyle}>
+                <div key={stop.id} style={compactRowStyle}>
                   <span style={stopNumberStyle}>
                     Orig. #{stop.original_position ?? stop.position}
                   </span>
@@ -375,11 +437,7 @@ export function RouteProVerifyStopsClient({
                     </div>
 
                     <div style={detailStyle}>
-                      Posizione RoutePro #{stop.position}
-                    </div>
-
-                    <div style={detailStyle}>
-                      Coordinate valide · pronto per l’ottimizzazione
+                      Posizione RoutePro #{stop.position} · Coordinate valide
                     </div>
                   </div>
 
@@ -394,25 +452,30 @@ export function RouteProVerifyStopsClient({
               style={{
                 margin: "12px 0 0",
                 color: "#94a3b8",
+                fontSize: 13,
                 fontWeight: 700,
               }}
             >
               Nessun indirizzo geolocalizzato corrisponde alla ricerca.
             </p>
           )
-        ) : (
-          <p
-            style={{
-              margin: "10px 0 0",
-              color: "#94a3b8",
-              fontWeight: 700,
-            }}
-          >
-            Elenco chiuso per evitare scroll inutile. Aprilo solo per
-            controllare un indirizzo specifico.
-          </p>
-        )}
+        ) : null}
       </section>
+
+      <style jsx>{`
+        input:focus {
+          border-color: rgba(96, 165, 250, 0.58) !important;
+          box-shadow:
+            0 0 0 4px rgba(59, 130, 246, 0.1),
+            0 14px 34px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        @media (max-width: 720px) {
+          section div[style*="grid-template-columns: 104px"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

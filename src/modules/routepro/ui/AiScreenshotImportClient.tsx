@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
@@ -397,6 +397,7 @@ needsReviewReason: isStillPlaceholder
           shiftStartTime: routeDraft?.shiftStartTime,
           shiftEndTime: routeDraft?.shiftEndTime,
           breakMinutes: routeDraft?.breakMinutes,
+          boundaryMode: "auto",
         }),
       });
 

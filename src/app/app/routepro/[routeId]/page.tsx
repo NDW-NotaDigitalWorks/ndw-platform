@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   addBulkRouteProStops,
@@ -6,8 +6,6 @@ import {
   addManualRouteProStop,
   deleteRouteProRoute,
   deleteRouteProStop,
-  geocodeRouteProStops,
-  optimizeRouteProRoute,
   updateRouteProStopAddress,
 } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
@@ -795,6 +793,40 @@ const readyStopsCount = readyStops.length;
 
   const minutesPerStop = getMinutesPerStop(requiredStopsPerHour);
 
+  const workflowCompleted = route.status === "completed";
+
+  let workflowHref = `/app/routepro/routes/${route.id}/review`;
+  let workflowCurrentState = "Controllo degli stop";
+  let workflowNextAction = "Apri la Review";
+  let workflowStatusLabel = "Da controllare";
+
+  if (workflowCompleted) {
+    workflowHref = `/app/routepro/routes/${route.id}/summary`;
+    workflowCurrentState = "Workflow completato";
+    workflowNextAction = "Visualizza il riepilogo";
+    workflowStatusLabel = "Completato";
+  } else if (route.is_optimized) {
+    workflowHref = `/app/routepro/routes/${route.id}/drive`;
+    workflowCurrentState = "Percorso ottimizzato";
+    workflowNextAction = "Avvia la navigazione";
+    workflowStatusLabel = "Pronta alla guida";
+  } else if (needsReviewCount > 0) {
+    workflowHref = `/app/routepro/routes/${route.id}/review`;
+    workflowCurrentState = `${needsReviewCount} stop da correggere`;
+    workflowNextAction = "Continua la Review";
+    workflowStatusLabel = "Richiede attenzione";
+  } else if (rawStops > 0) {
+    workflowHref = `/app/routepro/routes/${route.id}/verify`;
+    workflowCurrentState = `${rawStops} indirizzi da verificare`;
+    workflowNextAction = "Verifica gli indirizzi";
+    workflowStatusLabel = "Da verificare";
+  } else if (validStops >= 2) {
+    workflowHref = `/app/routepro/routes/${route.id}/optimize`;
+    workflowCurrentState = `${validStops} stop verificati`;
+    workflowNextAction = "Ottimizza il percorso";
+    workflowStatusLabel = "Pronta";
+  }
+
   return (
     <section style={ui.page.section}>
       <RouteProHeader subtitle="Import your stops. Review your route. Drive smarter." />
@@ -873,8 +905,8 @@ const readyStopsCount = readyStops.length;
           Rotte
         </Link>
 
-        <Link href={`/app/routepro/routes/${route.id}/review`} style={routeProUi.primaryButton}>
-          Apri Workflow V2
+        <Link href={workflowHref} style={routeProUi.primaryButton}>
+          Continua Workflow
         </Link>
 
         <Link href={`/app/routepro/${route.id}/execute`} style={routeProUi.secondaryButton}>
@@ -1047,74 +1079,137 @@ const readyStopsCount = readyStops.length;
       </section>
 
       <section style={premiumPanelStyle}>
-        <p style={premiumPanelTitleStyle}>Route Workflow</p>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 16,
+          }}
+        >
+          <div style={{ flex: "1 1 420px", minWidth: 0 }}>
+            <p style={premiumPanelTitleStyle}>Workflow RoutePro</p>
 
-        <div style={premiumGridStyle}>
-          <div style={darkActionCardStyle}>
-            <div style={darkActionIconStyle}>✓</div>
-            <h3 style={darkActionTitleStyle}>Verify</h3>
-            <p style={darkActionTextStyle}>
-              Trasforma gli indirizzi in coordinate e segnala gli stop da rivedere.
+            <h2
+              style={{
+                margin: "10px 0 0",
+                color: "#ffffff",
+                fontSize: "clamp(22px, 3vw, 32px)",
+                lineHeight: 1.1,
+                fontWeight: 950,
+                letterSpacing: "-0.035em",
+              }}
+            >
+              {workflowCurrentState}
+            </h2>
+
+            <p
+              style={{
+                margin: "9px 0 0",
+                maxWidth: 680,
+                color: "#cbd5e1",
+                fontSize: 14,
+                lineHeight: 1.55,
+                fontWeight: 700,
+              }}
+            >
+              Continua dal punto corretto senza ripetere operazioni già completate.
             </p>
-
-            <span style={workflowStatusBadgeStyle}>
-              {rawStops > 0 ? "Da verificare" : "Verificato"}
-            </span>
-
-            <form action={geocodeRouteProStops} style={{ marginTop: 16 }}>
-              <input type="hidden" name="route_id" value={route.id} />
-
-              <RouteProSubmitButton
-                idleLabel="Verifica indirizzi"
-                pendingLabel="Riconoscimento in corso..."
-              />
-            </form>
           </div>
 
-          <div style={darkActionCardStyle}>
-            <div style={darkActionIconStyle}>⚡</div>
-            <h3 style={darkActionTitleStyle}>Optimize</h3>
-            <p style={darkActionTextStyle}>
-              Riordina gli stop validi mantenendo sempre il numero originale.
+          <span
+            style={{
+              ...workflowStatusBadgeStyle,
+              marginTop: 0,
+              background: workflowCompleted
+                ? "rgba(34,197,94,0.20)"
+                : needsReviewCount > 0
+                  ? "rgba(249,115,22,0.20)"
+                  : "rgba(59,130,246,0.20)",
+              color: workflowCompleted
+                ? "#bbf7d0"
+                : needsReviewCount > 0
+                  ? "#fed7aa"
+                  : "#bfdbfe",
+            }}
+          >
+            {workflowStatusLabel}
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 12,
+            marginTop: 20,
+          }}
+        >
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Stato indirizzi</p>
+            <p style={premiumMiniValueStyle}>
+              {needsReviewCount > 0
+                ? `${needsReviewCount} da correggere`
+                : rawStops > 0
+                  ? `${rawStops} da verificare`
+                  : `${validStops} verificati`}
             </p>
-
-            <span style={workflowStatusBadgeStyle}>
-              {route.is_optimized ? "Ottimizzata" : "Pronta"}
-            </span>
-
-            <form action={optimizeRouteProRoute} style={{ marginTop: 16 }}>
-              <input type="hidden" name="route_id" value={route.id} />
-
-              <RouteProSubmitButton
-                idleLabel="Ottimizza"
-                pendingLabel="Ottimizzazione in corso..."
-              />
-            </form>
-
-            {route.is_optimized ? (
-              <p style={darkActionTextStyle}>
-                Ultima ottimizzazione: {route.optimized_at ?? "completata"}
-              </p>
-            ) : null}
-          </div>
-
-          <div style={darkActionCardStyle}>
-            <div style={darkActionIconStyle}>▶</div>
-            <h3 style={darkActionTitleStyle}>Drive</h3>
-            <p style={darkActionTextStyle}>
-              Apri la modalità driver con Maps/Waze, complete e skip.
+            <p style={premiumMiniHintStyle}>
+              Qualità attuale degli stop della rotta.
             </p>
+          </article>
 
-            <span style={workflowStatusBadgeStyle}>
-              {route.is_optimized ? "Disponibile" : "Ottimizza prima"}
-            </span>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Ottimizzazione</p>
+            <p style={premiumMiniValueStyle}>
+              {route.is_optimized ? "Completata" : "Non ancora eseguita"}
+            </p>
+            <p style={premiumMiniHintStyle}>
+              Stato dell'ordinamento intelligente degli stop.
+            </p>
+          </article>
 
-            <div style={actionsStyle}>
-              <Link href={`/app/routepro/${route.id}/execute`} style={routeProUi.primaryButton}>
-                Avvia percorso
-              </Link>
-            </div>
-          </div>
+          <article style={premiumMiniCardStyle}>
+            <p style={premiumMiniLabelStyle}>Prossima azione</p>
+            <p style={premiumMiniValueStyle}>{workflowNextAction}</p>
+            <p style={premiumMiniHintStyle}>
+              RoutePro apre automaticamente la fase corretta.
+            </p>
+          </article>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 12,
+            marginTop: 20,
+          }}
+        >
+          <Link href={workflowHref} style={routeProUi.primaryButton}>
+            {workflowCompleted
+              ? "Visualizza Summary"
+              : route.is_optimized
+                ? "Avvia navigazione"
+                : needsReviewCount > 0
+                  ? "Continua Review"
+                  : rawStops > 0
+                    ? "Verifica indirizzi"
+                    : "Ottimizza percorso"}
+          </Link>
+
+          <span
+            style={{
+              color: "#94a3b8",
+              fontSize: 12,
+              lineHeight: 1.45,
+              fontWeight: 700,
+            }}
+          >
+            La prossima fase è selezionata in base allo stato reale della rotta.
+          </span>
         </div>
       </section>
 
@@ -1239,7 +1334,7 @@ const readyStopsCount = readyStops.length;
         </div>
       ) : (
         <div style={successStyle}>
-          Tutti gli stop sono pronti. Puoi geocodificare, ottimizzare o partire.
+          Tutti gli stop sono verificati e pronti per l’ottimizzazione.
         </div>
       )}
 

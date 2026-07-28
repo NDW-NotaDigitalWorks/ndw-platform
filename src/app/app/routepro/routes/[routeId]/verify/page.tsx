@@ -1,5 +1,6 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { CSSProperties } from "react";
 import { geocodeRouteProStops } from "@/modules/routepro/server/routepro.actions";
 import { getMyRouteProRouteDetail } from "@/modules/routepro/server/routepro.routes";
 import { routeProUi } from "@/modules/routepro/ui/routepro.ui";
@@ -15,90 +16,135 @@ type Props = {
   }>;
 };
 
-const gridStyle: React.CSSProperties = {
+const dashboardGridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 14,
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: 12,
   marginTop: 18,
 };
 
-const cardStyle: React.CSSProperties = {
-  padding: 18,
-  borderRadius: 22,
-  background: "linear-gradient(180deg,#172033 0%,#111827 100%)",
-  border: "1px solid rgba(255,255,255,0.08)",
-  boxShadow: "0 18px 40px rgba(0,0,0,0.2)",
+const metricCardStyle: CSSProperties = {
+  position: "relative",
+  overflow: "hidden",
+  minHeight: 118,
+  padding: 17,
+  borderRadius: 20,
+  background:
+    "linear-gradient(180deg,rgba(30,41,59,0.96) 0%,rgba(15,23,42,0.98) 100%)",
+  border: "1px solid rgba(255,255,255,0.075)",
+  boxShadow: "0 14px 34px rgba(0,0,0,0.18)",
 };
 
-const labelStyle: React.CSSProperties = {
+const metricLabelStyle: CSSProperties = {
   margin: 0,
-  color: "#93c5fd",
-  fontSize: 11,
+  color: "#94a3b8",
+  fontSize: 10,
   lineHeight: 1.2,
   fontWeight: 950,
   textTransform: "uppercase",
-  letterSpacing: "0.09em",
+  letterSpacing: "0.1em",
 };
 
-const valueStyle: React.CSSProperties = {
-  margin: "10px 0 0",
+const metricValueStyle: CSSProperties = {
+  margin: "12px 0 0",
   color: "#ffffff",
   fontSize: 34,
   lineHeight: 1,
   fontWeight: 950,
-  letterSpacing: "-0.04em",
+  letterSpacing: "-0.045em",
 };
 
-const sectionTitleStyle: React.CSSProperties = {
-  margin: 0,
-  color: "#ffffff",
-  fontSize: 26,
-  lineHeight: 1.15,
-  fontWeight: 950,
-};
-
-const mutedTextStyle: React.CSSProperties = {
+const metricDetailStyle: CSSProperties = {
   margin: "8px 0 0",
-  color: "#cbd5e1",
-  fontSize: 14,
-  lineHeight: 1.6,
+  color: "#94a3b8",
+  fontSize: 12,
+  lineHeight: 1.35,
   fontWeight: 700,
 };
 
-const emptyCardStyle: React.CSSProperties = {
-  marginTop: 18,
-  padding: 18,
-  borderRadius: 22,
-  background: "rgba(15,23,42,0.96)",
-  border: "1px solid rgba(148,163,184,0.22)",
+const sectionTitleStyle: CSSProperties = {
+  margin: 0,
+  color: "#ffffff",
+  fontSize: "clamp(21px, 2.5vw, 26px)",
+  lineHeight: 1.15,
+  fontWeight: 950,
+  letterSpacing: "-0.025em",
 };
 
-const emptyTextStyle: React.CSSProperties = {
+const mutedTextStyle: CSSProperties = {
+  margin: "7px 0 0",
+  color: "#aebdd0",
+  fontSize: 14,
+  lineHeight: 1.55,
+  fontWeight: 650,
+};
+
+const emptyCardStyle: CSSProperties = {
+  marginTop: 18,
+  padding: 18,
+  borderRadius: 18,
+  background: "rgba(15,23,42,0.96)",
+  border: "1px solid rgba(148,163,184,0.2)",
+};
+
+const emptyTextStyle: CSSProperties = {
   margin: 0,
   color: "#e2e8f0",
-  fontSize: 15,
+  fontSize: 14,
   lineHeight: 1.55,
   fontWeight: 700,
 };
 
-const successStyle: React.CSSProperties = {
+const successStyle: CSSProperties = {
   marginTop: 16,
-  padding: 14,
+  padding: "13px 15px",
   borderRadius: 16,
   background: "rgba(34,197,94,0.1)",
   border: "1px solid rgba(74,222,128,0.22)",
   color: "#d1fae5",
+  fontSize: 13,
+  lineHeight: 1.5,
   fontWeight: 800,
 };
 
-const errorStyle: React.CSSProperties = {
+const errorStyle: CSSProperties = {
   marginTop: 16,
-  padding: 14,
+  padding: "13px 15px",
   borderRadius: 16,
   background: "rgba(239,68,68,0.1)",
   border: "1px solid rgba(248,113,113,0.24)",
   color: "#fecaca",
+  fontSize: 13,
+  lineHeight: 1.5,
   fontWeight: 800,
+};
+
+const actionCardStyle: CSSProperties = {
+  marginTop: 18,
+  padding: "18px clamp(16px, 2.5vw, 22px)",
+  borderRadius: 20,
+  background:
+    "radial-gradient(circle at 100% 0%,rgba(249,115,22,0.15) 0%,transparent 38%),linear-gradient(135deg,rgba(30,41,59,0.98) 0%,rgba(15,23,42,0.98) 100%)",
+  border: "1px solid rgba(251,146,60,0.24)",
+  boxShadow: "0 18px 42px rgba(0,0,0,0.2)",
+};
+
+const footerStyle: CSSProperties = {
+  position: "sticky",
+  bottom: 12,
+  zIndex: 20,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
+  gap: 12,
+  marginTop: 26,
+  padding: 12,
+  borderRadius: 18,
+  background: "rgba(15,23,42,0.92)",
+  border: "1px solid rgba(148,163,184,0.2)",
+  boxShadow: "0 18px 46px rgba(0,0,0,0.34)",
+  backdropFilter: "blur(16px)",
 };
 
 function getErrorMessage(error?: string): string | null {
@@ -123,154 +169,283 @@ export default async function RouteProVerifyPage({
 
   const totalStops = route.stops.length;
 
-const hasCoordinates = (stop: (typeof route.stops)[number]) =>
-  typeof stop.lat === "number" &&
-  Number.isFinite(stop.lat) &&
-  typeof stop.lng === "number" &&
-  Number.isFinite(stop.lng);
+  const hasCoordinates = (stop: (typeof route.stops)[number]) =>
+    typeof stop.lat === "number" &&
+    Number.isFinite(stop.lat) &&
+    typeof stop.lng === "number" &&
+    Number.isFinite(stop.lng);
 
-const geolocatedStops = route.stops.filter(
-  (stop) => stop.status === "valid" && hasCoordinates(stop),
-).length;
+  const geolocatedStops = route.stops.filter(
+    (stop) => stop.status === "valid" && hasCoordinates(stop),
+  ).length;
 
-const needsReviewStops = route.stops.filter(
-  (stop) => stop.status === "needs_review",
-).length;
+  const needsReviewStops = route.stops.filter(
+    (stop) => stop.status === "needs_review",
+  ).length;
 
-const rawStops = route.stops.filter(
-  (stop) => stop.status === "raw",
-).length;
+  const rawStops = route.stops.filter(
+    (stop) => stop.status === "raw",
+  ).length;
 
-const missingCoordinatesStops = route.stops.filter(
-  (stop) => !hasCoordinates(stop),
-).length;
+  const missingCoordinatesStops = route.stops.filter(
+    (stop) => !hasCoordinates(stop),
+  ).length;
 
-const addressesToVerify = route.stops.filter(
-  (stop) =>
-    stop.status === "needs_review" ||
-    stop.status === "raw" ||
-    !hasCoordinates(stop),
-).length;
+  const addressesToVerify = route.stops.filter(
+    (stop) =>
+      stop.status === "needs_review" ||
+      stop.status === "raw" ||
+      !hasCoordinates(stop),
+  ).length;
 
-const errorMessage = getErrorMessage(resolvedSearchParams?.error);
+  const verificationProgress =
+    totalStops > 0
+      ? Math.round((geolocatedStops / totalStops) * 100)
+      : 0;
 
-const canContinueToOptimize =
-  totalStops >= 2 &&
-  geolocatedStops === totalStops &&
-  addressesToVerify === 0;
+  const errorMessage = getErrorMessage(resolvedSearchParams?.error);
+
+  const canContinueToOptimize =
+    totalStops >= 2 &&
+    geolocatedStops === totalStops &&
+    addressesToVerify === 0;
+
+  const statusAccent = canContinueToOptimize ? "#4ade80" : "#fbbf24";
+  const statusBackground = canContinueToOptimize
+    ? "rgba(34,197,94,0.09)"
+    : "rgba(245,158,11,0.09)";
+  const statusBorder = canContinueToOptimize
+    ? "1px solid rgba(74,222,128,0.24)"
+    : "1px solid rgba(251,191,36,0.24)";
 
   return (
     <RouteProWorkflowShell
       routeId={routeId}
       currentStep="Verify"
       title="Verifica indirizzi"
-      subtitle="RoutePro controlla che ogni indirizzo possa essere geolocalizzato prima dell’ottimizzazione della rotta."
+      subtitle="RoutePro controlla che ogni indirizzo possa essere geolocalizzato prima dell'ottimizzazione della rotta."
     >
       {resolvedSearchParams?.geocoded === "1" ? (
         <div style={successStyle}>
-          Verifica completata. Controlla gli eventuali indirizzi ancora privi di coordinate.
+          Verifica completata. Controlla gli eventuali indirizzi che richiedono ancora attenzione.
         </div>
       ) : null}
 
-      {errorMessage ? (
-        <div style={errorStyle}>{errorMessage}</div>
-      ) : null}
+      {errorMessage ? <div style={errorStyle}>{errorMessage}</div> : null}
 
-      <div style={gridStyle}>
-        <article style={cardStyle}>
-          <p style={labelStyle}>Stop totali</p>
-          <h2 style={valueStyle}>{totalStops}</h2>
+      <div style={dashboardGridStyle}>
+        <article style={metricCardStyle}>
+          <p style={metricLabelStyle}>Stop totali</p>
+          <h2 style={metricValueStyle}>{totalStops}</h2>
+          <p style={metricDetailStyle}>Indirizzi presenti nella rotta</p>
         </article>
 
-        <article style={cardStyle}>
-          <p style={labelStyle}>Geolocalizzati</p>
-          <h2 style={valueStyle}>{geolocatedStops}</h2>
+        <article style={metricCardStyle}>
+          <p style={{ ...metricLabelStyle, color: "#86efac" }}>
+            Geolocalizzati
+          </p>
+          <h2 style={metricValueStyle}>{geolocatedStops}</h2>
+          <p style={metricDetailStyle}>Pronti per l'ottimizzazione</p>
         </article>
 
-        <article style={cardStyle}>
-          <p style={labelStyle}>Da verificare</p>
-          <h2 style={valueStyle}>{addressesToVerify}</h2>
+        <article style={metricCardStyle}>
+          <p style={{ ...metricLabelStyle, color: "#fcd34d" }}>
+            Da verificare
+          </p>
+          <h2 style={metricValueStyle}>{addressesToVerify}</h2>
+          <p style={metricDetailStyle}>
+            {needsReviewStops + rawStops} con stato da controllare
+          </p>
         </article>
 
-        <article style={cardStyle}>
-          <p style={labelStyle}>In attesa</p>
-          <h2 style={valueStyle}>{missingCoordinatesStops}</h2>
+        <article style={metricCardStyle}>
+          <p style={{ ...metricLabelStyle, color: "#93c5fd" }}>
+            Avanzamento
+          </p>
+          <h2 style={metricValueStyle}>{verificationProgress}%</h2>
+          <p style={metricDetailStyle}>
+            {missingCoordinatesStops} senza coordinate
+          </p>
         </article>
       </div>
 
-      <div
+      <section
         style={{
-          marginTop: 24,
-          padding: 18,
+          marginTop: 18,
+          padding: "20px clamp(17px, 3vw, 25px)",
           borderRadius: 22,
-          background: canContinueToOptimize
-            ? "rgba(34,197,94,0.1)"
-            : "rgba(245,158,11,0.1)",
-          border: canContinueToOptimize
-            ? "1px solid rgba(74,222,128,0.24)"
-            : "1px solid rgba(251,191,36,0.24)",
+          background: statusBackground,
+          border: statusBorder,
+          boxShadow: "0 16px 38px rgba(0,0,0,0.16)",
         }}
       >
-        <p
+        <div
           style={{
-            margin: 0,
-            color: canContinueToOptimize ? "#86efac" : "#fcd34d",
-            fontSize: 11,
-            fontWeight: 950,
-            textTransform: "uppercase",
-            letterSpacing: "0.09em",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 16,
           }}
         >
-          Stato verifica
-        </p>
+          <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+            <p
+              style={{
+                margin: 0,
+                color: statusAccent,
+                fontSize: 10,
+                fontWeight: 950,
+                textTransform: "uppercase",
+                letterSpacing: "0.11em",
+              }}
+            >
+              {canContinueToOptimize ? "Verifica completata" : "Verifica richiesta"}
+            </p>
 
-        <h3
+            <h2
+              style={{
+                margin: "8px 0 0",
+                color: "#ffffff",
+                fontSize: "clamp(23px, 3vw, 31px)",
+                lineHeight: 1.08,
+                fontWeight: 950,
+                letterSpacing: "-0.035em",
+              }}
+            >
+              {canContinueToOptimize
+                ? "La rotta è pronta"
+                : `${addressesToVerify} indirizzi richiedono attenzione`}
+            </h2>
+
+            <p style={mutedTextStyle}>
+              {canContinueToOptimize
+                ? `Tutti i ${geolocatedStops} indirizzi dispongono di coordinate valide. Puoi procedere con l'ottimizzazione.`
+                : `${geolocatedStops} indirizzi sono già pronti. Avvia la verifica automatica per completare la rotta.`}
+            </p>
+          </div>
+
+          <div
+            style={{
+              flex: "0 0 auto",
+              minWidth: 118,
+              textAlign: "right",
+            }}
+          >
+            <div
+              style={{
+                color: "#ffffff",
+                fontSize: 34,
+                lineHeight: 1,
+                fontWeight: 950,
+                letterSpacing: "-0.045em",
+              }}
+            >
+              {verificationProgress}%
+            </div>
+
+            <div
+              style={{
+                marginTop: 6,
+                color: "#94a3b8",
+                fontSize: 12,
+                fontWeight: 800,
+              }}
+            >
+              {geolocatedStops} / {totalStops} pronti
+            </div>
+          </div>
+        </div>
+
+        <div
+          aria-label={`Verifica completata al ${verificationProgress}%`}
           style={{
-            margin: "8px 0 0",
-            color: "#ffffff",
-            fontSize: 24,
-            lineHeight: 1.1,
-            fontWeight: 950,
+            height: 9,
+            marginTop: 18,
+            overflow: "hidden",
+            borderRadius: 999,
+            background: "rgba(15,23,42,0.7)",
+            border: "1px solid rgba(148,163,184,0.16)",
           }}
         >
-          {canContinueToOptimize
-            ? "Indirizzi verificati"
-            : "Completa la geolocalizzazione"}
-        </h3>
-
-        <p style={mutedTextStyle}>
-          {canContinueToOptimize
-  ? `Tutti i ${geolocatedStops} indirizzi sono stati geolocalizzati. Puoi procedere con l’ottimizzazione della rotta.`
-  : `${addressesToVerify} indirizzi da geolocalizzare e ${geolocatedStops} già pronti.`}
-        </p>
-      </div>
+          <div
+            style={{
+              width: `${verificationProgress}%`,
+              height: "100%",
+              borderRadius: 999,
+              background: canContinueToOptimize
+                ? "linear-gradient(90deg,#22c55e 0%,#4ade80 100%)"
+                : "linear-gradient(90deg,#f97316 0%,#fbbf24 100%)",
+              transition: "width 240ms ease",
+            }}
+          />
+        </div>
+      </section>
 
       {!canContinueToOptimize ? (
-  <section style={{ marginTop: 28 }}>
-    <h2 style={sectionTitleStyle}>Verifica geolocalizzazione</h2>
+        <section style={actionCardStyle}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 18,
+            }}
+          >
+            <div style={{ flex: "1 1 380px", minWidth: 0 }}>
+              <p
+                style={{
+                  margin: 0,
+                  color: "#fdba74",
+                  fontSize: 10,
+                  fontWeight: 950,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.11em",
+                }}
+              >
+                Azione principale
+              </p>
 
-    <p style={mutedTextStyle}>
-      Avvia il controllo automatico per associare coordinate valide agli
-      indirizzi della rotta.
-    </p>
+              <h2
+                style={{
+                  ...sectionTitleStyle,
+                  marginTop: 7,
+                  fontSize: "clamp(20px, 2.4vw, 25px)",
+                }}
+              >
+                Completa la geolocalizzazione
+              </h2>
 
-    <form action={geocodeRouteProStops} style={{ marginTop: 18 }}>
-      <input type="hidden" name="route_id" value={route.id} />
+              <p style={mutedTextStyle}>
+                RoutePro associa automaticamente coordinate valide agli indirizzi ancora in attesa.
+              </p>
+            </div>
 
-      <RouteProSubmitButton
-        idleLabel="Avvia verifica indirizzi"
-        pendingLabel="Verifica in corso..."
-      />
-    </form>
-  </section>
-) : null}
+            <form action={geocodeRouteProStops}>
+              <input type="hidden" name="route_id" value={route.id} />
+
+              <RouteProSubmitButton
+                idleLabel="Avvia verifica indirizzi"
+                pendingLabel="Verifica in corso..."
+              />
+            </form>
+          </div>
+        </section>
+      ) : null}
 
       <section style={{ marginTop: 28 }}>
-        <h2 style={sectionTitleStyle}>Stato degli indirizzi</h2>
+        <div
+          style={{
+            paddingBottom: 14,
+            borderBottom: "1px solid rgba(148,163,184,0.14)",
+          }}
+        >
+          <h2 style={sectionTitleStyle}>Stato degli indirizzi</h2>
 
-        <p style={mutedTextStyle}>
-          Controlla gli indirizzi non ancora geolocalizzati oppure consulta quelli già pronti.
-        </p>
+          <p style={mutedTextStyle}>
+            Cerca uno stop, controlla gli indirizzi da verificare oppure consulta quelli già pronti.
+          </p>
+        </div>
 
         {route.stops.length === 0 ? (
           <div style={emptyCardStyle}>
@@ -283,26 +458,58 @@ const canContinueToOptimize =
         )}
       </section>
 
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 12,
-          marginTop: 24,
-        }}
-      >
+      <footer style={footerStyle}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 9,
+          }}
+        >
+          <Link
+            href={`/app/routepro/routes/${route.id}/review`}
+            style={{
+              ...routeProUi.secondaryButton,
+              minHeight: 40,
+              padding: "0 14px",
+              fontSize: 13,
+            }}
+          >
+            Torna alla Review
+          </Link>
+
+          <Link
+            href={`/app/routepro/${route.id}`}
+            style={{
+              ...routeProUi.secondaryButton,
+              minHeight: 40,
+              padding: "0 14px",
+              fontSize: 13,
+            }}
+          >
+            Vista classica
+          </Link>
+        </div>
+
         {canContinueToOptimize ? (
           <Link
             href={`/app/routepro/routes/${route.id}/optimize`}
-            style={routeProUi.primaryButton}
+            style={{
+              ...routeProUi.primaryButton,
+              minHeight: 44,
+              padding: "0 20px",
+            }}
           >
             Ottimizza percorso
           </Link>
         ) : (
           <span
+            aria-disabled="true"
             style={{
               ...routeProUi.primaryButton,
-              opacity: 0.45,
+              minHeight: 44,
+              padding: "0 20px",
+              opacity: 0.42,
               cursor: "not-allowed",
               pointerEvents: "none",
             }}
@@ -310,21 +517,7 @@ const canContinueToOptimize =
             Completa la verifica
           </span>
         )}
-
-        <Link
-          href={`/app/routepro/routes/${route.id}/review`}
-          style={routeProUi.secondaryButton}
-        >
-          Torna alla Review
-        </Link>
-
-        <Link
-          href={`/app/routepro/${route.id}`}
-          style={routeProUi.secondaryButton}
-        >
-          Vista classica
-        </Link>
-      </div>
+      </footer>
     </RouteProWorkflowShell>
   );
 }

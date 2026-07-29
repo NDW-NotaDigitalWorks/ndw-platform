@@ -384,14 +384,16 @@ function getRecommendation(
 
 export function analyzeAmazonRoute(
   stops: AmazonAssistStop[],
+  preserveInputOrder = true,
 ): AmazonAssistAnalysisResult {
-  const originalSequence =
-    sortAmazonStopsByOriginalSequence(stops);
+  const sequence = preserveInputOrder
+  ? [...stops]
+  : sortAmazonStopsByOriginalSequence(stops);
 
   const detectedAnomalies = removeDuplicateAnomalies([
-    ...detectStreetRevisits(originalSequence),
-    ...detectNearbyStopRevisits(originalSequence),
-    ...detectRouteJumps(originalSequence),
+    ...detectStreetRevisits(sequence),
+    ...detectNearbyStopRevisits(sequence),
+    ...detectRouteJumps(sequence),
   ])
     .sort((first, second) => second.severity - first.severity)
     .slice(0, MAX_REPORTED_ANOMALIES);

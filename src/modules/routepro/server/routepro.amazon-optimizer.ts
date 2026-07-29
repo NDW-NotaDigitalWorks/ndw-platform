@@ -419,8 +419,9 @@ export function optimizeAmazonAssistRoute(
     : externalEndPoint ?? null;
 
   const originalAnalysis = analyzeAmazonRoute(
-    originalDeliveryStops,
-  );
+  originalDeliveryStops,
+  false,
+);
 
   let correctedDeliveryStops = [...originalDeliveryStops];
 
@@ -433,8 +434,9 @@ export function optimizeAmazonAssistRoute(
     correctionIndex += 1
   ) {
     const currentAnalysis = analyzeAmazonRoute(
-      correctedDeliveryStops,
-    );
+  correctedDeliveryStops,
+  true,
+);
 
     const candidates: {
       orderedStops: AmazonAssistStopWithRole[];
@@ -496,7 +498,10 @@ export function optimizeAmazonAssistRoute(
     ...(fixedReturnStop ? [fixedReturnStop] : []),
   ];
 
-  const analysis = analyzeAmazonRoute(correctedDeliveryStops);
+  const analysis = analyzeAmazonRoute(
+  correctedDeliveryStops,
+  true,
+);
 
   const appliedSavingMeters = corrections.reduce(
     (total, correction) => total + correction.savingMeters,

@@ -87,9 +87,9 @@ const DEFAULT_GEOCODING_COUNTRY: GeocodingCountryConfig = {
   },
 };
 
-const MIN_PROVIDER_CONFIDENCE = 0.45;
-const MIN_ACCEPTED_CANDIDATE_SCORE = 58;
-const MIN_ACCEPTED_CACHE_SCORE = 62;
+const MIN_PROVIDER_CONFIDENCE = 0.25;
+const MIN_ACCEPTED_CANDIDATE_SCORE = 44;
+const MIN_ACCEPTED_CACHE_SCORE = 48;
 
 const ADDRESS_STOP_WORDS = new Set([
   "via",
@@ -341,12 +341,21 @@ function calculateCandidateScore(params: {
     return null;
   }
 
-  const providerConfidence =
-    params.feature.properties?.confidence ?? 0;
+  const rawProviderConfidence =
+  params.feature.properties?.confidence;
 
-  if (providerConfidence < MIN_PROVIDER_CONFIDENCE) {
-    return null;
-  }
+const providerConfidence =
+  typeof rawProviderConfidence === "number" &&
+  Number.isFinite(rawProviderConfidence)
+    ? rawProviderConfidence
+    : 0.7;
+
+if (
+  typeof rawProviderConfidence === "number" &&
+  rawProviderConfidence < MIN_PROVIDER_CONFIDENCE
+) {
+  return null;
+}
 
   const featureText = getFeatureSearchText(params.feature);
   const textMatch = calculateTextMatchScore(
@@ -362,14 +371,14 @@ function calculateCandidateScore(params: {
   let houseNumberAdjustment = 0;
 
   if (requestedHouseNumber) {
-    if (candidateHouseNumber === requestedHouseNumber) {
-      houseNumberAdjustment = 12;
-    } else if (candidateHouseNumber) {
-      houseNumberAdjustment = -18;
-    } else {
-      houseNumberAdjustment = -7;
-    }
+  if (candidateHouseNumber === requestedHouseNumber) {
+    houseNumberAdjustment = 10;
+  } else if (candidateHouseNumber) {
+    houseNumberAdjustment = -6;
+  } else {
+    houseNumberAdjustment = -2;
   }
+}
 
   let distanceFromFocusKm: number | null = null;
   let focusAdjustment = 0;
@@ -444,12 +453,12 @@ function selectBestFeature(params: {
   const secondCandidate = scoredCandidates[1];
 
   if (
-    secondCandidate &&
-    bestCandidate.score < 74 &&
-    bestCandidate.score - secondCandidate.score < 3
-  ) {
-    return null;
-  }
+  secondCandidate &&
+  bestCandidate.score < 55 &&
+  bestCandidate.score - secondCandidate.score < 1.5
+) {
+  return null;
+}
 
   return bestCandidate;
 }

@@ -325,7 +325,7 @@ export async function geocodeRouteProStops(formData: FormData) {
     redirect(`/app/routepro/${routeId}?geocoded=0`);
   }
 
-  const GEOCODING_BATCH_SIZE = 5;
+  const GEOCODING_BATCH_SIZE = 2;
 
   await runRouteProGeocodingInBatches(
     stopsToGeocode,

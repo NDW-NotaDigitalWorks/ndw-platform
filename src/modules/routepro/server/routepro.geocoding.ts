@@ -342,20 +342,20 @@ function calculateCandidateScore(params: {
   }
 
   const rawProviderConfidence =
-  params.feature.properties?.confidence;
+    params.feature.properties?.confidence;
 
-const providerConfidence =
-  typeof rawProviderConfidence === "number" &&
-  Number.isFinite(rawProviderConfidence)
-    ? rawProviderConfidence
-    : 0.7;
+  const providerConfidence =
+    typeof rawProviderConfidence === "number" &&
+    Number.isFinite(rawProviderConfidence)
+      ? rawProviderConfidence
+      : 0.7;
 
-if (
-  typeof rawProviderConfidence === "number" &&
-  rawProviderConfidence < MIN_PROVIDER_CONFIDENCE
-) {
-  return null;
-}
+  if (
+    typeof rawProviderConfidence === "number" &&
+    rawProviderConfidence < MIN_PROVIDER_CONFIDENCE
+  ) {
+    return null;
+  }
 
   const featureText = getFeatureSearchText(params.feature);
   const textMatch = calculateTextMatchScore(
@@ -371,14 +371,14 @@ if (
   let houseNumberAdjustment = 0;
 
   if (requestedHouseNumber) {
-  if (candidateHouseNumber === requestedHouseNumber) {
-    houseNumberAdjustment = 10;
-  } else if (candidateHouseNumber) {
-    houseNumberAdjustment = -6;
-  } else {
-    houseNumberAdjustment = -2;
+    if (candidateHouseNumber === requestedHouseNumber) {
+      houseNumberAdjustment = 10;
+    } else if (candidateHouseNumber) {
+      houseNumberAdjustment = -6;
+    } else {
+      houseNumberAdjustment = -2;
+    }
   }
-}
 
   let distanceFromFocusKm: number | null = null;
   let focusAdjustment = 0;
@@ -453,12 +453,12 @@ function selectBestFeature(params: {
   const secondCandidate = scoredCandidates[1];
 
   if (
-  secondCandidate &&
-  bestCandidate.score < 55 &&
-  bestCandidate.score - secondCandidate.score < 1.5
-) {
-  return null;
-}
+    secondCandidate &&
+    bestCandidate.score < 55 &&
+    bestCandidate.score - secondCandidate.score < 1.5
+  ) {
+    return null;
+  }
 
   return bestCandidate;
 }
@@ -585,6 +585,178 @@ async function saveGeocodeToCache(params: {
   }
 }
 
+
+function sleep(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+function addItalyContext(address: string): string {
+  const normalized = normalizeComparableText(address);
+
+  if (
+    normalized.endsWith(" it") ||
+    normalized.includes(" italia") ||
+    normalized.includes(" italy")
+  ) {
+    return address;
+  }
+
+  return `${address}, Italia`;
+}
+
+function normalizeComplexHouseNumbers(address: string): string {
+  return address
+    .replace(/\b(\d{1,5})\s*\/\s*([a-zA-Z])\b/g, "$1 $2")
+    .replace(/\b(\d{1,5})([a-zA-Z])\b/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function useFirstNumberFromRange(address: string): string {
+  return address
+    .replace(/\b(\d{1,5})\s*\/\s*(\d{1,5})\b/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function removeHouseNumberFromAddress(address: string): string {
+  const parts = address.split(",");
+  const streetPart = parts[0]?.trim() ?? "";
+
+  const streetWithoutHouseNumber = streetPart
+    .replace(/\b\d{1,5}\s*\/\s*\d{1,5}\b/g, "")
+    .replace(/\b\d{1,5}\s*\/\s*[a-zA-Z]\b/g, "")
+    .replace(/\b\d{1,5}[a-zA-Z]?\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return [streetWithoutHouseNumber, ...parts.slice(1)]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+function ensureStreetPrefix(address: string): string {
+  const parts = address.split(",");
+  const firstPart = parts[0]?.trim() ?? "";
+
+  if (
+    /^(via|viale|vicolo|piazza|piazzale|corso|strada|largo|localita|località)\b/i.test(
+      firstPart,
+    )
+  ) {
+    return address;
+  }
+
+  if (!/[a-zA-ZÀ-ÿ]/.test(firstPart)) {
+    return address;
+  }
+
+  return [`Via ${firstPart}`, ...parts.slice(1)]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
+function buildGeocodingQueries(cleanAddress: string): string[] {
+  const normalizedHouseNumber = normalizeComplexHouseNumbers(cleanAddress);
+  const rangeSimplified = useFirstNumberFromRange(normalizedHouseNumber);
+  const withStreetPrefix = ensureStreetPrefix(rangeSimplified);
+  const streetOnly = removeHouseNumberFromAddress(withStreetPrefix);
+
+  return Array.from(
+    new Set(
+      [
+        cleanAddress,
+        normalizedHouseNumber,
+        rangeSimplified,
+        withStreetPrefix,
+        streetOnly,
+      ]
+        .map((query) => addItalyContext(query))
+        .map((query) => query.replace(/\s+/g, " ").trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+type OrsRequestResult =
+  | {
+      ok: true;
+      features: OrsFeature[];
+    }
+  | {
+      ok: false;
+      status: number | null;
+      message: string;
+    };
+
+async function requestOrsCandidates(params: {
+  apiKey: string;
+  queryText: string;
+  focusPoint?: RouteProGeocodeFocusPoint | null;
+}): Promise<OrsRequestResult> {
+  const maxAttempts = 3;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const url = new URL("https://api.openrouteservice.org/geocode/search");
+    url.searchParams.set("api_key", params.apiKey);
+    url.searchParams.set("text", params.queryText);
+    url.searchParams.set("size", "10");
+    url.searchParams.set(
+      "boundary.country",
+      DEFAULT_GEOCODING_COUNTRY.countryCode,
+    );
+
+    if (isValidFocusPoint(params.focusPoint)) {
+      url.searchParams.set(
+        "focus.point.lat",
+        String(params.focusPoint.lat),
+      );
+      url.searchParams.set(
+        "focus.point.lon",
+        String(params.focusPoint.lng),
+      );
+    }
+
+    const response = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    });
+
+    if (response.ok) {
+      const json = (await response.json()) as OrsGeocodeResponse;
+
+      return {
+        ok: true,
+        features: json.features ?? [],
+      };
+    }
+
+    if (response.status === 429 && attempt < maxAttempts - 1) {
+      await sleep(900 * 2 ** attempt);
+      continue;
+    }
+
+    return {
+      ok: false,
+      status: response.status,
+      message: `OpenRouteService error: ${response.status}`,
+    };
+  }
+
+  return {
+    ok: false,
+    status: 429,
+    message: "OpenRouteService error: 429",
+  };
+}
+
 export async function geocodeAddressWithOpenRouteService(
   address: string,
   options: RouteProGeocodeOptions = {},
@@ -628,87 +800,79 @@ export async function geocodeAddressWithOpenRouteService(
     };
   }
 
-  const url = new URL("https://api.openrouteservice.org/geocode/search");
-  url.searchParams.set("api_key", apiKey);
-  url.searchParams.set("text", cleanAddress);
-  url.searchParams.set("size", "10");
-  url.searchParams.set(
-    "boundary.country",
-    DEFAULT_GEOCODING_COUNTRY.countryCode,
-  );
-
-  if (isValidFocusPoint(options.focusPoint)) {
-    url.searchParams.set(
-      "focus.point.lat",
-      String(options.focusPoint.lat),
-    );
-    url.searchParams.set(
-      "focus.point.lon",
-      String(options.focusPoint.lng),
-    );
-  }
+  const queryVariants = buildGeocodingQueries(cleanAddress);
+  let lastProviderError: string | null = null;
 
   try {
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers: {
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
+    for (const queryText of queryVariants) {
+      const requestResult = await requestOrsCandidates({
+        apiKey,
+        queryText,
+        focusPoint: options.focusPoint,
+      });
 
-    if (!response.ok) {
+      if (!requestResult.ok) {
+        lastProviderError = requestResult.message;
+
+        if (requestResult.status === 429) {
+          break;
+        }
+
+        continue;
+      }
+
+      const selectedCandidate = selectBestFeature({
+        features: requestResult.features,
+        queryAddress: cleanAddress,
+        focusPoint: options.focusPoint,
+        maxDistanceKm: options.maxDistanceKm,
+      });
+
+      const coordinates =
+        selectedCandidate?.feature.geometry?.coordinates;
+
+      if (!selectedCandidate || !coordinates) {
+        continue;
+      }
+
+      const [lng, lat] = coordinates;
+      const label =
+        selectedCandidate.feature.properties?.label ?? cleanAddress;
+      const confidence =
+        selectedCandidate.feature.properties?.confidence ?? null;
+
+      await saveGeocodeToCache({
+        normalizedAddress,
+        displayAddress: label,
+        lat,
+        lng,
+        confidence,
+      });
+
+      return {
+        ok: true,
+        lat,
+        lng,
+        label,
+        confidence,
+        provider: "openrouteservice",
+      };
+    }
+
+    if (lastProviderError) {
       return {
         ok: false,
         reason: "provider_error",
-        message: `OpenRouteService error: ${response.status}`,
+        message: lastProviderError,
         provider: "openrouteservice",
       };
     }
-
-    const json = (await response.json()) as OrsGeocodeResponse;
-    const features = json.features ?? [];
-
-    const selectedCandidate = selectBestFeature({
-      features,
-      queryAddress: cleanAddress,
-      focusPoint: options.focusPoint,
-      maxDistanceKm: options.maxDistanceKm,
-    });
-
-    const coordinates =
-      selectedCandidate?.feature.geometry?.coordinates;
-
-    if (!selectedCandidate || !coordinates) {
-      return {
-        ok: false,
-        reason: "not_found",
-        message:
-          "No reliable Italian geocoding result found. Please review the address.",
-        provider: "openrouteservice",
-      };
-    }
-
-    const [lng, lat] = coordinates;
-    const label =
-      selectedCandidate.feature.properties?.label ?? cleanAddress;
-    const confidence =
-      selectedCandidate.feature.properties?.confidence ?? null;
-
-    await saveGeocodeToCache({
-      normalizedAddress,
-      displayAddress: label,
-      lat,
-      lng,
-      confidence,
-    });
 
     return {
-      ok: true,
-      lat,
-      lng,
-      label,
-      confidence,
+      ok: false,
+      reason: "not_found",
+      message:
+        "No reliable Italian geocoding result found. Please review the address.",
       provider: "openrouteservice",
     };
   } catch (error) {

@@ -217,41 +217,137 @@ export async function geocodeRouteProStops(formData: FormData) {
 
   const routeId = String(formData.get("route_id") ?? "").trim();
 
-  if (!routeId) redirect("/app/routepro");
+  if (!routeId) {
+    redirect("/app/routepro");
+  }
 
-  const { data: stops, error: stopsError } = await supabase
-  .from("routepro_stops")
-  .select("id, address, status, lat, lng")
-  .eq("route_id", routeId)
-  .order("position", { ascending: true });
+  /*
+   * Recuperiamo il contesto geografico della rotta.
+   * Non contiene riferimenti fissi a Giussano o ad altre località:
+   * funziona con qualsiasi partenza/rientro presente in Italia.
+   */
+  const { data: route, error: routeError } = await supabase
+    .from("routepro_routes")
+    .select(
+      "id, start_lat, start_lng, return_lat, return_lng",
+    )
+    .eq("id", routeId)
+    .maybeSingle();
 
-const stopsToGeocode =
-  stops?.filter((stop) => {
-    const hasCoordinates = stop.lat !== null && stop.lng !== null;
-
-    return (
-      stop.status === "raw" ||
-      stop.status === "needs_review" ||
-      !hasCoordinates
+  if (routeError || !route) {
+    console.error(
+      "RoutePro route geocoding context fetch error:",
+      routeError?.message,
     );
-  }) ?? [];
 
-  if (stopsError) {
-    console.error("RoutePro stops geocode fetch error:", stopsError.message);
     redirect(`/app/routepro/${routeId}?error=geocode-failed`);
   }
 
+  const routeContextPoints: Array<{
+    lat: number;
+    lng: number;
+  }> = [];
+
+  const startLat = Number(route.start_lat);
+  const startLng = Number(route.start_lng);
+
+  if (
+    route.start_lat !== null &&
+    route.start_lng !== null &&
+    Number.isFinite(startLat) &&
+    Number.isFinite(startLng)
+  ) {
+    routeContextPoints.push({
+      lat: startLat,
+      lng: startLng,
+    });
+  }
+
+  const returnLat = Number(route.return_lat);
+  const returnLng = Number(route.return_lng);
+
+  if (
+    route.return_lat !== null &&
+    route.return_lng !== null &&
+    Number.isFinite(returnLat) &&
+    Number.isFinite(returnLng)
+  ) {
+    routeContextPoints.push({
+      lat: returnLat,
+      lng: returnLng,
+    });
+  }
+
+  const focusPoint =
+    routeContextPoints.length > 0
+      ? {
+          lat:
+            routeContextPoints.reduce(
+              (sum, point) => sum + point.lat,
+              0,
+            ) / routeContextPoints.length,
+          lng:
+            routeContextPoints.reduce(
+              (sum, point) => sum + point.lng,
+              0,
+            ) / routeContextPoints.length,
+        }
+      : null;
+
+  const { data: stops, error: stopsError } = await supabase
+    .from("routepro_stops")
+    .select("id, address, status, lat, lng")
+    .eq("route_id", routeId)
+    .order("position", { ascending: true });
+
+  if (stopsError) {
+    console.error(
+      "RoutePro stops geocode fetch error:",
+      stopsError.message,
+    );
+
+    redirect(`/app/routepro/${routeId}?error=geocode-failed`);
+  }
+
+  const stopsToGeocode =
+    stops?.filter((stop) => {
+      const hasCoordinates =
+        stop.lat !== null && stop.lng !== null;
+
+      return (
+        stop.status === "raw" ||
+        stop.status === "needs_review" ||
+        !hasCoordinates
+      );
+    }) ?? [];
+
   if (stopsToGeocode.length === 0) {
-  redirect(`/app/routepro/${routeId}?geocoded=0`);
-}
+    redirect(`/app/routepro/${routeId}?geocoded=0`);
+  }
 
   const GEOCODING_BATCH_SIZE = 5;
 
   await runRouteProGeocodingInBatches(
-  stopsToGeocode,
+    stopsToGeocode,
     GEOCODING_BATCH_SIZE,
     async (stop) => {
-      const result = await geocodeAddressWithOpenRouteService(stop.address);
+      const result =
+        await geocodeAddressWithOpenRouteService(
+          stop.address,
+          {
+            focusPoint,
+
+            /*
+             * Protezione contro risultati palesemente fuori area.
+             * Non delimita una città specifica: usa la partenza/rientro
+             * della singola rotta come riferimento geografico.
+             *
+             * 120 km è volutamente ampio per non penalizzare rotte
+             * estese, ma impedisce errori come Lombardia -> Sicilia.
+             */
+            maxDistanceKm: focusPoint ? 120 : null,
+          },
+        );
 
       if (result.ok) {
         const { error } = await supabase
@@ -269,31 +365,49 @@ const stopsToGeocode =
           .eq("id", stop.id);
 
         if (error) {
-          console.error("RoutePro geocode update success error:", error.message);
+          console.error(
+            "RoutePro geocode update success error:",
+            error.message,
+          );
         }
 
         return;
       }
 
+      /*
+       * Se nessun candidato è sufficientemente affidabile,
+       * eliminiamo eventuali vecchie coordinate e obblighiamo
+       * il controllo manuale. L'ottimizzatore non potrà quindi
+       * usare coordinate sospette.
+       */
       const { error } = await supabase
         .from("routepro_stops")
         .update({
+          lat: null,
+          lng: null,
           status: "needs_review",
           geocoding_provider: result.provider,
           geocoding_status:
-            result.reason === "missing_key" ? "missing_key" : "failed",
+            result.reason === "missing_key"
+              ? "missing_key"
+              : "failed",
+          geocoding_confidence: null,
           geocoding_error: result.message,
           updated_at: new Date().toISOString(),
         })
         .eq("id", stop.id);
 
       if (error) {
-        console.error("RoutePro geocode update failed error:", error.message);
+        console.error(
+          "RoutePro geocode update failed error:",
+          error.message,
+        );
       }
     },
   );
 
   revalidatePath(`/app/routepro/${routeId}`);
+
   redirect(`/app/routepro/${routeId}?geocoded=1`);
 }
 

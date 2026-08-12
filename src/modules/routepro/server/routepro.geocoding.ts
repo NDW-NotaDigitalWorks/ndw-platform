@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getRouteProNdwOrsApiKey } from "@/modules/routepro/server/routepro.ai-config";
+import { smartGeocodeAddress } from "@/modules/routepro/smart-engine/core/smart-geocoder";
+import type { SmartUsageTracker } from "@/modules/routepro/smart-engine/telemetry/usage-tracker";
 
 type OrsFeature = {
   geometry?: {
@@ -35,6 +38,7 @@ export type RouteProGeocodeOptions = {
   focusPoint?: RouteProGeocodeFocusPoint | null;
   maxDistanceKm?: number | null;
   bypassCache?: boolean;
+  usageTracker?: SmartUsageTracker;
 };
 
 export type RouteProGeocodeResult =
@@ -44,7 +48,7 @@ export type RouteProGeocodeResult =
       lng: number;
       label: string | null;
       confidence: number | null;
-      provider: "openrouteservice" | "routepro_cache";
+      provider: "openrouteservice" | "mapbox" | "routepro_cache";
     }
   | {
       ok: false;
@@ -91,6 +95,14 @@ const MIN_PROVIDER_CONFIDENCE = 0.25;
 const MIN_ACCEPTED_CANDIDATE_SCORE = 44;
 const MIN_ACCEPTED_CACHE_SCORE = 48;
 
+function isSmartGeocoderEnabled(): boolean {
+  return process.env.NDW_ROUTEPRO_SMART_GEOCODER === "true";
+}
+
+function isMapboxPermanentGeocodingEnabled(): boolean {
+  return process.env.NDW_MAPBOX_PERMANENT_GEOCODING === "true";
+}
+
 const ADDRESS_STOP_WORDS = new Set([
   "via",
   "viale",
@@ -100,7 +112,7 @@ const ADDRESS_STOP_WORDS = new Set([
   "corso",
   "strada",
   "localita",
-  "località",
+  "località ",
   "frazione",
   "italia",
   "italy",
@@ -497,7 +509,7 @@ async function getCachedGeocode(
   cleanAddress: string,
   options: RouteProGeocodeOptions,
 ): Promise<RouteProGeocodeResult | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("routepro_geocoding_cache")
@@ -561,8 +573,9 @@ async function saveGeocodeToCache(params: {
   lat: number;
   lng: number;
   confidence: number | null;
+  provider?: "openrouteservice" | "mapbox";
 }) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { error } = await supabase.from("routepro_geocoding_cache").upsert(
     {
@@ -570,7 +583,7 @@ async function saveGeocodeToCache(params: {
       display_address: params.displayAddress,
       lat: params.lat,
       lng: params.lng,
-      provider: "openrouteservice",
+      provider: params.provider ?? "openrouteservice",
       confidence: params.confidence,
       country_code: "IT",
       hit_count: 0,
@@ -643,14 +656,14 @@ function ensureStreetPrefix(address: string): string {
   const firstPart = parts[0]?.trim() ?? "";
 
   if (
-    /^(via|viale|vicolo|piazza|piazzale|corso|strada|largo|localita|località)\b/i.test(
+    /^(via|viale|vicolo|piazza|piazzale|corso|strada|largo|localita|località )\b/i.test(
       firstPart,
     )
   ) {
     return address;
   }
 
-  if (!/[a-zA-ZÀ-ÿ]/.test(firstPart)) {
+  if (!/\p{L}/u.test(firstPart)) {
     return address;
   }
 
@@ -761,6 +774,7 @@ export async function geocodeAddressWithOpenRouteService(
   address: string,
   options: RouteProGeocodeOptions = {},
 ): Promise<RouteProGeocodeResult> {
+  const geocodeStartedAt = Date.now();
   const cleanAddress = normalizeAddressForGeocoding(address);
   const normalizedAddress = normalizeAddressForCache(cleanAddress);
 
@@ -780,8 +794,93 @@ export async function geocodeAddressWithOpenRouteService(
       options,
     );
 
-    if (cachedResult) {
+    if (cachedResult?.ok) {
+      options.usageTracker?.add({
+        provider: "cache",
+        durationMs: Date.now() - geocodeStartedAt,
+        confidence: cachedResult.confidence,
+        result: "success",
+        cacheHit: true,
+        mapboxRequests: 0,
+        orsRequests: 0,
+      });
+
       return cachedResult;
+    }
+  }
+
+  if (isSmartGeocoderEnabled()) {
+    if (!isMapboxPermanentGeocodingEnabled()) {
+      console.warn(
+        "RoutePro Smart Geocoder is enabled but permanent Mapbox geocoding is not enabled. Falling back to legacy ORS.",
+      );
+    } else {
+      try {
+        const smartResult = await smartGeocodeAddress({
+          address: cleanAddress,
+          focusPoint: options.focusPoint,
+          countryCode: DEFAULT_GEOCODING_COUNTRY.countryCode,
+          mode: "production",
+          usageTracker: options.usageTracker,
+        });
+
+        if (
+          smartResult.status === "success" &&
+          smartResult.lat !== null &&
+          smartResult.lng !== null &&
+          (smartResult.provider === "mapbox" ||
+            smartResult.provider === "openrouteservice")
+        ) {
+          await saveGeocodeToCache({
+            normalizedAddress,
+            displayAddress: smartResult.label ?? cleanAddress,
+            lat: smartResult.lat,
+            lng: smartResult.lng,
+            confidence: smartResult.providerConfidence,
+            provider: smartResult.provider,
+          });
+
+          console.info("RoutePro Smart Geocoder success:", {
+            provider: smartResult.provider,
+            durationMs: smartResult.totalDurationMs,
+            qualityScore: smartResult.qualityScore,
+            fallbackUsed: smartResult.fallbackUsed,
+            address: cleanAddress,
+          });
+
+          return {
+            ok: true,
+            lat: smartResult.lat,
+            lng: smartResult.lng,
+            label: smartResult.label ?? cleanAddress,
+            confidence: smartResult.providerConfidence,
+            provider: smartResult.provider,
+          };
+        }
+
+        console.warn("RoutePro Smart Geocoder review required:", {
+          status: smartResult.status,
+          durationMs: smartResult.totalDurationMs,
+          fallbackUsed: smartResult.fallbackUsed,
+          address: cleanAddress,
+          message: smartResult.message,
+        });
+
+        return {
+          ok: false,
+          reason:
+            smartResult.status === "provider_error"
+              ? "provider_error"
+              : "not_found",
+          message: smartResult.message,
+          provider: "openrouteservice",
+        };
+      } catch (error) {
+        console.error(
+          "RoutePro Smart Geocoder unexpected error. Falling back to legacy ORS:",
+          error,
+        );
+      }
     }
   }
 
@@ -847,6 +946,7 @@ export async function geocodeAddressWithOpenRouteService(
         lat,
         lng,
         confidence,
+        provider: "openrouteservice",
       });
 
       return {

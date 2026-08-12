@@ -17,3 +17,15 @@ export function getRouteProNdwOrsApiKey(): string {
 
   return key;
 }
+
+export function getRouteProNdwMapboxAccessToken(): string {
+  const key = process.env.NDW_MAPBOX_ACCESS_TOKEN;
+
+  if (!key) {
+    throw new Error(
+      "Missing NDW_MAPBOX_ACCESS_TOKEN server environment variable.",
+    );
+  }
+
+  return key;
+}

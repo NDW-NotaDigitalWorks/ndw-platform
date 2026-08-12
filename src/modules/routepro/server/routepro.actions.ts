@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/routepro.geocoding";
+import { SmartUsageTracker } from "@/modules/routepro/smart-engine/telemetry/usage-tracker";
 import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
 import { optimizeStopsWithOpenRouteService } from "@/modules/routepro/server/routepro.ors-optimization";
 import { optimizeAmazonAssistRoute } from "@/modules/routepro/server/routepro.amazon-optimizer";
@@ -326,6 +327,7 @@ export async function geocodeRouteProStops(formData: FormData) {
   }
 
   const GEOCODING_BATCH_SIZE = 2;
+  const usageTracker = new SmartUsageTracker();
 
   await runRouteProGeocodingInBatches(
     stopsToGeocode,
@@ -346,6 +348,7 @@ export async function geocodeRouteProStops(formData: FormData) {
              * estese, ma impedisce errori come Lombardia -> Sicilia.
              */
             maxDistanceKm: focusPoint ? 120 : null,
+            usageTracker,
           },
         );
 
@@ -405,6 +408,14 @@ export async function geocodeRouteProStops(formData: FormData) {
       }
     },
   );
+
+  const usageReport = usageTracker.buildReport();
+
+  console.info("RoutePro Smart Geocoding Report:", {
+    routeId,
+    stopsRequestedForGeocoding: stopsToGeocode.length,
+    ...usageReport,
+  });
 
   revalidatePath(`/app/routepro/${routeId}`);
 

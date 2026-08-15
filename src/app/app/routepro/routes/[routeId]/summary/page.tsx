@@ -13,90 +13,114 @@ type Props = {
 const gridStyle: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-  gap: 14,
+  gap: 12,
   marginTop: 18,
 };
 
-const cardStyle: React.CSSProperties = {
-  ...ui.card.base,
-  padding: 16,
-};
-
 const metricCardStyle: React.CSSProperties = {
-  ...ui.card.base,
-  padding: 20,
-  border: "1px solid #cbd5e1",
-  background: "#ffffff",
-  boxShadow: "0 14px 30px rgba(15, 23, 42, 0.08)",
+  padding: 18,
+  borderRadius: 18,
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  background: "rgba(30, 41, 59, 0.72)",
+  boxShadow: "0 12px 30px rgba(2, 6, 23, 0.18)",
+  color: "#f8fafc",
 };
 
 const metricLabelStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: 12,
+  fontSize: 11,
   fontWeight: 900,
   textTransform: "uppercase",
   letterSpacing: "0.08em",
-  color: "#475569",
+  color: "#93c5fd",
 };
 
 const metricValueStyle: React.CSSProperties = {
-  margin: "10px 0 0",
-  fontSize: 38,
+  margin: "8px 0 0",
+  fontSize: 34,
   lineHeight: 1,
   fontWeight: 950,
   letterSpacing: "-0.04em",
-  color: "#0f172a",
+  color: "#ffffff",
 };
 
 const metricHintStyle: React.CSSProperties = {
-  margin: "8px 0 0",
-  fontSize: 13,
+  margin: "7px 0 0",
+  fontSize: 12,
   lineHeight: 1.45,
-  fontWeight: 700,
-  color: "#334155",
+  fontWeight: 650,
+  color: "#cbd5e1",
 };
 
-const listStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 12,
-  marginTop: 22,
+const summaryPanelStyle: React.CSSProperties = {
+  marginTop: 18,
+  padding: 18,
+  borderRadius: 18,
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  background: "rgba(30, 41, 59, 0.72)",
+  color: "#f8fafc",
+};
+
+const sectionTitleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 20,
+  lineHeight: 1.2,
+  fontWeight: 900,
+  color: "#f8fafc",
 };
 
 const mutedTextStyle: React.CSSProperties = {
   margin: "8px 0 0",
-  fontSize: 14,
-  lineHeight: 1.6,
-};
-
-const badgeStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "6px 10px",
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 800,
-  background: "#f1f5f9",
-  color: "#334155",
-};
-
-const summaryPanelStyle: React.CSSProperties = {
-  ...ui.card.base,
-  marginTop: 24,
-  padding: 22,
-  border: "1px solid #cbd5e1",
-  background:
-    "linear-gradient(135deg, rgba(248,250,252,1) 0%, rgba(255,255,255,1) 100%)",
+  fontSize: 13,
+  lineHeight: 1.55,
+  fontWeight: 650,
+  color: "#cbd5e1",
 };
 
 const healthBadgeStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  padding: "8px 14px",
+  padding: "7px 12px",
   borderRadius: 999,
-  background: "#dcfce7",
-  color: "#166534",
-  fontSize: 13,
+  background: "rgba(16, 185, 129, 0.14)",
+  border: "1px solid rgba(52, 211, 153, 0.28)",
+  color: "#86efac",
+  fontSize: 12,
   fontWeight: 900,
+};
+
+const outcomeShellStyle: React.CSSProperties = {
+  marginTop: 18,
+  borderRadius: 18,
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  background: "rgba(15, 23, 42, 0.55)",
+  overflow: "hidden",
+};
+
+const outcomeHeaderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  padding: "15px 16px",
+  borderBottom: "1px solid rgba(148, 163, 184, 0.15)",
+  color: "#f8fafc",
+};
+
+const outcomeListStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 10,
+  maxHeight: "520px",
+  overflowY: "auto",
+  padding: 12,
+};
+
+const stopCardStyle: React.CSSProperties = {
+  padding: 14,
+  borderRadius: 16,
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  background: "rgba(30, 41, 59, 0.86)",
+  color: "#f8fafc",
 };
 
 const stopHeaderStyle: React.CSSProperties = {
@@ -116,23 +140,45 @@ const stopNumberGroupStyle: React.CSSProperties = {
 const originalStopBadgeStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  padding: "6px 12px",
+  padding: "5px 10px",
   borderRadius: 999,
   background: "#0f172a",
+  border: "1px solid rgba(148, 163, 184, 0.22)",
   color: "#ffffff",
-  fontSize: 13,
+  fontSize: 12,
   fontWeight: 900,
 };
 
 const optimizedStopBadgeStyle: React.CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  padding: "6px 12px",
+  padding: "5px 10px",
   borderRadius: 999,
-  background: "#dbeafe",
-  color: "#1d4ed8",
-  fontSize: 13,
+  background: "rgba(59, 130, 246, 0.14)",
+  border: "1px solid rgba(96, 165, 250, 0.26)",
+  color: "#93c5fd",
+  fontSize: 12,
   fontWeight: 900,
+};
+
+const stopAddressStyle: React.CSSProperties = {
+  margin: "9px 0 0",
+  fontSize: 14,
+  lineHeight: 1.45,
+  fontWeight: 800,
+  color: "#f8fafc",
+};
+
+const badgeStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "6px 10px",
+  borderRadius: 999,
+  fontSize: 11,
+  fontWeight: 850,
+  background: "rgba(148, 163, 184, 0.12)",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  color: "#e2e8f0",
 };
 
 function getCompletionRate(doneCount: number, totalStops: number): number {
@@ -258,7 +304,7 @@ export default async function RouteProSummaryPage({ params }: Props) {
       </div>
 
       <div style={summaryPanelStyle}>
-        <h2 style={ui.page.sectionTitle}>Route health</h2>
+        <h2 style={sectionTitleStyle}>Route health</h2>
 
         <div style={{ marginTop: 12 }}>
           <span style={healthBadgeStyle}>{routeHealth}</span>
@@ -281,19 +327,28 @@ export default async function RouteProSummaryPage({ params }: Props) {
         </p>
       </div>
 
-      <div style={{ marginTop: 28 }}>
-        <h2 style={ui.page.sectionTitle}>Stop outcome list</h2>
+      <section style={outcomeShellStyle}>
+        <div style={outcomeHeaderStyle}>
+          <div>
+            <h2 style={sectionTitleStyle}>Stop outcome list</h2>
+            <p style={{ ...mutedTextStyle, marginTop: 5 }}>
+              {totalStops} stop · elenco compatto con scorrimento interno
+            </p>
+          </div>
+
+          <span style={badgeStyle}>{doneCount}/{totalStops} gestiti</span>
+        </div>
 
         {route.stops.length === 0 ? (
-          <div style={{ ...ui.card.base, marginTop: 18 }}>
+          <div style={{ padding: 16 }}>
             <p style={mutedTextStyle}>No stops available for this summary.</p>
           </div>
         ) : (
-          <div style={listStyle}>
+          <div style={outcomeListStyle}>
             {route.stops.map((stop) => (
-              <article key={stop.id} style={cardStyle}>
+              <article key={stop.id} style={stopCardStyle}>
                 <div style={stopHeaderStyle}>
-                  <div>
+                  <div style={{ minWidth: 0, flex: "1 1 260px" }}>
                     <div style={stopNumberGroupStyle}>
                       <span style={originalStopBadgeStyle}>
                         STOP #{stop.original_position}
@@ -304,7 +359,7 @@ export default async function RouteProSummaryPage({ params }: Props) {
                       </span>
                     </div>
 
-                    <p style={mutedTextStyle}>{stop.address}</p>
+                    <p style={stopAddressStyle}>{stop.address}</p>
                   </div>
 
                   <span style={badgeStyle}>{getStatusLabel(stop.status)}</span>
@@ -313,7 +368,7 @@ export default async function RouteProSummaryPage({ params }: Props) {
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 24 }}>
         <Link href={`/app/routepro/routes/${route.id}/drive`} style={routeProUi.secondaryButton}>

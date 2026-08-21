@@ -63,6 +63,31 @@ export async function POST(request: Request) {
 
 const stops = mergedStops;
 
+console.info(
+  "RoutePro AI Address Intelligence Diagnostic:",
+  JSON.stringify(
+    stops.map((stop) => ({
+      originalStopNumber: stop.originalStopNumber,
+      addressRaw: stop.addressRaw,
+      interpretedAddress: stop.interpretedAddress ?? null,
+      street: stop.street ?? null,
+      houseNumber: stop.houseNumber ?? null,
+      locality: stop.locality ?? null,
+      municipality: stop.municipality ?? null,
+      province: stop.province ?? null,
+      postalCode: stop.postalCode ?? null,
+      countryCode: stop.countryCode ?? null,
+      interpretationConfidence: stop.interpretationConfidence ?? null,
+      city: stop.city ?? null,
+      confidence: stop.confidence,
+      isPlaceholder: stop.isPlaceholder,
+      needsReviewReason: stop.needsReviewReason ?? null,
+    })),
+    null,
+    2,
+  ),
+);
+
 const batchSummaries = batchResults.map((batch) => ({
   batchIndex: batch.batchIndex,
   batchTotal: batch.batchTotal,

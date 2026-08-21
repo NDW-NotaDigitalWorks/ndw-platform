@@ -23,10 +23,140 @@ type CreateRoutePayload = {
   boundaryMode?: RouteBoundaryMode;
 };
 
-function buildFullAddress(stop: RouteProAiExtractedStop): string {
+function cleanAddressPart(value: string | null | undefined): string | null {
+  const cleaned = value?.trim();
+  return cleaned ? cleaned : null;
+}
+
+function normalizeAddressPart(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9/]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasSuspiciousHouseNumber(value: string | null | undefined): boolean {
+  const normalized = normalizeAddressPart(value);
+  if (!normalized) return false;
+
+  const tokens = normalized.split(" ").filter(Boolean);
+  return tokens.length > 1 && new Set(tokens).size !== tokens.length;
+}
+
+function buildLegacyFullAddress(stop: RouteProAiExtractedStop): string {
   const address = stop.addressRaw.trim();
   const city = stop.city?.trim();
   return city ? `${address}, ${city}` : address;
+}
+
+function buildAddressIntelligenceAddress(
+  stop: RouteProAiExtractedStop,
+  preserveRawAddress = false,
+): string | null {
+  if (stop.isPlaceholder) return null;
+
+  const confidence =
+    typeof stop.interpretationConfidence === "number" &&
+    Number.isFinite(stop.interpretationConfidence)
+      ? stop.interpretationConfidence
+      : null;
+
+  // Address Intelligence may enrich geocoding only when the AI itself
+  // considers the geographic interpretation reliable.
+  if (confidence === null || confidence < 0.9) return null;
+
+  // A stop explicitly flagged by the extraction layer remains conservative.
+  // We can still use safe geographic context, but never a suspicious AI civico.
+  const rawAddress = stop.addressRaw.trim();
+  if (!rawAddress) return null;
+
+  const aiHouseNumber = cleanAddressPart(stop.houseNumber);
+  const safeHouseNumber =
+    aiHouseNumber && !hasSuspiciousHouseNumber(aiHouseNumber)
+      ? aiHouseNumber
+      : null;
+
+  const street = cleanAddressPart(stop.street);
+  const municipality = cleanAddressPart(stop.municipality);
+  const locality = cleanAddressPart(stop.locality);
+  const province = cleanAddressPart(stop.province);
+  const postalCode = cleanAddressPart(stop.postalCode);
+  const countryCode = cleanAddressPart(stop.countryCode)?.toUpperCase() ?? null;
+
+  // Require at least a reliable municipality before changing the query.
+  if (!municipality) return null;
+
+  /*
+   * Manual correction authority:
+   * addressRaw is the current user-reviewed deliverable address and must never
+   * lose information because AI produced a weaker structured interpretation.
+   *
+   * We only replace the raw street+civico when AI can prove it preserved a
+   * valid house number. If AI has no house number, the raw address remains the
+   * authority. This specifically prevents cases such as:
+   *   raw: "Via G. Galilei 15"
+   *   AI street: "Via G. Galilei"
+   *   AI houseNumber: null
+   * from becoming "Via G. Galilei".
+   */
+  let primaryAddress = rawAddress;
+
+  // Guard V2: once the user has manually changed addressRaw, that value is
+  // authoritative. Address Intelligence may add geographic context below, but
+  // it must not rewrite or remove any part of the user's correction.
+  if (!preserveRawAddress && street && safeHouseNumber) {
+    const normalizedRaw = normalizeAddressPart(rawAddress);
+    const normalizedHouse = normalizeAddressPart(safeHouseNumber);
+
+    // Use AI street normalization only if the civic number is still present
+    // and therefore no user-visible addressing information is discarded.
+    if (normalizedRaw.includes(normalizedHouse)) {
+      primaryAddress = `${street} ${safeHouseNumber}`.trim();
+    }
+  }
+
+  const geographicParts: string[] = [];
+
+  // Keep locality only when it is distinct from the municipality.
+  if (
+    locality &&
+    normalizeAddressPart(locality) !== normalizeAddressPart(municipality)
+  ) {
+    geographicParts.push(locality);
+  }
+
+  geographicParts.push(municipality);
+
+  if (province) geographicParts.push(province);
+  if (postalCode) geographicParts.push(postalCode);
+  if (countryCode === "IT") geographicParts.push("Italia");
+
+  return [primaryAddress, ...geographicParts].join(", ");
+}
+
+function buildFullAddress(
+  stop: RouteProAiExtractedStop,
+  preserveRawAddress = false,
+): string {
+  return (
+    buildAddressIntelligenceAddress(stop, preserveRawAddress) ??
+    buildLegacyFullAddress(stop)
+  );
+}
+
+function didUserEditAddress(
+  stop: RouteProAiExtractedStop,
+  originalStopsByNumber: Map<number, RouteProAiExtractedStop>,
+): boolean {
+  const originalStop = originalStopsByNumber.get(stop.originalStopNumber);
+
+  // Without an original AI preview there is nothing reliable to compare with.
+  if (!originalStop) return false;
+
+  return stop.addressRaw.trim() !== originalStop.addressRaw.trim();
 }
 
 function classifyImportedStops(
@@ -73,6 +203,10 @@ export async function POST(request: Request) {
     const finalStops = body.editedStops?.length
       ? body.editedStops
       : preview?.stops;
+
+    const originalStopsByNumber = new Map<number, RouteProAiExtractedStop>(
+      (preview?.stops ?? []).map((stop) => [stop.originalStopNumber, stop]),
+    );
 
     if (!finalStops?.length) {
       return NextResponse.json(
@@ -127,11 +261,21 @@ export async function POST(request: Request) {
 
     const startAddress =
       body.startAddress?.trim() ||
-      (importedStart ? buildFullAddress(importedStart) : null);
+      (importedStart
+        ? buildFullAddress(
+            importedStart,
+            didUserEditAddress(importedStart, originalStopsByNumber),
+          )
+        : null);
 
         const returnAddress =
       body.returnAddress?.trim() ||
-      (importedReturn ? buildFullAddress(importedReturn) : null);
+      (importedReturn
+        ? buildFullAddress(
+            importedReturn,
+            didUserEditAddress(importedReturn, originalStopsByNumber),
+          )
+        : null);
 
     const [startGeocodeResult, returnGeocodeResult] = await Promise.all([
       startAddress
@@ -184,8 +328,45 @@ export async function POST(request: Request) {
       );
     }
 
+    console.info(
+      "RoutePro Address Intelligence Guard:",
+      JSON.stringify(
+        classifiedStops.map((stop) => {
+          const manuallyEdited = didUserEditAddress(
+            stop,
+            originalStopsByNumber,
+          );
+          const selectedAddress = buildFullAddress(stop, manuallyEdited);
+          const normalizedSelected = normalizeAddressPart(selectedAddress);
+          const normalizedRaw = normalizeAddressPart(stop.addressRaw);
+          const normalizedHouseNumber = normalizeAddressPart(
+            stop.houseNumber ?? "",
+          );
+
+          return {
+            originalStopNumber: stop.originalStopNumber,
+            raw: buildLegacyFullAddress(stop),
+            selected: selectedAddress,
+            manuallyEdited,
+            manualAddressAuthorityApplied: manuallyEdited,
+            usedAddressIntelligence:
+              selectedAddress !== buildLegacyFullAddress(stop),
+            rawAddressPreserved: normalizedSelected.includes(normalizedRaw),
+            rawHouseNumberPreserved:
+              normalizedHouseNumber.length === 0 ||
+              normalizedSelected.includes(normalizedHouseNumber),
+            interpretationConfidence: stop.interpretationConfidence ?? null,
+            needsReviewReason: stop.needsReviewReason ?? null,
+          };
+        }),
+        null,
+        2,
+      ),
+    );
+
     const stopRows = classifiedStops.map((stop, index) => {
       const hasAddress = stop.addressRaw.trim().length > 0;
+      const manuallyEdited = didUserEditAddress(stop, originalStopsByNumber);
       const shouldReview =
         stop.isPlaceholder ||
         !hasAddress ||
@@ -196,7 +377,7 @@ export async function POST(request: Request) {
         route_id: route.id,
         position: index + 1,
         original_position: stop.originalStopNumber,
-        address: buildFullAddress(stop),
+        address: buildFullAddress(stop, manuallyEdited),
         lat: null,
         lng: null,
         status: shouldReview ? "needs_review" : "valid",

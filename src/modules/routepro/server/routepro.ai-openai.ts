@@ -4,6 +4,15 @@ import type { RouteProAiExtractedStop } from "@/modules/routepro/types/routepro.
 type OpenAiVisionStop = {
   originalStopNumber?: number;
   addressRaw?: string;
+  interpretedAddress?: string | null;
+  street?: string | null;
+  houseNumber?: string | null;
+  locality?: string | null;
+  municipality?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
+  countryCode?: string | null;
+  interpretationConfidence?: number | null;
   city?: string | null;
   confidence?: "high" | "medium" | "low" | "needs_review";
   isPlaceholder?: boolean;
@@ -69,6 +78,38 @@ function normalizeAiConfidence(stop: OpenAiVisionStop, cleanedAddress: string) {
   return "high";
 }
 
+function cleanOptionalText(value: string | null | undefined): string | null {
+  const cleaned = value?.trim();
+  return cleaned ? cleaned : null;
+}
+
+function normalizeInterpretationConfidence(
+  value: number | null | undefined,
+): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return Math.min(1, Math.max(0, value));
+}
+
+function buildFallbackInterpretedAddress(stop: OpenAiVisionStop): string | null {
+  const explicit = cleanOptionalText(stop.interpretedAddress);
+  if (explicit) return explicit;
+
+  const country =
+    cleanOptionalText(stop.countryCode)?.toUpperCase() === "IT" ? "Italia" : null;
+
+  const parts = [
+    cleanOptionalText(stop.street),
+    cleanOptionalText(stop.houseNumber),
+    cleanOptionalText(stop.locality),
+    cleanOptionalText(stop.municipality),
+    cleanOptionalText(stop.province),
+    cleanOptionalText(stop.postalCode),
+    country,
+  ].filter((value): value is string => Boolean(value));
+
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
 function normalizeAiStop(stop: OpenAiVisionStop): RouteProAiExtractedStop | null {
   if (!stop.originalStopNumber || stop.originalStopNumber < 1) {
     return null;
@@ -77,10 +118,30 @@ function normalizeAiStop(stop: OpenAiVisionStop): RouteProAiExtractedStop | null
   const isPlaceholder = Boolean(stop.isPlaceholder);
   const addressRaw = cleanAiAddress(stop.addressRaw?.trim() ?? "");
 
+  const locality = cleanOptionalText(stop.locality);
+  const municipality = cleanOptionalText(stop.municipality);
+  const visibleCity = cleanOptionalText(stop.city);
+
   return {
     originalStopNumber: stop.originalStopNumber,
-    addressRaw: addressRaw && addressRaw.length > 0 ? addressRaw : "PLACEHOLDER_STOP_MISSING_ADDRESS",
-    city: stop.city?.trim() || null,
+    addressRaw:
+      addressRaw && addressRaw.length > 0
+        ? addressRaw
+        : "PLACEHOLDER_STOP_MISSING_ADDRESS",
+    interpretedAddress: isPlaceholder ? null : buildFallbackInterpretedAddress(stop),
+    street: isPlaceholder ? null : cleanOptionalText(stop.street),
+    houseNumber: isPlaceholder ? null : cleanOptionalText(stop.houseNumber),
+    locality: isPlaceholder ? null : locality,
+    municipality: isPlaceholder ? null : municipality,
+    province: isPlaceholder ? null : cleanOptionalText(stop.province),
+    postalCode: isPlaceholder ? null : cleanOptionalText(stop.postalCode),
+    countryCode: isPlaceholder
+      ? null
+      : cleanOptionalText(stop.countryCode)?.toUpperCase() ?? null,
+    interpretationConfidence: isPlaceholder
+      ? null
+      : normalizeInterpretationConfidence(stop.interpretationConfidence),
+    city: municipality ?? locality ?? visibleCity,
     confidence: normalizeAiConfidence(stop, addressRaw),
     isPlaceholder,
     needsReviewReason: stop.needsReviewReason ?? null,
@@ -166,6 +227,15 @@ Exact JSON structure:
     {
       "originalStopNumber": 2,
       "addressRaw": "Via Roma 10",
+      "interpretedAddress": "Via Roma 10, Milano, MI, Italia",
+      "street": "Via Roma",
+      "houseNumber": "10",
+      "locality": null,
+      "municipality": "Milano",
+      "province": "MI",
+      "postalCode": null,
+      "countryCode": "IT",
+      "interpretationConfidence": 0.99,
       "city": "Milano",
       "confidence": "high",
       "isPlaceholder": false,
@@ -215,6 +285,28 @@ city:
 - If city is not visible, use null.
 - If the address line contains postal code + city, extract only the city.
 - Example: "20833 GIUSSANO" -> city: "Giussano".
+
+GEOGRAPHIC INTERPRETATION:
+- addressRaw remains the clean deliverable street address visible in the screenshot.
+- interpretedAddress is a separate geographic interpretation intended to help later geocoding.
+- When possible split the address into street, houseNumber, locality, municipality, province, postalCode and countryCode.
+- For Italian addresses use countryCode "IT".
+- locality is a frazione, hamlet, district or smaller named place when applicable.
+- municipality is the official comune/city only when visible or inferable with high confidence from screenshot context.
+- NEVER invent municipality, province or postalCode merely to complete the object.
+- If municipality is uncertain, return municipality: null.
+- If province is uncertain, return province: null.
+- If postalCode is uncertain, return postalCode: null.
+- If a locality is visible but its parent municipality is uncertain, preserve locality and leave municipality null.
+- interpretedAddress must contain only components supported with sufficient confidence.
+- interpretationConfidence is a number from 0 to 1 and measures geographic interpretation confidence, not OCR readability.
+- city remains for backward compatibility: prefer municipality when known, otherwise visible locality/city text.
+- Geographic interpretation must never alter originalStopNumber or invent a deliverable address.
+
+Examples:
+- "Via Roma 10, Milano" may resolve to street "Via Roma", houseNumber "10", municipality "Milano".
+- "Via Mazzini 8, Paina" may preserve locality "Paina"; set municipality only when sufficiently certain.
+- If only "Via Verdi 12" is visible without reliable geographic context, municipality/province/postalCode must be null.
 
 confidence:
 Use:
@@ -286,6 +378,15 @@ MISSING / PARTIAL STOPS:
   {
     "originalStopNumber": N,
     "addressRaw": "PLACEHOLDER_STOP_MISSING_ADDRESS",
+    "interpretedAddress": null,
+    "street": null,
+    "houseNumber": null,
+    "locality": null,
+    "municipality": null,
+    "province": null,
+    "postalCode": null,
+    "countryCode": null,
+    "interpretationConfidence": null,
     "city": null,
     "confidence": "needs_review",
     "isPlaceholder": true,
@@ -313,6 +414,8 @@ FINAL CHECK BEFORE ANSWERING:
 - No duplicate originalStopNumber.
 - No recipient names or notes inside addressRaw.
 - No invented addresses.
+- No invented municipality, province or postal code.
+- Preserve locality separately from municipality when they differ.
 `.trim(),
     },
   ];

@@ -24,12 +24,33 @@ function chunkFiles(files: File[], size: number): File[][] {
 }
 
 function scoreStop(stop: RouteProAiExtractedStop): number {
-  if (!stop.isPlaceholder && stop.confidence === "high") return 4;
-  if (!stop.isPlaceholder && stop.confidence === "medium") return 3;
-  if (!stop.isPlaceholder && stop.confidence === "low") return 2;
-  if (stop.isPlaceholder) return 1;
+  let score = 0;
 
-  return 0;
+  if (!stop.isPlaceholder && stop.confidence === "high") score += 400;
+  else if (!stop.isPlaceholder && stop.confidence === "medium") score += 300;
+  else if (!stop.isPlaceholder && stop.confidence === "low") score += 200;
+  else if (stop.isPlaceholder) score += 100;
+
+  // A parita di qualita OCR, preferisci l'interpretazione geografica piu ricca.
+  if (stop.interpretedAddress) score += 20;
+  if (stop.street) score += 8;
+  if (stop.houseNumber) score += 6;
+  if (stop.locality) score += 5;
+  if (stop.municipality) score += 8;
+  if (stop.province) score += 3;
+  if (stop.postalCode) score += 2;
+  if (stop.countryCode) score += 1;
+
+  if (
+    typeof stop.interpretationConfidence === "number" &&
+    Number.isFinite(stop.interpretationConfidence)
+  ) {
+    score += Math.round(
+      Math.min(1, Math.max(0, stop.interpretationConfidence)) * 20,
+    );
+  }
+
+  return score;
 }
 
 async function analyzeBatchWithRetry(

@@ -32,8 +32,9 @@ import type {
   SmartProvider,
   SmartResult,
 } from "@/modules/routepro/smart-engine/telemetry/usage-tracker";
+import { resolveRouteProAddressWithAi } from "@/modules/routepro/smart-engine/resolver/ai-address-resolver";
 
-export const ROUTEPRO_SMART_GEOCODER_VERSION = "1.3.0";
+export const ROUTEPRO_SMART_GEOCODER_VERSION = "1.6.0-google-evidence-identity-guard";
 
 export type RouteProSmartGeocoderMode =
   | "laboratory"
@@ -312,6 +313,97 @@ async function runOpenRouteService(params: {
   };
 }
 
+function normalizeComparableLocality(value: string | null | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sameComparableLocality(
+  first: string | null | undefined,
+  second: string | null | undefined,
+): boolean {
+  const left = normalizeComparableLocality(first);
+  const right = normalizeComparableLocality(second);
+
+  return Boolean(left && right && left === right);
+}
+
+function inferMunicipalityFromOrsReference(params: {
+  canonical: RouteProCanonicalAddress;
+  orsRun: RouteProSmartGeocoderProviderRun;
+}): string | null {
+  const requestedLocality =
+    params.canonical.locality ?? params.canonical.city;
+
+  if (!requestedLocality) return null;
+
+  for (const ranked of params.orsRun.ranking) {
+    const candidate = ranked.candidate;
+
+    /*
+     * Locality Rescue v1 is intentionally conservative.
+     *
+     * We only trust ORS as a locality -> municipality bridge when the
+     * provider explicitly exposes the requested place in candidate.locality
+     * and separately exposes a municipality in candidate.city.
+     *
+     * Example:
+     *   requested: Perticato
+     *   ORS locality: Perticato
+     *   ORS city: Mariano Comense
+     *
+     * We do NOT infer from the human-readable label alone. This prevents
+     * ambiguous cases such as a provider returning "Paina, Seregno" while
+     * locality itself is not Paina.
+     */
+    if (
+      !candidate.city ||
+      !candidate.locality ||
+      !sameComparableLocality(candidate.locality, requestedLocality) ||
+      sameComparableLocality(candidate.city, requestedLocality)
+    ) {
+      continue;
+    }
+
+    const layer = normalizeComparableLocality(candidate.layer);
+
+    if (
+      layer !== "locality" &&
+      layer !== "neighbourhood" &&
+      layer !== "localadmin" &&
+      layer !== "place"
+    ) {
+      continue;
+    }
+
+    return candidate.city.trim();
+  }
+
+  return null;
+}
+
+function buildLocalityRescueCanonical(params: {
+  canonical: RouteProCanonicalAddress;
+  municipality: string;
+  knowledge?: RouteProCanonicalizerKnowledge;
+}): RouteProCanonicalAddress | null {
+  const streetWithNumber = params.canonical.canonicalStreet;
+
+  if (!streetWithNumber?.trim()) return null;
+
+  return canonicalizeRouteProAddress(
+    `${streetWithNumber}, ${params.municipality}`,
+    {
+      knowledge: params.knowledge,
+    },
+  );
+}
+
 function buildSuccessResult(params: {
   canonical: RouteProCanonicalAddress;
   run: RouteProSmartGeocoderProviderRun;
@@ -456,6 +548,227 @@ export async function smartGeocodeAddress(
     return result;
   }
 
+  /*
+   * RPSE Locality Rescue v1
+   *
+   * When ORS explicitly identifies the requested locality as a locality
+   * belonging to a different municipality, retry Mapbox with that municipality
+   * while preserving the original street and house number.
+   *
+   * No locality or municipality is hardcoded.
+   * If ORS cannot provide an explicit locality -> city relationship, or if
+   * Mapbox still cannot pass the normal Quality Gate, the stop remains review.
+   */
+  const inferredMunicipality = inferMunicipalityFromOrsReference({
+    canonical,
+    orsRun,
+  });
+
+  if (inferredMunicipality) {
+    const rescueCanonical = buildLocalityRescueCanonical({
+      canonical,
+      municipality: inferredMunicipality,
+      knowledge: input.knowledge,
+    });
+
+    if (rescueCanonical) {
+      console.info("RoutePro Locality Rescue attempt:", {
+        address: input.address,
+        requestedLocality: canonical.locality ?? canonical.city,
+        inferredMunicipality,
+        rescueQueries: rescueCanonical.providerQueries,
+      });
+
+      const rescueRun = await runMapbox({
+        canonical: rescueCanonical,
+        focusPoint: input.focusPoint,
+        countryCode,
+        mode,
+      });
+
+      providerRuns.push(rescueRun);
+
+      if (rescueRun.accepted) {
+        const result = buildSuccessResult({
+          canonical,
+          run: rescueRun,
+          providerRuns,
+          fallbackUsed: true,
+          startedAt,
+        });
+
+        console.info("RoutePro Locality Rescue success:", {
+          address: input.address,
+          inferredMunicipality,
+          provider: result.provider,
+          qualityScore: result.qualityScore,
+          label: result.label,
+        });
+
+        recordUsage({
+          tracker: input.usageTracker,
+          providerRuns: result.providerRuns,
+          durationMs: result.totalDurationMs,
+          finalProvider: result.provider,
+          confidence: result.providerConfidence,
+          fallbackUsed: result.fallbackUsed,
+          requiresReview: result.requiresReview,
+        });
+
+        return result;
+      }
+
+      console.warn("RoutePro Locality Rescue not accepted:", {
+        address: input.address,
+        inferredMunicipality,
+      });
+    }
+  }
+
+  /*
+   * RoutePro AI Address Resolver v1
+   *
+   * Runs only after Mapbox + ORS + Locality Rescue have all failed the
+   * existing Quality Gate. The resolver may use temporary Search Box POI
+   * evidence and AI reasoning to propose alternative TEXT queries only.
+   *
+   * IMPORTANT: Search Box coordinates are never accepted or persisted here.
+   * Every proposed query is sent back through the normal Mapbox/ORS provider
+   * adapters and must pass the SAME RoutePro Quality Gate before success.
+   */
+  if (process.env.NDW_ROUTEPRO_AI_ADDRESS_RESOLVER === "true") {
+    try {
+      const resolverResult = await resolveRouteProAddressWithAi({
+        address: input.address,
+        canonical: {
+          streetName: canonical.streetName,
+          houseNumber: canonical.houseNumber,
+          locality: canonical.locality,
+          city: canonical.city,
+          province: canonical.province,
+          postalCode: canonical.postalCode,
+          countryCode: canonical.countryCode,
+        },
+        focusPoint: input.focusPoint ?? null,
+        rejectedCandidates: providerRuns.flatMap((run) =>
+          run.ranking.slice(0, 3).map((ranked) => ({
+            provider: run.provider,
+            label: ranked.candidate.label,
+            street: ranked.candidate.street,
+            houseNumber: ranked.candidate.houseNumber,
+            locality: ranked.candidate.locality,
+            city: ranked.candidate.city,
+            province: ranked.candidate.province,
+            layer: ranked.candidate.layer,
+            confidence: ranked.candidate.confidence,
+            score: ranked.score,
+            evidence: ranked.evidence.map((item) => item.code),
+          })),
+        ),
+      });
+
+      console.info("RoutePro AI Address Resolver result:", {
+        address: input.address,
+        classification: resolverResult.classification,
+        confidence: resolverResult.confidence,
+        queries: resolverResult.queries,
+        poiEvidenceCount: resolverResult.poiEvidence.length,
+        googleEvidenceCount: resolverResult.poiEvidence.filter((item) => item.source === "google_places").length,
+        rejectedQueries: resolverResult.rejectedQueries,
+        reason: resolverResult.reason,
+      });
+
+      for (const resolverQuery of resolverResult.queries.slice(0, 3)) {
+        const resolverCanonical = canonicalizeRouteProAddress(resolverQuery, {
+          context: input.context,
+          knowledge: input.knowledge,
+        });
+
+        if (!resolverCanonical.raw.trim()) continue;
+
+        const resolverMapboxRun = await runMapbox({
+          canonical: resolverCanonical,
+          focusPoint: input.focusPoint,
+          countryCode,
+          mode,
+        });
+
+        providerRuns.push(resolverMapboxRun);
+
+        if (resolverMapboxRun.accepted) {
+          const result = buildSuccessResult({
+            canonical,
+            run: resolverMapboxRun,
+            providerRuns,
+            fallbackUsed: true,
+            startedAt,
+          });
+
+          console.info("RoutePro AI Address Resolver success:", {
+            originalAddress: input.address,
+            resolverQuery,
+            provider: result.provider,
+            qualityScore: result.qualityScore,
+            label: result.label,
+          });
+
+          recordUsage({
+            tracker: input.usageTracker,
+            providerRuns: result.providerRuns,
+            durationMs: result.totalDurationMs,
+            finalProvider: result.provider,
+            confidence: result.providerConfidence,
+            fallbackUsed: result.fallbackUsed,
+            requiresReview: result.requiresReview,
+          });
+
+          return result;
+        }
+
+        const resolverOrsRun = await runOpenRouteService({
+          canonical: resolverCanonical,
+          focusPoint: input.focusPoint,
+          countryCode,
+        });
+
+        providerRuns.push(resolverOrsRun);
+
+        if (resolverOrsRun.accepted) {
+          const result = buildSuccessResult({
+            canonical,
+            run: resolverOrsRun,
+            providerRuns,
+            fallbackUsed: true,
+            startedAt,
+          });
+
+          console.info("RoutePro AI Address Resolver success:", {
+            originalAddress: input.address,
+            resolverQuery,
+            provider: result.provider,
+            qualityScore: result.qualityScore,
+            label: result.label,
+          });
+
+          recordUsage({
+            tracker: input.usageTracker,
+            providerRuns: result.providerRuns,
+            durationMs: result.totalDurationMs,
+            finalProvider: result.provider,
+            confidence: result.providerConfidence,
+            fallbackUsed: result.fallbackUsed,
+            requiresReview: result.requiresReview,
+          });
+
+          return result;
+        }
+      }
+    } catch (error) {
+      // Resolver failure must NEVER make normal geocoding worse.
+      console.error("RoutePro AI Address Resolver skipped after error:", error);
+    }
+  }
+
   const allProviderRequestsFailed = providerRuns.every(
     (run) => !run.providerResult.ok,
   );
@@ -491,6 +804,55 @@ export async function smartGeocodeAddress(
     fallbackUsed: result.fallbackUsed,
     requiresReview: result.requiresReview,
   });
+
+  if (result.requiresReview) {
+    const providerDiagnostics = result.providerRuns.map((run) => ({
+      provider: run.provider,
+      attemptedQueries: run.providerResult.attemptedQueries,
+      topCandidates: run.ranking.slice(0, 3).map((ranked) => ({
+        label: ranked.candidate.label,
+        street: ranked.candidate.street,
+        houseNumber: ranked.candidate.houseNumber,
+        locality: ranked.candidate.locality,
+        city: ranked.candidate.city,
+        province: ranked.candidate.province,
+        layer: ranked.candidate.layer,
+        confidence: ranked.candidate.confidence,
+        score: ranked.score,
+        decision: ranked.decision,
+        usableAsStopCoordinate: ranked.usableAsStopCoordinate,
+        evidence: ranked.evidence.map((item) => ({
+          code: item.code,
+          score: item.score,
+          message: item.message,
+        })),
+      })),
+    }));
+
+    console.warn(
+      "RoutePro Smart Geocoder Production Diagnostic JSON:",
+      JSON.stringify(
+        {
+          inputAddress: input.address,
+          canonical: {
+            streetName: canonical.streetName,
+            houseNumber: canonical.houseNumber,
+            locality: canonical.locality,
+            city: canonical.city,
+            province: canonical.province,
+            postalCode: canonical.postalCode,
+            countryCode: canonical.countryCode,
+            providerQueries: canonical.providerQueries,
+          },
+          focusPoint: input.focusPoint ?? null,
+          status: result.status,
+          providerDiagnostics,
+        },
+        null,
+        2,
+      ),
+    );
+  }
 
   return result;
 }

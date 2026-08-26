@@ -48,7 +48,9 @@ export type RouteProGeocodeResult =
       lng: number;
       label: string | null;
       confidence: number | null;
-      provider: "openrouteservice" | "mapbox" | "routepro_cache";
+      provider: "openrouteservice" | "mapbox" | "google_places" | "routepro_cache";
+      coordinateExpiresAt?: string | null;
+      googlePlaceId?: string | null;
     }
   | {
       ok: false;
@@ -829,22 +831,32 @@ export async function geocodeAddressWithOpenRouteService(
           smartResult.lat !== null &&
           smartResult.lng !== null &&
           (smartResult.provider === "mapbox" ||
-            smartResult.provider === "openrouteservice")
+            smartResult.provider === "openrouteservice" ||
+            smartResult.provider === "google_places")
         ) {
-          await saveGeocodeToCache({
-            normalizedAddress,
-            displayAddress: smartResult.label ?? cleanAddress,
-            lat: smartResult.lat,
-            lng: smartResult.lng,
-            confidence: smartResult.providerConfidence,
-            provider: smartResult.provider,
-          });
+          // Permanent cache is reserved for providers whose current RoutePro
+          // contract allows permanent storage. Google Places coordinates are
+          // TTL-limited and are stored only on the route stop with an expiry.
+          if (
+            smartResult.provider === "mapbox" ||
+            smartResult.provider === "openrouteservice"
+          ) {
+            await saveGeocodeToCache({
+              normalizedAddress,
+              displayAddress: smartResult.label ?? cleanAddress,
+              lat: smartResult.lat,
+              lng: smartResult.lng,
+              confidence: smartResult.providerConfidence,
+              provider: smartResult.provider,
+            });
+          }
 
           console.info("RoutePro Smart Geocoder success:", {
             provider: smartResult.provider,
             durationMs: smartResult.totalDurationMs,
             qualityScore: smartResult.qualityScore,
             fallbackUsed: smartResult.fallbackUsed,
+            coordinateExpiresAt: smartResult.coordinateExpiresAt ?? null,
             address: cleanAddress,
           });
 
@@ -855,6 +867,8 @@ export async function geocodeAddressWithOpenRouteService(
             label: smartResult.label ?? cleanAddress,
             confidence: smartResult.providerConfidence,
             provider: smartResult.provider,
+            coordinateExpiresAt: smartResult.coordinateExpiresAt ?? null,
+            googlePlaceId: smartResult.googlePlaceId ?? null,
           };
         }
 

@@ -7,7 +7,7 @@ import { geocodeAddressWithOpenRouteService } from "@/modules/routepro/server/ro
 import { SmartUsageTracker } from "@/modules/routepro/smart-engine/telemetry/usage-tracker";
 import { optimizeStopsNearestNeighbor } from "@/modules/routepro/server/routepro.optimization";
 import { optimizeStopsWithOpenRouteService } from "@/modules/routepro/server/routepro.ors-optimization";
-import { optimizeAmazonAssistRoute } from "@/modules/routepro/server/routepro.amazon-optimizer";
+import { analyzeAmazonRoute } from "@/modules/routepro/server/routepro.amazon-analysis";
 import { extractTextFromImageWithGoogleVision } from "@/modules/routepro/server/routepro.ocr";
 import { encryptRouteProSecret } from "@/modules/routepro/server/routepro.crypto";
 import { parseAmazonFlexStopsFromVisionLayout } from "@/modules/routepro/server/routepro.flex-layout-parser";
@@ -483,6 +483,407 @@ export async function deleteRouteProStop(formData: FormData) {
   redirect(`/app/routepro/${routeId}?deleted=1`);
 }
 
+
+type RouteProOptimizationDiagnosticStop = {
+  id: string;
+  position: number;
+  original_position: number;
+  address: string;
+  lat: number;
+  lng: number;
+  stop_role: "start" | "delivery" | "return";
+};
+
+function routeProDiagnosticDistanceKm(
+  first: { lat: number; lng: number },
+  second: { lat: number; lng: number },
+): number {
+  const earthRadiusKm = 6371;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const dLat = toRadians(second.lat - first.lat);
+  const dLng = toRadians(second.lng - first.lng);
+  const lat1 = toRadians(first.lat);
+  const lat2 = toRadians(second.lat);
+
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const haversine =
+    sinLat * sinLat +
+    Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng;
+
+  return (
+    earthRadiusKm *
+    2 *
+    Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+  );
+}
+
+function routeProDiagnosticRouteDistanceMeters(
+  stops: RouteProOptimizationDiagnosticStop[],
+  startPoint?: { lat: number; lng: number } | null,
+  endPoint?: { lat: number; lng: number } | null,
+): number {
+  if (stops.length === 0) return 0;
+
+  let totalKm = 0;
+  let currentPoint =
+    startPoint ?? { lat: stops[0].lat, lng: stops[0].lng };
+
+  for (const stop of stops) {
+    totalKm += routeProDiagnosticDistanceKm(currentPoint, stop);
+    currentPoint = { lat: stop.lat, lng: stop.lng };
+  }
+
+  if (endPoint) {
+    totalKm += routeProDiagnosticDistanceKm(currentPoint, endPoint);
+  }
+
+  return Math.round(totalKm * 1000);
+}
+
+function routeProDiagnosticGreedyNearestNeighbor(
+  stops: RouteProOptimizationDiagnosticStop[],
+  startPoint?: { lat: number; lng: number } | null,
+): RouteProOptimizationDiagnosticStop[] {
+  if (stops.length <= 1) return [...stops];
+
+  const remaining = [...stops];
+  const ordered: RouteProOptimizationDiagnosticStop[] = [];
+  let currentPoint =
+    startPoint ?? { lat: remaining[0].lat, lng: remaining[0].lng };
+
+  while (remaining.length > 0) {
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    for (let index = 0; index < remaining.length; index += 1) {
+      const candidate = remaining[index];
+      const distance = routeProDiagnosticDistanceKm(currentPoint, candidate);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+      }
+    }
+
+    const [nextStop] = remaining.splice(bestIndex, 1);
+    ordered.push(nextStop);
+    currentPoint = { lat: nextStop.lat, lng: nextStop.lng };
+  }
+
+  return ordered;
+}
+
+function routeProDiagnosticChangedStopCount(
+  originalStops: RouteProOptimizationDiagnosticStop[],
+  candidateStops: RouteProOptimizationDiagnosticStop[],
+): number {
+  const originalIndexById = new Map(
+    originalStops.map((stop, index) => [stop.id, index]),
+  );
+
+  return candidateStops.filter(
+    (stop, index) => originalIndexById.get(stop.id) !== index,
+  ).length;
+}
+
+
+function routeProDiagnosticGlobalStreetKeyV6(address: string): string {
+  return ((address.split(",")[0] ?? address)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\b\d+[a-z]?(?:\/[a-z0-9]+)?\b/gi, " ")
+    .replace(/[#.,;:()[\]{}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim());
+}
+
+function routeProDiagnosticStreetReentriesV6(
+  stops: RouteProOptimizationDiagnosticStop[],
+  minimumGap = 3,
+): number {
+  const indexesByStreet = new Map<string, number[]>();
+
+  stops.forEach((stop, index) => {
+    const key = routeProDiagnosticGlobalStreetKeyV6(stop.address);
+    if (!key) return;
+    const indexes = indexesByStreet.get(key) ?? [];
+    indexes.push(index);
+    indexesByStreet.set(key, indexes);
+  });
+
+  let reentries = 0;
+  for (const indexes of indexesByStreet.values()) {
+    for (let index = 1; index < indexes.length; index += 1) {
+      if (indexes[index] - indexes[index - 1] >= minimumGap) {
+        reentries += 1;
+      }
+    }
+  }
+
+  return reentries;
+}
+
+function routeProDiagnosticAreaReentriesV6(
+  stops: RouteProOptimizationDiagnosticStop[],
+  radiusKm: number,
+  minimumGap: number,
+): number {
+  let reentries = 0;
+
+  for (
+    let currentIndex = minimumGap;
+    currentIndex < stops.length;
+    currentIndex += 1
+  ) {
+    const currentStop = stops[currentIndex];
+    const previousStop = stops[currentIndex - 1];
+
+    for (
+      let oldIndex = 0;
+      oldIndex <= currentIndex - minimumGap;
+      oldIndex += 1
+    ) {
+      const oldStop = stops[oldIndex];
+
+      if (
+        routeProDiagnosticDistanceKm(currentStop, oldStop) > radiusKm
+      ) {
+        continue;
+      }
+
+      if (
+        routeProDiagnosticDistanceKm(previousStop, oldStop) > radiusKm
+      ) {
+        reentries += 1;
+        break;
+      }
+    }
+  }
+
+  return reentries;
+}
+
+function routeProDiagnosticContinuityMetricsV6(
+  stops: RouteProOptimizationDiagnosticStop[],
+) {
+  return {
+    streetReentriesGlobal:
+      routeProDiagnosticStreetReentriesV6(stops),
+    neighborhoodReentries500m:
+      routeProDiagnosticAreaReentriesV6(stops, 0.5, 5),
+    zoneReentries1500m:
+      routeProDiagnosticAreaReentriesV6(stops, 1.5, 7),
+    macroZoneReentries3000m:
+      routeProDiagnosticAreaReentriesV6(stops, 3.0, 10),
+  };
+}
+
+type RouteProContinuityFirstResultV6 = {
+  orderedStops: RouteProOptimizationDiagnosticStop[];
+  analysis: ReturnType<typeof analyzeAmazonRoute>;
+  distanceMeters: number;
+  passes: number;
+  acceptedMoves: number;
+  evaluatedCandidates: number;
+  continuity: ReturnType<typeof routeProDiagnosticContinuityMetricsV6>;
+};
+
+function routeProContinuityFirstOptimizeV6(
+  originalStops: RouteProOptimizationDiagnosticStop[],
+  startPoint?: { lat: number; lng: number } | null,
+  endPoint?: { lat: number; lng: number } | null,
+): RouteProContinuityFirstResultV6 {
+  // Continuity-first baseline: Greedy won the V5 real-route test on
+  // neighborhood/zone re-entry metrics.
+  let currentStops = routeProDiagnosticGreedyNearestNeighbor(
+    originalStops,
+    startPoint,
+  );
+  let currentAnalysis = analyzeAmazonRoute(currentStops);
+  let currentDistance = routeProDiagnosticRouteDistanceMeters(
+    currentStops,
+    startPoint,
+    endPoint,
+  );
+  let currentContinuity =
+    routeProDiagnosticContinuityMetricsV6(currentStops);
+
+  const MAX_PASSES = 8;
+  const MAX_REVERSAL_SPAN = 26;
+  const TOP_CANDIDATES_PER_PASS = 48;
+  const MIN_DISTANCE_GAIN_METERS = 35;
+
+  let acceptedMoves = 0;
+  let evaluatedCandidates = 0;
+  let completedPasses = 0;
+
+  for (let pass = 0; pass < MAX_PASSES; pass += 1) {
+    completedPasses += 1;
+
+    const distanceCandidates: {
+      orderedStops: RouteProOptimizationDiagnosticStop[];
+      distanceMeters: number;
+      distanceGainMeters: number;
+    }[] = [];
+
+    for (
+      let fromIndex = 0;
+      fromIndex < currentStops.length - 2;
+      fromIndex += 1
+    ) {
+      const maxToIndex = Math.min(
+        currentStops.length - 1,
+        fromIndex + MAX_REVERSAL_SPAN,
+      );
+
+      for (
+        let toIndex = fromIndex + 1;
+        toIndex <= maxToIndex;
+        toIndex += 1
+      ) {
+        const candidateStops = [
+          ...currentStops.slice(0, fromIndex),
+          ...currentStops.slice(fromIndex, toIndex + 1).reverse(),
+          ...currentStops.slice(toIndex + 1),
+        ];
+
+        const candidateDistance =
+          routeProDiagnosticRouteDistanceMeters(
+            candidateStops,
+            startPoint,
+            endPoint,
+          );
+        const distanceGain = currentDistance - candidateDistance;
+
+        if (distanceGain >= MIN_DISTANCE_GAIN_METERS) {
+          distanceCandidates.push({
+            orderedStops: candidateStops,
+            distanceMeters: candidateDistance,
+            distanceGainMeters: distanceGain,
+          });
+        }
+      }
+    }
+
+    const shortlist = distanceCandidates
+      .sort(
+        (first, second) =>
+          second.distanceGainMeters - first.distanceGainMeters,
+      )
+      .slice(0, TOP_CANDIDATES_PER_PASS);
+
+    let best:
+      | {
+          orderedStops: RouteProOptimizationDiagnosticStop[];
+          analysis: ReturnType<typeof analyzeAmazonRoute>;
+          continuity: ReturnType<
+            typeof routeProDiagnosticContinuityMetricsV6
+          >;
+          distanceMeters: number;
+          utility: number;
+        }
+      | null = null;
+
+    for (const candidate of shortlist) {
+      evaluatedCandidates += 1;
+
+      const continuity =
+        routeProDiagnosticContinuityMetricsV6(
+          candidate.orderedStops,
+        );
+
+      // Hard rule: saving meters can never reopen a street/area more often.
+      if (
+        continuity.streetReentriesGlobal >
+          currentContinuity.streetReentriesGlobal ||
+        continuity.neighborhoodReentries500m >
+          currentContinuity.neighborhoodReentries500m ||
+        continuity.zoneReentries1500m >
+          currentContinuity.zoneReentries1500m ||
+        continuity.macroZoneReentries3000m >
+          currentContinuity.macroZoneReentries3000m
+      ) {
+        continue;
+      }
+
+      const analysis = analyzeAmazonRoute(candidate.orderedStops);
+
+      if (
+        analysis.counts.nearbyStopRevisits >
+          currentAnalysis.counts.nearbyStopRevisits ||
+        analysis.counts.streetRevisits >
+          currentAnalysis.counts.streetRevisits ||
+        analysis.estimatedCorrections >
+          currentAnalysis.estimatedCorrections
+      ) {
+        continue;
+      }
+
+      const neighborhoodGain =
+        currentContinuity.neighborhoodReentries500m -
+        continuity.neighborhoodReentries500m;
+      const zoneGain =
+        currentContinuity.zoneReentries1500m -
+        continuity.zoneReentries1500m;
+      const macroGain =
+        currentContinuity.macroZoneReentries3000m -
+        continuity.macroZoneReentries3000m;
+      const streetGain =
+        currentContinuity.streetReentriesGlobal -
+        continuity.streetReentriesGlobal;
+      const nearbyGain =
+        currentAnalysis.counts.nearbyStopRevisits -
+        analysis.counts.nearbyStopRevisits;
+      const correctionsGain =
+        currentAnalysis.estimatedCorrections -
+        analysis.estimatedCorrections;
+
+      // Time/mental-load proxy: zone continuity is deliberately weighted
+      // more heavily than a small geometric saving.
+      const utility =
+        candidate.distanceGainMeters +
+        neighborhoodGain * 180 +
+        zoneGain * 320 +
+        macroGain * 520 +
+        streetGain * 180 +
+        nearbyGain * 220 +
+        correctionsGain * 120;
+
+      if (!best || utility > best.utility) {
+        best = {
+          orderedStops: candidate.orderedStops,
+          analysis,
+          continuity,
+          distanceMeters: candidate.distanceMeters,
+          utility,
+        };
+      }
+    }
+
+    if (!best || best.utility <= 0) {
+      break;
+    }
+
+    currentStops = best.orderedStops;
+    currentAnalysis = best.analysis;
+    currentContinuity = best.continuity;
+    currentDistance = best.distanceMeters;
+    acceptedMoves += 1;
+  }
+
+  return {
+    orderedStops: currentStops,
+    analysis: currentAnalysis,
+    distanceMeters: currentDistance,
+    passes: completedPasses,
+    acceptedMoves,
+    evaluatedCandidates,
+    continuity: currentContinuity,
+  };
+}
+
 export async function optimizeRouteProRoute(formData: FormData) {
   const supabase = await createClient();
 
@@ -624,57 +1025,193 @@ const normalizedProfile = String(
 ).toLowerCase();
 
 if (normalizedProfile === "amazon_flex") {
-  const amazonResult = optimizeAmazonAssistRoute(
-    optimizationStops,
+  const originalDeliverySequence = [
+    ...stopsToOptimize,
+  ] as RouteProOptimizationDiagnosticStop[];
+
+  const originalAnalysis = analyzeAmazonRoute(originalDeliverySequence);
+  const originalGeometricDistanceMeters =
+    routeProDiagnosticRouteDistanceMeters(
+      originalDeliverySequence,
+      startPoint,
+      endPoint,
+    );
+
+  const continuityFirstV6 = routeProContinuityFirstOptimizeV6(
+    originalDeliverySequence,
     startPoint,
     endPoint,
   );
 
-  console.log("======================================");
-  console.log("AMAZON ASSIST ANALYSIS");
-  console.log("======================================");
-  console.log("Route score:", amazonResult.analysis.routeScore);
-  console.log("Recommendation:", amazonResult.analysis.recommendation);
-  console.log("Street revisits:", amazonResult.analysis.counts.streetRevisits);
-  console.log(
-    "Nearby revisits:",
-    amazonResult.analysis.counts.nearbyStopRevisits,
-  );
-  console.log("Route jumps:", amazonResult.analysis.counts.routeJumps);
-  console.log(
-    "Estimated corrections:",
-    amazonResult.analysis.estimatedCorrections,
-  );
-  console.log(
-    "Estimated saving:",
-    `${amazonResult.analysis.estimatedSavingMeters} m`,
-  );
-  console.log("======================================");
+  const originalContinuityV6 =
+    routeProDiagnosticContinuityMetricsV6(originalDeliverySequence);
+
+  const distanceSavingMeters =
+    originalGeometricDistanceMeters - continuityFirstV6.distanceMeters;
+  const distanceSavingPercent =
+    originalGeometricDistanceMeters > 0
+      ? distanceSavingMeters / originalGeometricDistanceMeters
+      : 0;
+
+  const nearbyReduction =
+    originalAnalysis.counts.nearbyStopRevisits -
+    continuityFirstV6.analysis.counts.nearbyStopRevisits;
+  const streetRevisitReduction =
+    originalAnalysis.counts.streetRevisits -
+    continuityFirstV6.analysis.counts.streetRevisits;
+  const correctionReduction =
+    originalAnalysis.estimatedCorrections -
+    continuityFirstV6.analysis.estimatedCorrections;
+
+  const neighborhoodReduction =
+    originalContinuityV6.neighborhoodReentries500m -
+    continuityFirstV6.continuity.neighborhoodReentries500m;
+  const zoneReduction =
+    originalContinuityV6.zoneReentries1500m -
+    continuityFirstV6.continuity.zoneReentries1500m;
+  const macroZoneReduction =
+    originalContinuityV6.macroZoneReentries3000m -
+    continuityFirstV6.continuity.macroZoneReentries3000m;
+  const streetReentryReduction =
+    originalContinuityV6.streetReentriesGlobal -
+    continuityFirstV6.continuity.streetReentriesGlobal;
+
+  const noContinuityRegression =
+    continuityFirstV6.analysis.counts.nearbyStopRevisits <=
+      originalAnalysis.counts.nearbyStopRevisits &&
+    continuityFirstV6.analysis.counts.streetRevisits <=
+      originalAnalysis.counts.streetRevisits &&
+    continuityFirstV6.analysis.estimatedCorrections <=
+      originalAnalysis.estimatedCorrections &&
+    continuityFirstV6.continuity.streetReentriesGlobal <=
+      originalContinuityV6.streetReentriesGlobal &&
+    continuityFirstV6.continuity.neighborhoodReentries500m <=
+      originalContinuityV6.neighborhoodReentries500m &&
+    continuityFirstV6.continuity.zoneReentries1500m <=
+      originalContinuityV6.zoneReentries1500m &&
+    continuityFirstV6.continuity.macroZoneReentries3000m <=
+      originalContinuityV6.macroZoneReentries3000m;
+
+  const meaningfulDistanceGain =
+    distanceSavingMeters >=
+    Math.max(500, originalGeometricDistanceMeters * 0.04);
+
+  const meaningfulContinuityGain =
+    nearbyReduction >= 3 ||
+    neighborhoodReduction >= 2 ||
+    zoneReduction >= 2 ||
+    macroZoneReduction >= 1 ||
+    streetReentryReduction >= 2 ||
+    correctionReduction >= 3;
+
+  const originalAlreadyGood =
+    originalAnalysis.counts.nearbyStopRevisits <= 5 &&
+    originalAnalysis.counts.streetRevisits <= 4 &&
+    originalContinuityV6.neighborhoodReentries500m <= 6 &&
+    originalContinuityV6.zoneReentries1500m <= 4 &&
+    originalContinuityV6.macroZoneReentries3000m <= 1;
+
+  const strongGainForAlreadyGoodRoute =
+    distanceSavingMeters > 0 && distanceSavingPercent >= 0.08;
+
+  const shouldApplyContinuityFirst =
+    noContinuityRegression &&
+    distanceSavingMeters > 0 &&
+    (originalAlreadyGood
+      ? strongGainForAlreadyGoodRoute
+      : meaningfulDistanceGain || meaningfulContinuityGain);
+
+  const selectedOptimizationMethod = shouldApplyContinuityFirst
+    ? "routepro_continuity_first_adaptive_v1"
+    : "routepro_preserve_source_sequence_v1";
+
+  const selectedDeliverySequence = shouldApplyContinuityFirst
+    ? continuityFirstV6.orderedStops
+    : originalDeliverySequence;
+
+  const selectedAnalysis = shouldApplyContinuityFirst
+    ? continuityFirstV6.analysis
+    : originalAnalysis;
+
+  const selectedChangedStopCount = shouldApplyContinuityFirst
+    ? routeProDiagnosticChangedStopCount(
+        originalDeliverySequence,
+        continuityFirstV6.orderedStops,
+      )
+    : 0;
+
+  console.info("RoutePro Adaptive Optimization:", {
+    method: selectedOptimizationMethod,
+    applied: shouldApplyContinuityFirst,
+    stopCount: originalDeliverySequence.length,
+    distanceSavingMeters: Math.max(0, distanceSavingMeters),
+    distanceSavingPercent: Number((distanceSavingPercent * 100).toFixed(2)),
+    nearbyReduction,
+    streetRevisitReduction,
+    neighborhoodReduction,
+    zoneReduction,
+    macroZoneReduction,
+  });
 
   amazonAssistReport = {
     version: 1,
     generated_at: new Date().toISOString(),
-    method: amazonResult.method,
-    changed: amazonResult.changed,
-    changed_stop_count: amazonResult.changedStopCount,
-    applied_saving_meters: amazonResult.appliedSavingMeters,
-    applied_saving_seconds: amazonResult.appliedSavingSeconds,
-    original_analysis: amazonResult.originalAnalysis,
-    final_analysis: amazonResult.analysis,
-    corrections: amazonResult.corrections,
+    method: selectedOptimizationMethod,
+    changed: shouldApplyContinuityFirst,
+    changed_stop_count: selectedChangedStopCount,
+    applied_saving_meters: shouldApplyContinuityFirst
+      ? Math.max(0, distanceSavingMeters)
+      : 0,
+    applied_saving_seconds: shouldApplyContinuityFirst
+      ? Math.round(Math.max(0, distanceSavingMeters) / 8)
+      : 0,
+    original_analysis: {
+      ...originalAnalysis,
+      continuity: originalContinuityV6,
+      geometric_distance_meters: originalGeometricDistanceMeters,
+    },
+    final_analysis: {
+      ...selectedAnalysis,
+      continuity: shouldApplyContinuityFirst
+        ? continuityFirstV6.continuity
+        : originalContinuityV6,
+      geometric_distance_meters: shouldApplyContinuityFirst
+        ? continuityFirstV6.distanceMeters
+        : originalGeometricDistanceMeters,
+      adaptive_decision: {
+        original_already_good: originalAlreadyGood,
+        no_continuity_regression: noContinuityRegression,
+        distance_saving_meters: distanceSavingMeters,
+        distance_saving_percent: Number(
+          (distanceSavingPercent * 100).toFixed(2),
+        ),
+        nearby_reduction: nearbyReduction,
+        street_revisit_reduction: streetRevisitReduction,
+        correction_reduction: correctionReduction,
+        street_reentry_reduction: streetReentryReduction,
+        neighborhood_reduction: neighborhoodReduction,
+        zone_reduction: zoneReduction,
+        macro_zone_reduction: macroZoneReduction,
+      },
+    },
+    corrections: [],
   };
 
-  optimizedStops = amazonResult.orderedStops
-    .map((amazonStop) =>
-      optimizationStops.find((stop) => stop.id === amazonStop.id),
+  const selectedDeliveryStops = selectedDeliverySequence
+    .map((selectedStop) =>
+      optimizationStops.find((stop) => stop.id === selectedStop.id),
     )
     .filter(
-      (
-        stop,
-      ): stop is (typeof optimizationStops)[number] => Boolean(stop),
+      (stop): stop is (typeof optimizationStops)[number] => Boolean(stop),
     );
 
-  optimizationMethod = amazonResult.method;
+  optimizedStops = [
+    ...(fixedStartStop ? [fixedStartStop] : []),
+    ...selectedDeliveryStops,
+    ...(fixedReturnStop ? [fixedReturnStop] : []),
+  ];
+
+  optimizationMethod = selectedOptimizationMethod;
 } else {
   const orsResult = await optimizeStopsWithOpenRouteService(
     stopsToOptimize.map((stop) => ({

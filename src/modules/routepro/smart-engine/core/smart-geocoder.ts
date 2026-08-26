@@ -34,7 +34,7 @@ import type {
 } from "@/modules/routepro/smart-engine/telemetry/usage-tracker";
 import { resolveRouteProAddressWithAi } from "@/modules/routepro/smart-engine/resolver/ai-address-resolver";
 
-export const ROUTEPRO_SMART_GEOCODER_VERSION = "1.6.0-google-evidence-identity-guard";
+export const ROUTEPRO_SMART_GEOCODER_VERSION = "1.8.1-toponym-targeted-verification";
 
 export type RouteProSmartGeocoderMode =
   | "laboratory"
@@ -59,7 +59,7 @@ export type RouteProSmartGeocoderResult = {
   lat: number | null;
   lng: number | null;
   label: string | null;
-  provider: RouteProProviderName | null;
+  provider: RouteProProviderName | "google_places" | null;
   providerConfidence: number | null;
   qualityScore: number | null;
   decision: RouteProCandidateQualityResult["decision"] | null;
@@ -68,6 +68,8 @@ export type RouteProSmartGeocoderResult = {
   totalDurationMs: number;
   providerRuns: RouteProSmartGeocoderProviderRun[];
   message: string;
+  coordinateExpiresAt?: string | null;
+  googlePlaceId?: string | null;
 };
 
 export type RouteProSmartGeocodeInput = {
@@ -107,7 +109,7 @@ function recordUsage(params: {
   tracker?: SmartUsageTracker;
   providerRuns: RouteProSmartGeocoderProviderRun[];
   durationMs: number;
-  finalProvider: RouteProProviderName | null;
+  finalProvider: RouteProProviderName | "google_places" | null;
   confidence: number | null;
   fallbackUsed: boolean;
   requiresReview: boolean;
@@ -663,6 +665,8 @@ export async function smartGeocodeAddress(
             confidence: ranked.candidate.confidence,
             score: ranked.score,
             evidence: ranked.evidence.map((item) => item.code),
+            lat: ranked.candidate.lat,
+            lng: ranked.candidate.lng,
           })),
         ),
       });
@@ -677,6 +681,117 @@ export async function smartGeocodeAddress(
         rejectedQueries: resolverResult.rejectedQueries,
         reason: resolverResult.reason,
       });
+
+      /*
+       * Google Exact Address Rescue
+       *
+       * Allowed only when Google Places evidence matches the ORIGINAL canonical
+       * street + house number + city exactly and is geographically sane.
+       * Google coordinates are TTL-limited under the EEA service terms and MUST
+       * NOT be written to the permanent RoutePro geocode cache.
+       */
+      if (resolverResult.googleExactAddressRescue) {
+        const rescue = resolverResult.googleExactAddressRescue;
+        const result: RouteProSmartGeocoderResult = {
+          version: ROUTEPRO_SMART_GEOCODER_VERSION,
+          status: "success",
+          canonical,
+          lat: rescue.lat,
+          lng: rescue.lng,
+          // Persist the user-provided address, not Google formatted-address content.
+          label: input.address,
+          provider: "google_places",
+          providerConfidence: rescue.confidence,
+          qualityScore: 100,
+          decision: null,
+          requiresReview: false,
+          fallbackUsed: true,
+          totalDurationMs: Date.now() - startedAt,
+          providerRuns,
+          message: "Indirizzo confermato da Google Places con match esatto strada, civico e comune.",
+          coordinateExpiresAt: rescue.expiresAt,
+          googlePlaceId: rescue.placeId,
+        };
+
+        console.info("RoutePro Google Exact Address Rescue success:", {
+          address: input.address,
+          confidence: rescue.confidence,
+          expiresAt: rescue.expiresAt,
+          placeId: rescue.placeId,
+        });
+
+        recordUsage({
+          tracker: input.usageTracker,
+          providerRuns: result.providerRuns,
+          durationMs: result.totalDurationMs,
+          finalProvider: result.provider,
+          confidence: result.providerConfidence,
+          fallbackUsed: true,
+          requiresReview: false,
+        });
+
+        return result;
+      }
+
+
+      /*
+       * RoutePro Toponym Consensus Rescue
+       *
+       * Runs only for rural/named-place addresses after exact-address rescue
+       * failed. It may relax the textual identity mismatch only when:
+       * - permanent Mapbox returned an address-layer candidate with exact
+       *   house number + city;
+       * - the alternate rural name is only a conservative variant;
+       * - Google independently confirms that alternate named place;
+       * - Google and Mapbox coordinates converge within 750 m.
+       *
+       * The final coordinate is the already-returned PERMANENT MAPBOX point.
+       * Google is consensus evidence only, so no Google coordinate is cached.
+       */
+      if (resolverResult.toponymConsensusRescue) {
+        const rescue = resolverResult.toponymConsensusRescue;
+        const result: RouteProSmartGeocoderResult = {
+          version: ROUTEPRO_SMART_GEOCODER_VERSION,
+          status: "success",
+          canonical,
+          lat: rescue.lat,
+          lng: rescue.lng,
+          // Keep the original delivery address visible to the driver.
+          label: input.address,
+          provider: "mapbox",
+          providerConfidence: rescue.confidence,
+          qualityScore: 96,
+          decision: null,
+          requiresReview: false,
+          fallbackUsed: true,
+          totalDurationMs: Date.now() - startedAt,
+          providerRuns,
+          message: "Toponimo rurale risolto tramite consenso geografico Mapbox + Google Places.",
+          coordinateExpiresAt: null,
+          googlePlaceId: rescue.googlePlaceId,
+        };
+
+        console.info("RoutePro Toponym Consensus Rescue success:", {
+          address: input.address,
+          originalIdentity: rescue.originalIdentity,
+          resolvedIdentity: rescue.resolvedIdentity,
+          consensusDistanceKm: rescue.consensusDistanceKm,
+          provider: "mapbox",
+          confidence: rescue.confidence,
+        });
+
+        recordUsage({
+          tracker: input.usageTracker,
+          providerRuns: result.providerRuns,
+          durationMs: result.totalDurationMs,
+          finalProvider: result.provider,
+          confidence: result.providerConfidence,
+          fallbackUsed: true,
+          requiresReview: false,
+        });
+
+        return result;
+      }
 
       for (const resolverQuery of resolverResult.queries.slice(0, 3)) {
         const resolverCanonical = canonicalizeRouteProAddress(resolverQuery, {

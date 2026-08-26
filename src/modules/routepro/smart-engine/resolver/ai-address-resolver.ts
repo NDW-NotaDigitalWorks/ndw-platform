@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { getRouteProNdwMapboxAccessToken } from "@/modules/routepro/server/routepro.ai-config";
 
-export const ROUTEPRO_AI_ADDRESS_RESOLVER_VERSION = "2.0.0-google-evidence-identity-guard";
+export const ROUTEPRO_AI_ADDRESS_RESOLVER_VERSION = "2.2.1-toponym-targeted-verification";
 
 type FocusPoint = { lat: number; lng: number };
 
@@ -27,6 +27,8 @@ type RejectedCandidate = {
   confidence: number | null;
   score: number;
   evidence: string[];
+  lat: number | null;
+  lng: number | null;
 };
 
 type SearchBoxFeature = {
@@ -73,6 +75,11 @@ export type RouteProPoiEvidence = {
   province: string | null;
   categories: string[];
   distanceFromFocusKm: number | null;
+  // Google coordinates are transient evidence only. They may be returned to the
+  // caller for a TTL-limited exact-address rescue, but must never enter the
+  // permanent RoutePro geocode cache.
+  lat: number | null;
+  lng: number | null;
 };
 
 export type RouteProAiAddressResolverResult = {
@@ -90,6 +97,23 @@ export type RouteProAiAddressResolverResult = {
   rejectedQueries: Array<{ query: string; reason: string }>;
   reason: string;
   poiEvidence: RouteProPoiEvidence[];
+  googleExactAddressRescue: {
+    placeId: string;
+    lat: number;
+    lng: number;
+    confidence: number;
+    expiresAt: string;
+  } | null;
+  toponymConsensusRescue: {
+    lat: number;
+    lng: number;
+    label: string;
+    confidence: number;
+    originalIdentity: string;
+    resolvedIdentity: string;
+    googlePlaceId: string;
+    consensusDistanceKm: number;
+  } | null;
 };
 
 function normalizeComparable(value: string | null | undefined): string {
@@ -239,6 +263,8 @@ async function searchGooglePlaces(params: {
           province: params.canonical.province,
           categories: Array.isArray(place.types) ? place.types.slice(0, 8) : [],
           distanceFromFocusKm: distance,
+          lat: Number.isFinite(lat) ? Number(lat) : null,
+          lng: Number.isFinite(lng) ? Number(lng) : null,
         });
         if (out.length >= 8) return out;
       }
@@ -264,6 +290,8 @@ function toMapboxEvidence(feature: SearchBoxFeature, canonical: CanonicalInput):
     province: c?.district?.name ?? c?.region?.name ?? canonical.province,
     categories: Array.isArray(p?.poi_category) ? p!.poi_category!.slice(0, 6) : [],
     distanceFromFocusKm: null,
+    lat: null,
+    lng: null,
   };
 }
 
@@ -305,6 +333,210 @@ async function searchMapboxPlaces(params: {
     } catch (error) { console.warn("RoutePro AI Resolver Search Box request skipped:", error); }
   }
   return evidence;
+}
+
+
+function normalizeHouseNumber(value: string | null | undefined): string {
+  return normalizeComparable(value).replace(/\s+/g, "");
+}
+
+function streetIdentity(value: string | null | undefined): string {
+  return normalizeComparable(value)
+    .replace(/^(via|viale|vicolo|piazza|piazzale|corso|strada|largo|localita)\s+/, "")
+    .trim();
+}
+
+function extractStreetAndHouseFromGoogleEvidence(evidence: RouteProPoiEvidence): {
+  street: string | null;
+  houseNumber: string | null;
+} {
+  const text = (evidence.fullAddress ?? evidence.address ?? evidence.name ?? "").trim();
+  const first = text.split(",")[0]?.trim() ?? text;
+  const match = first.match(/^(.*?)[,\s]+(\d{1,5}(?:\s*[A-Za-z]|\/[A-Za-z0-9]+)?)$/i);
+  if (match) return { street: match[1]?.trim() || null, houseNumber: match[2]?.trim() || null };
+
+  // Google often returns displayName like "Via Artigiani, 3" while the
+  // formatted address carries the same information. Try the name explicitly.
+  const name = (evidence.name ?? "").trim();
+  const nameMatch = name.match(/^(.*?)[,\s]+(\d{1,5}(?:\s*[A-Za-z]|\/[A-Za-z0-9]+)?)$/i);
+  if (nameMatch) return { street: nameMatch[1]?.trim() || null, houseNumber: nameMatch[2]?.trim() || null };
+  return { street: null, houseNumber: null };
+}
+
+function findGoogleExactAddressRescue(params: {
+  canonical: CanonicalInput;
+  evidence: RouteProPoiEvidence[];
+  focusPoint?: FocusPoint | null;
+}): RouteProAiAddressResolverResult["googleExactAddressRescue"] {
+  const wantedStreet = streetIdentity(params.canonical.streetName);
+  const wantedHouse = normalizeHouseNumber(params.canonical.houseNumber);
+  const wantedCity = normalizeComparable(params.canonical.city);
+
+  if (!wantedStreet || !wantedHouse || !wantedCity) return null;
+
+  for (const item of params.evidence) {
+    if (item.source !== "google_places" || !item.placeId || item.lat === null || item.lng === null) continue;
+
+    const parsed = extractStreetAndHouseFromGoogleEvidence(item);
+    const itemStreet = streetIdentity(parsed.street);
+    const itemHouse = normalizeHouseNumber(parsed.houseNumber);
+    const allText = normalizeComparable([item.name, item.address, item.fullAddress].filter(Boolean).join(" "));
+
+    const streetExact = itemStreet === wantedStreet || allText.includes(wantedStreet);
+    const houseExact = itemHouse === wantedHouse || new RegExp(`(?:^|\\s)${wantedHouse.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:$|\\s)`).test(allText);
+    const cityExact = allText.includes(wantedCity);
+    const distanceOk = item.distanceFromFocusKm === null || item.distanceFromFocusKm <= 120;
+
+    if (!streetExact || !houseExact || !cityExact || !distanceOk) continue;
+
+    const expiresAt = new Date(Date.now() + 29 * 24 * 60 * 60 * 1000).toISOString();
+    return { placeId: item.placeId, lat: item.lat, lng: item.lng, confidence: 0.99, expiresAt };
+  }
+
+  return null;
+}
+
+
+const RURAL_TOPONYM_PREFIX = /^(cascina|localita|borgo|contrada|podere|masseria|frazione|case)\s+/;
+
+function ruralToponymCore(value: string | null | undefined): string {
+  return normalizeComparable(value).replace(RURAL_TOPONYM_PREFIX, "").trim();
+}
+
+function isRuralToponym(value: string | null | undefined): boolean {
+  return RURAL_TOPONYM_PREFIX.test(normalizeComparable(value));
+}
+
+function haveConservativeToponymSimilarity(a: string, b: string): boolean {
+  if (!a || !b || a === b) return false;
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length <= b.length ? b : a;
+  if (shorter.length < 5 || longer.length - shorter.length > 6) return false;
+  if (longer.startsWith(shorter)) return true;
+
+  let common = 0;
+  const limit = Math.min(a.length, b.length);
+  while (common < limit && a[common] === b[common]) common += 1;
+  return common >= 5 && common / Math.min(a.length, b.length) >= 0.8;
+}
+
+function googleEvidenceSupportsResolvedToponym(params: {
+  evidence: RouteProPoiEvidence[];
+  resolvedStreet: string;
+  city: string;
+  mapboxPoint: FocusPoint;
+}): { item: RouteProPoiEvidence; distanceKm: number } | null {
+  const resolvedIdentity = normalizeComparable(params.resolvedStreet);
+  const resolvedCore = ruralToponymCore(params.resolvedStreet);
+  const wantedCity = normalizeComparable(params.city);
+
+  for (const item of params.evidence) {
+    if (
+      item.source !== "google_places" ||
+      !item.placeId ||
+      item.lat === null ||
+      item.lng === null
+    ) continue;
+
+    const allText = normalizeComparable(
+      [item.name, item.address, item.fullAddress].filter(Boolean).join(" "),
+    );
+    if (!allText || !allText.includes(wantedCity)) continue;
+
+    const nameIdentity = normalizeComparable(item.name);
+    const nameCore = ruralToponymCore(item.name);
+    const identitySupported =
+      allText.includes(resolvedIdentity) ||
+      nameIdentity === resolvedIdentity ||
+      (resolvedCore.length >= 5 && nameCore === resolvedCore);
+
+    if (!identitySupported) continue;
+
+    const providerDistanceKm = distanceKm(params.mapboxPoint, {
+      lat: item.lat,
+      lng: item.lng,
+    });
+
+    // Tight enough to mean the two providers are describing the same rural
+    // compound/entrance, but tolerant of provider pin-placement differences.
+    if (providerDistanceKm <= 0.75) {
+      return { item, distanceKm: providerDistanceKm };
+    }
+  }
+
+  return null;
+}
+
+function findToponymConsensusRescue(params: {
+  canonical: CanonicalInput;
+  rejectedCandidates: RejectedCandidate[];
+  evidence: RouteProPoiEvidence[];
+}): RouteProAiAddressResolverResult["toponymConsensusRescue"] {
+  const originalStreet = params.canonical.streetName?.trim() ?? "";
+  const wantedHouse = normalizeHouseNumber(params.canonical.houseNumber);
+  const wantedCity = normalizeComparable(params.canonical.city);
+  const originalCore = ruralToponymCore(originalStreet);
+
+  if (
+    !isRuralToponym(originalStreet) ||
+    !wantedHouse ||
+    !wantedCity ||
+    originalCore.length < 5
+  ) return null;
+
+  for (const candidate of params.rejectedCandidates) {
+    if (
+      candidate.provider !== "mapbox" ||
+      candidate.layer !== "address" ||
+      candidate.lat === null ||
+      candidate.lng === null ||
+      !candidate.street ||
+      !candidate.label
+    ) continue;
+
+    const candidateHouse = normalizeHouseNumber(candidate.houseNumber);
+    const candidateCity = normalizeComparable(candidate.city);
+    const candidateCore = ruralToponymCore(candidate.street);
+
+    const houseExact = candidateHouse === wantedHouse;
+    const cityExact = candidateCity === wantedCity;
+    const ruralTypeCompatible = isRuralToponym(candidate.street);
+    const nameVariantPlausible = haveConservativeToponymSimilarity(
+      originalCore,
+      candidateCore,
+    );
+    const candidateStrongEnough = candidate.score >= 50;
+
+    if (
+      !houseExact ||
+      !cityExact ||
+      !ruralTypeCompatible ||
+      !nameVariantPlausible ||
+      !candidateStrongEnough
+    ) continue;
+
+    const googleConsensus = googleEvidenceSupportsResolvedToponym({
+      evidence: params.evidence,
+      resolvedStreet: candidate.street,
+      city: params.canonical.city ?? "",
+      mapboxPoint: { lat: candidate.lat, lng: candidate.lng },
+    });
+
+    if (!googleConsensus) continue;
+
+    return {
+      lat: candidate.lat,
+      lng: candidate.lng,
+      label: candidate.label,
+      confidence: 0.96,
+      originalIdentity: originalStreet,
+      resolvedIdentity: candidate.street,
+      googlePlaceId: googleConsensus.item.placeId!,
+      consensusDistanceKm: googleConsensus.distanceKm,
+    };
+  }
+
+  return null;
 }
 
 function safeParseResolverJson(text: string): {
@@ -370,11 +602,127 @@ export async function resolveRouteProAddressWithAi(params: {
   focusPoint?: FocusPoint | null;
   rejectedCandidates: RejectedCandidate[];
 }): Promise<RouteProAiAddressResolverResult> {
-  const [mapboxEvidence, googleEvidence] = await Promise.all([
+  const [mapboxEvidence, initialGoogleEvidence] = await Promise.all([
     searchMapboxPlaces(params),
     process.env.NDW_ROUTEPRO_GOOGLE_PLACES_EVIDENCE === "true" ? searchGooglePlaces(params) : Promise.resolve([]),
   ]);
-  const poiEvidence = [...googleEvidence, ...mapboxEvidence].slice(0, 14);
+
+  // v2.2.1 — Toponym targeted verification.
+  // The broad Google search is intentionally conservative. When it does not
+  // surface the alternate rural name already returned by permanent Mapbox,
+  // explicitly verify ONLY strong rejected Mapbox candidates (same civic +
+  // same municipality + conservative rural-name variant). This does not make
+  // the candidate valid by itself: findToponymConsensusRescue still requires
+  // Google identity support and <= 750 m geographic convergence.
+  let googleEvidence = [...initialGoogleEvidence];
+
+  const mergeGoogleEvidence = (items: RouteProPoiEvidence[]) => {
+    const seen = new Set(
+      googleEvidence.map((item) =>
+        item.placeId ?? normalizeComparable([item.name, item.address, item.fullAddress].filter(Boolean).join("|")),
+      ),
+    );
+    for (const item of items) {
+      const key = item.placeId ?? normalizeComparable([item.name, item.address, item.fullAddress].filter(Boolean).join("|"));
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      googleEvidence.push(item);
+    }
+  };
+
+  const googleExactAddressRescue = findGoogleExactAddressRescue({
+    canonical: params.canonical,
+    evidence: googleEvidence,
+    focusPoint: params.focusPoint,
+  });
+
+  let toponymConsensusRescue = googleExactAddressRescue
+    ? null
+    : findToponymConsensusRescue({
+        canonical: params.canonical,
+        rejectedCandidates: params.rejectedCandidates,
+        evidence: googleEvidence,
+      });
+
+  if (
+    !googleExactAddressRescue &&
+    !toponymConsensusRescue &&
+    process.env.NDW_ROUTEPRO_GOOGLE_PLACES_EVIDENCE === "true" &&
+    isRuralToponym(params.canonical.streetName)
+  ) {
+    const wantedHouse = normalizeHouseNumber(params.canonical.houseNumber);
+    const wantedCity = normalizeComparable(params.canonical.city);
+    const originalCore = ruralToponymCore(params.canonical.streetName);
+
+    const verificationCandidates = params.rejectedCandidates
+      .filter((candidate) => {
+        if (candidate.provider !== "mapbox" || candidate.layer !== "address" || !candidate.street || !candidate.city) return false;
+        if (normalizeHouseNumber(candidate.houseNumber) !== wantedHouse) return false;
+        if (normalizeComparable(candidate.city) !== wantedCity) return false;
+        if (!isRuralToponym(candidate.street)) return false;
+        return haveConservativeToponymSimilarity(originalCore, ruralToponymCore(candidate.street));
+      })
+      .slice(0, 2);
+
+    for (const candidate of verificationCandidates) {
+      const verificationAddress = [
+        candidate.street,
+        candidate.houseNumber,
+        candidate.city,
+        candidate.province,
+        "Italia",
+      ].filter(Boolean).join(", ");
+
+      console.info("RoutePro Toponym Targeted Google Verification:", {
+        originalAddress: params.address,
+        candidate: candidate.label,
+        verificationAddress,
+      });
+
+      const targetedEvidence = await searchGooglePlaces({
+        address: verificationAddress,
+        canonical: {
+          ...params.canonical,
+          streetName: candidate.street,
+          houseNumber: candidate.houseNumber,
+          city: candidate.city,
+          province: candidate.province ?? params.canonical.province,
+        },
+        focusPoint: params.focusPoint,
+      });
+
+      mergeGoogleEvidence(targetedEvidence);
+
+      toponymConsensusRescue = findToponymConsensusRescue({
+        canonical: params.canonical,
+        rejectedCandidates: params.rejectedCandidates,
+        evidence: googleEvidence,
+      });
+
+      if (toponymConsensusRescue) break;
+    }
+  }
+
+  const poiEvidence = [...googleEvidence, ...mapboxEvidence].slice(0, 18);
+
+  if (googleExactAddressRescue) {
+    console.info("RoutePro Google Exact Address Rescue candidate:", {
+      address: params.address,
+      placeId: googleExactAddressRescue.placeId,
+      confidence: googleExactAddressRescue.confidence,
+      expiresAt: googleExactAddressRescue.expiresAt,
+    });
+  }
+
+  if (toponymConsensusRescue) {
+    console.info("RoutePro Toponym Consensus Rescue candidate:", {
+      address: params.address,
+      originalIdentity: toponymConsensusRescue.originalIdentity,
+      resolvedIdentity: toponymConsensusRescue.resolvedIdentity,
+      consensusDistanceKm: toponymConsensusRescue.consensusDistanceKm,
+      googlePlaceId: toponymConsensusRescue.googlePlaceId,
+    });
+  }
 
   console.info("RoutePro Resolver external evidence:", {
     address: params.address,
@@ -384,7 +732,7 @@ export async function resolveRouteProAddressWithAi(params: {
   });
 
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return { version: ROUTEPRO_AI_ADDRESS_RESOLVER_VERSION, classification: "unknown", confidence: 0, queries: [], rejectedQueries: [], reason: "OPENAI_API_KEY non configurata: resolver AI saltato.", poiEvidence };
+  if (!apiKey) return { version: ROUTEPRO_AI_ADDRESS_RESOLVER_VERSION, classification: "unknown", confidence: 0, queries: [], rejectedQueries: [], reason: "OPENAI_API_KEY non configurata: resolver AI saltato.", poiEvidence, googleExactAddressRescue, toponymConsensusRescue };
 
   const client = new OpenAI({ apiKey });
   const prompt = `
@@ -428,9 +776,11 @@ INPUT:\n${JSON.stringify({ address: params.address, canonical: params.canonical,
       rejectedQueries: guarded.rejected,
       reason: typeof parsed.reason === "string" && parsed.reason.trim() ? parsed.reason.trim().slice(0, 700) : "Nessuna motivazione disponibile.",
       poiEvidence,
+      googleExactAddressRescue,
+      toponymConsensusRescue,
     };
   } catch (error) {
     console.error("RoutePro AI Address Resolver OpenAI error:", error);
-    return { version: ROUTEPRO_AI_ADDRESS_RESOLVER_VERSION, classification: "unknown", confidence: 0, queries: [], rejectedQueries: [], reason: "Resolver AI non disponibile; mantieni review manuale.", poiEvidence };
+    return { version: ROUTEPRO_AI_ADDRESS_RESOLVER_VERSION, classification: "unknown", confidence: 0, queries: [], rejectedQueries: [], reason: "Resolver AI non disponibile; mantieni review manuale.", poiEvidence, googleExactAddressRescue, toponymConsensusRescue };
   }
 }

@@ -8,24 +8,6 @@ function safeCompare(a: Buffer, b: Buffer): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
-function decodeWebhookSecret(secret: string): Buffer {
-  const trimmedSecret = secret.trim();
-
-  let encodedSecret = trimmedSecret;
-
-  if (trimmedSecret.startsWith("ws_")) {
-    encodedSecret = trimmedSecret.slice(3);
-  } else if (trimmedSecret.startsWith("whsec_")) {
-    encodedSecret = trimmedSecret.slice(6);
-  }
-
-  if (!encodedSecret) {
-    throw new Error("Invalid WHOP_WEBHOOK_SECRET");
-  }
-
-  return Buffer.from(encodedSecret, "base64");
-}
-
 export function verifyWhopWebhookSignature(params: {
   bodyText: string;
   signatureHeader: string;
@@ -52,7 +34,9 @@ export function verifyWhopWebhookSignature(params: {
   const signedPayload =
     `${params.webhookId}.${params.timestampHeader}.${params.bodyText}`;
 
-  const secretKey = decodeWebhookSecret(secret);
+  // Whop's ws_ secret is the actual HMAC key.
+  // Use the complete secret literally, including the ws_ prefix.
+  const secretKey = Buffer.from(secret.trim(), "utf8");
 
   const expectedSignature = crypto
     .createHmac("sha256", secretKey)
@@ -86,10 +70,16 @@ export function verifyWhopWebhookSignature(params: {
       continue;
     }
 
-    const receivedSignature = Buffer.from(
-      encodedSignature,
-      "base64",
-    );
+    let receivedSignature: Buffer;
+
+    try {
+      receivedSignature = Buffer.from(
+        encodedSignature,
+        "base64",
+      );
+    } catch {
+      continue;
+    }
 
     if (
       safeCompare(

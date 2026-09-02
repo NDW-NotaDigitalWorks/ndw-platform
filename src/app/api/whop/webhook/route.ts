@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
+import type { BillingPlanCode } from "@/modules/billing/types/billing.types";
 import {
-  getWhopCustomerEmail,
-  getWhopEventType,
-  getWhopProductRoute,
-  mapWhopPayloadToPlanCode,
-  mapWhopProductToModuleKey,
-  shouldGrantAccessForWhopEvent,
-  shouldRevokeAccessForWhopEvent,
-} from "@/modules/billing/server/whop/whop-mapper";
-import {
-  grantModuleAccessByEmail,
-  revokeModuleAccessByEmail,
+  grantWhopModuleAccess,
+  revokeWhopModuleAccess,
 } from "@/modules/billing/server/billing-access";
 import {
   hasWebhookBeenProcessed,
@@ -18,33 +10,192 @@ import {
 } from "@/modules/billing/server/webhook-events";
 import { verifyWhopWebhookSignature } from "@/modules/billing/server/whop/whop-signature";
 
+type JsonObject = Record<string, unknown>;
+
+function isObject(value: unknown): value is JsonObject {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function getString(object: JsonObject | null, key: string): string | null {
+  if (!object) return null;
+
+  const value = object[key];
+
+  return typeof value === "string" && value.trim()
+    ? value.trim()
+    : null;
+}
+
+function getEventType(payload: unknown): string | null {
+  if (!isObject(payload)) return null;
+
+  return getString(payload, "type");
+}
+
+function getEventData(payload: unknown): JsonObject | null {
+  if (!isObject(payload)) return null;
+
+  const data = payload.data;
+
+  return isObject(data) ? data : null;
+}
+
+function getMetadata(payload: unknown): JsonObject | null {
+  const data = getEventData(payload);
+
+  if (!data) return null;
+
+  if (isObject(data.metadata)) {
+    return data.metadata;
+  }
+
+  const membership = isObject(data.membership)
+    ? data.membership
+    : null;
+
+  if (membership && isObject(membership.metadata)) {
+    return membership.metadata;
+  }
+
+  const payment = isObject(data.payment)
+    ? data.payment
+    : null;
+
+  if (payment && isObject(payment.metadata)) {
+    return payment.metadata;
+  }
+
+  return null;
+}
+
+function getRouteProContext(payload: unknown): {
+  userId: string;
+  email: string | null;
+  moduleKey: "routepro";
+  planCode: BillingPlanCode;
+} | null {
+  const expectedProductId =
+    process.env.WHOP_ROUTEPRO_PRODUCT_ID;
+
+  const expectedPlanId =
+    process.env.WHOP_ROUTEPRO_PLAN_ID;
+
+  if (!expectedProductId || !expectedPlanId) {
+    console.error(
+      "Missing RoutePro Whop product/plan configuration",
+    );
+
+    return null;
+  }
+
+  const metadata = getMetadata(payload);
+
+  if (!metadata) return null;
+
+  const userId = getString(metadata, "ndw_user_id");
+  const email = getString(metadata, "ndw_email");
+  const moduleKey = getString(metadata, "ndw_module_key");
+  const planCode = getString(metadata, "ndw_plan_code");
+
+  const productId = getString(
+    metadata,
+    "whop_product_id",
+  );
+
+  const planId = getString(
+    metadata,
+    "whop_plan_id",
+  );
+
+  if (!userId) return null;
+
+  if (moduleKey !== "routepro") {
+    return null;
+  }
+
+  if (productId !== expectedProductId) {
+    return null;
+  }
+
+  if (planId !== expectedPlanId) {
+    return null;
+  }
+
+  const allowedPlans: BillingPlanCode[] = [
+    "free",
+    "base",
+    "pro",
+    "elite",
+  ];
+
+  const safePlanCode = allowedPlans.includes(
+    planCode as BillingPlanCode,
+  )
+    ? (planCode as BillingPlanCode)
+    : "pro";
+
+  return {
+    userId,
+    email,
+    moduleKey: "routepro",
+    planCode: safePlanCode,
+  };
+}
+
+function shouldGrant(eventType: string | null): boolean {
+  return (
+    eventType === "membership.activated" ||
+    eventType === "payment.succeeded"
+  );
+}
+
+function shouldRevoke(eventType: string | null): boolean {
+  return eventType === "membership.deactivated";
+}
+
 export async function POST(request: Request) {
   const bodyText = await request.text();
 
-  const webhookId = request.headers.get("webhook-id");
-  const webhookSignature = request.headers.get("webhook-signature");
-  const webhookTimestamp = request.headers.get("webhook-timestamp");
-  
+  const webhookId =
+    request.headers.get("webhook-id");
 
-  if (!webhookId || !webhookSignature || !webhookTimestamp) {
+  const webhookSignature =
+    request.headers.get("webhook-signature");
+
+  const webhookTimestamp =
+    request.headers.get("webhook-timestamp");
+
+  if (
+    !webhookId ||
+    !webhookSignature ||
+    !webhookTimestamp
+  ) {
     return NextResponse.json(
-      { ok: false, error: "missing-webhook-headers" },
+      {
+        ok: false,
+        error: "missing-webhook-headers",
+      },
       { status: 400 },
     );
   }
-  const isValidSignature = verifyWhopWebhookSignature({
-  bodyText,
-  signatureHeader: webhookSignature,
-  timestampHeader: webhookTimestamp,
-  webhookId,
-});
 
-if (!isValidSignature) {
-  return NextResponse.json(
-    { ok: false, error: "invalid-signature" },
-    { status: 401 },
-  );
-}
+  const isValidSignature =
+    verifyWhopWebhookSignature({
+      bodyText,
+      signatureHeader: webhookSignature,
+      timestampHeader: webhookTimestamp,
+      webhookId,
+    });
+
+  if (!isValidSignature) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "invalid-signature",
+      },
+      { status: 401 },
+    );
+  }
 
   let payload: unknown;
 
@@ -52,12 +203,15 @@ if (!isValidSignature) {
     payload = JSON.parse(bodyText);
   } catch {
     return NextResponse.json(
-      { ok: false, error: "invalid-json" },
+      {
+        ok: false,
+        error: "invalid-json",
+      },
       { status: 400 },
     );
   }
 
-  const eventType = getWhopEventType(payload);
+  const eventType = getEventType(payload);
 
   if (await hasWebhookBeenProcessed(webhookId)) {
     return NextResponse.json({
@@ -68,30 +222,25 @@ if (!isValidSignature) {
     });
   }
 
-  const email = getWhopCustomerEmail(payload);
-  const productRoute = getWhopProductRoute(payload);
-  const moduleKey = mapWhopProductToModuleKey(productRoute);
-  const planCode = mapWhopPayloadToPlanCode(payload);
+  const context = getRouteProContext(payload);
 
   console.log(
-    "WHOP WEBHOOK MAPPED",
+    "WHOP ROUTEPRO WEBHOOK",
     JSON.stringify(
       {
         webhookId,
-        webhookTimestamp,
-        hasSignature: Boolean(webhookSignature),
         eventType,
-        email,
-        productRoute,
-        moduleKey,
-        planCode,
+        hasRouteProContext: Boolean(context),
+        userId: context?.userId ?? null,
+        moduleKey: context?.moduleKey ?? null,
+        planCode: context?.planCode ?? null,
       },
       null,
       2,
     ),
   );
 
-  if (!email || !moduleKey) {
+  if (!context) {
     await markWebhookProcessed({
       webhookId,
       provider: "whop",
@@ -101,18 +250,17 @@ if (!isValidSignature) {
     return NextResponse.json({
       ok: true,
       ignored: true,
-      reason: "missing-email-or-unmapped-product",
+      reason:
+        "missing-or-invalid-routepro-metadata",
       eventType,
-      productRoute,
     });
   }
 
-  if (shouldGrantAccessForWhopEvent(eventType)) {
-    await grantModuleAccessByEmail({
-      email,
-      moduleKey,
-      planCode,
-      provider: "whop",
+  if (shouldGrant(eventType)) {
+    const result = await grantWhopModuleAccess({
+      userId: context.userId,
+      moduleKey: context.moduleKey,
+      planCode: context.planCode,
     });
 
     await markWebhookProcessed({
@@ -124,16 +272,17 @@ if (!isValidSignature) {
     return NextResponse.json({
       ok: true,
       action: "grant",
-      email,
-      moduleKey,
-      planCode,
+      result,
+      userId: context.userId,
+      moduleKey: context.moduleKey,
+      planCode: context.planCode,
     });
   }
 
-  if (shouldRevokeAccessForWhopEvent(eventType)) {
-    await revokeModuleAccessByEmail({
-      email,
-      moduleKey,
+  if (shouldRevoke(eventType)) {
+    const result = await revokeWhopModuleAccess({
+      userId: context.userId,
+      moduleKey: context.moduleKey,
     });
 
     await markWebhookProcessed({
@@ -145,8 +294,9 @@ if (!isValidSignature) {
     return NextResponse.json({
       ok: true,
       action: "revoke",
-      email,
-      moduleKey,
+      result,
+      userId: context.userId,
+      moduleKey: context.moduleKey,
     });
   }
 

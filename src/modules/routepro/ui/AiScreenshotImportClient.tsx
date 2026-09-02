@@ -279,6 +279,19 @@ export function AiScreenshotImportClient({ routeDraft }: AiScreenshotImportClien
     ? Math.min(100, Math.round((analyzedBatches / uploadBatchesCount) * 100))
     : 0;
 
+    function getOrCreateRouteProDeviceId(): string {
+  const storageKey = "routepro_trial_device_id";
+
+  let deviceId = window.localStorage.getItem(storageKey);
+
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    window.localStorage.setItem(storageKey, deviceId);
+  }
+
+  return deviceId;
+}
+
   async function handleAnalyze() {
     setError(null);
     setPreview(null);
@@ -286,6 +299,7 @@ export function AiScreenshotImportClient({ routeDraft }: AiScreenshotImportClien
     setIsAnalyzing(true);
 
     try {
+      const deviceId = getOrCreateRouteProDeviceId();
       const uploadBatches = chunkFiles(files, CLIENT_UPLOAD_BATCH_SIZE);
       const previews: RouteProAiImportPreview[] = [];
 
@@ -295,9 +309,12 @@ export function AiScreenshotImportClient({ routeDraft }: AiScreenshotImportClien
         for (const file of batch) formData.append("screenshots", file);
 
         const response = await fetch("/api/routepro/import-ai/analyze", {
-          method: "POST",
-          body: formData,
-        });
+  method: "POST",
+  headers: {
+    "x-routepro-device-id": deviceId,
+  },
+  body: formData,
+});
         const responseText = await response.text();
         let payload: { ok?: boolean; message?: string; preview?: RouteProAiImportPreview };
 

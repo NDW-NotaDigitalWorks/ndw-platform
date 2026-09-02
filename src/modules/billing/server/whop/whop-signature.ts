@@ -11,9 +11,13 @@ function safeCompare(a: Buffer, b: Buffer): boolean {
 function decodeWebhookSecret(secret: string): Buffer {
   const trimmedSecret = secret.trim();
 
-  const encodedSecret = trimmedSecret.startsWith("whsec_")
-    ? trimmedSecret.slice("whsec_".length)
-    : trimmedSecret;
+  let encodedSecret = trimmedSecret;
+
+  if (trimmedSecret.startsWith("ws_")) {
+    encodedSecret = trimmedSecret.slice(3);
+  } else if (trimmedSecret.startsWith("whsec_")) {
+    encodedSecret = trimmedSecret.slice(6);
+  }
 
   if (!encodedSecret) {
     throw new Error("Invalid WHOP_WEBHOOK_SECRET");
@@ -52,36 +56,40 @@ export function verifyWhopWebhookSignature(params: {
 
   const expectedSignature = crypto
     .createHmac("sha256", secretKey)
-    .update(signedPayload)
+    .update(signedPayload, "utf8")
     .digest();
 
-  const signatures = params.signatureHeader.split(" ");
+  const signatures = params.signatureHeader
+    .trim()
+    .split(/\s+/);
 
   for (const versionedSignature of signatures) {
-    const separatorIndex = versionedSignature.indexOf(",");
+    const separatorIndex =
+      versionedSignature.indexOf(",");
 
     if (separatorIndex === -1) {
       continue;
     }
 
-    const version = versionedSignature.slice(0, separatorIndex);
+    const version = versionedSignature.slice(
+      0,
+      separatorIndex,
+    );
+
     const encodedSignature =
       versionedSignature.slice(separatorIndex + 1);
 
-    if (version !== "v1" || !encodedSignature) {
+    if (
+      version !== "v1" ||
+      !encodedSignature
+    ) {
       continue;
     }
 
-    let receivedSignature: Buffer;
-
-    try {
-      receivedSignature = Buffer.from(
-        encodedSignature,
-        "base64",
-      );
-    } catch {
-      continue;
-    }
+    const receivedSignature = Buffer.from(
+      encodedSignature,
+      "base64",
+    );
 
     if (
       safeCompare(

@@ -1,9 +1,6 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import type { BillingPlanCode } from "@/modules/billing/types/billing.types";
-import {
-  grantWhopModuleAccess,
-  revokeWhopModuleAccess,
-} from "@/modules/billing/server/billing-access";
+import { applyWhopModuleEvent } from "@/modules/billing/server/billing-access";
 import {
   hasWebhookBeenProcessed,
   markWebhookProcessed,
@@ -66,6 +63,44 @@ function getMetadata(payload: unknown): JsonObject | null {
   }
 
   return null;
+}
+
+function getEventTimestamp(
+  payload: unknown,
+  webhookTimestampHeader: string,
+): string | null {
+  if (isObject(payload)) {
+    const payloadTimestamp = getString(payload, "timestamp");
+
+    if (payloadTimestamp) {
+      const parsed = new Date(payloadTimestamp);
+
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
+    }
+  }
+
+  /*
+   * Fallback difensivo: Standard Webhooks invia il timestamp
+   * dell'invio nell'header webhook-timestamp.
+   *
+   * Normalmente Whop include già payload.timestamp e sarà quello
+   * usato per determinare l'ordine reale degli eventi.
+   */
+  const timestampSeconds = Number(webhookTimestampHeader);
+
+  if (!Number.isFinite(timestampSeconds)) {
+    return null;
+  }
+
+  const fallbackDate = new Date(timestampSeconds * 1000);
+
+  if (Number.isNaN(fallbackDate.getTime())) {
+    return null;
+  }
+
+  return fallbackDate.toISOString();
 }
 
 function getRouteProContext(payload: unknown): {
@@ -256,11 +291,44 @@ export async function POST(request: Request) {
     });
   }
 
-  if (shouldGrant(eventType)) {
-    const result = await grantWhopModuleAccess({
+  if (shouldGrant(eventType) || shouldRevoke(eventType)) {
+    if (!eventType) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "missing-event-type",
+        },
+        { status: 400 },
+      );
+    }
+
+    const eventAt = getEventTimestamp(
+      payload,
+      webhookTimestamp,
+    );
+
+    if (!eventAt) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "missing-or-invalid-event-timestamp",
+        },
+        { status: 400 },
+      );
+    }
+
+    const action = shouldGrant(eventType)
+      ? "grant"
+      : "revoke";
+
+    const result = await applyWhopModuleEvent({
       userId: context.userId,
       moduleKey: context.moduleKey,
       planCode: context.planCode,
+      action,
+      eventId: webhookId,
+      eventType,
+      eventAt,
     });
 
     await markWebhookProcessed({
@@ -271,32 +339,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      action: "grant",
+      action,
       result,
       userId: context.userId,
       moduleKey: context.moduleKey,
       planCode: context.planCode,
-    });
-  }
-
-  if (shouldRevoke(eventType)) {
-    const result = await revokeWhopModuleAccess({
-      userId: context.userId,
-      moduleKey: context.moduleKey,
-    });
-
-    await markWebhookProcessed({
-      webhookId,
-      provider: "whop",
-      eventType,
-    });
-
-    return NextResponse.json({
-      ok: true,
-      action: "revoke",
-      result,
-      userId: context.userId,
-      moduleKey: context.moduleKey,
+      eventAt,
     });
   }
 

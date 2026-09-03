@@ -107,12 +107,14 @@ export type RouteProUsageState = {
   | "trial_expired"
   | "trial_exhausted"
   | "paid_quota_exhausted"
+  | "paid_access_ended"
   | "account_inactive";
 };
 
 type AccessContext = {
   mode: RouteProUsageMode;
   accountActive: boolean;
+  hasHadPaidAccess: boolean;
 };
 
 function addDays(date: Date, days: number): Date {
@@ -156,6 +158,7 @@ async function getAccessContext(userId: string): Promise<AccessContext> {
     return {
       mode: "trial",
       accountActive: false,
+      hasHadPaidAccess: false,
     };
   }
 
@@ -163,15 +166,22 @@ async function getAccessContext(userId: string): Promise<AccessContext> {
     return {
       mode: "owner",
       accountActive: true,
+      hasHadPaidAccess: false,
     };
   }
 
+  /*
+   * Leggiamo anche gli entitlement INATTIVI.
+   *
+   * Serve per distinguere:
+   * - utente che non ha mai acquistato -> può usare il trial;
+   * - ex cliente pagante -> non può ricadere nel trial.
+   */
   const { data: entitlement, error: entitlementError } = await supabase
     .from("module_entitlements")
-    .select("provider,is_active")
+    .select("provider,is_active,has_had_paid_access")
     .eq("user_id", userId)
     .eq("module_key", ROUTEPRO_MODULE_KEY)
-    .eq("is_active", true)
     .maybeSingle();
 
   if (entitlementError) {
@@ -180,23 +190,26 @@ async function getAccessContext(userId: string): Promise<AccessContext> {
     );
   }
 
-  if (entitlement?.provider === "manual") {
+  if (entitlement?.provider === "manual" && entitlement.is_active) {
     return {
       mode: "manual",
       accountActive: true,
+      hasHadPaidAccess: Boolean(entitlement.has_had_paid_access),
     };
   }
 
-  if (entitlement?.provider === "whop") {
+  if (entitlement?.provider === "whop" && entitlement.is_active) {
     return {
       mode: "paid",
       accountActive: true,
+      hasHadPaidAccess: true,
     };
   }
 
   return {
     mode: "trial",
     accountActive: true,
+    hasHadPaidAccess: Boolean(entitlement?.has_had_paid_access),
   };
 }
 
@@ -332,6 +345,22 @@ export async function getRouteProUsageState(
       remainingRoutes: Math.max(0, routesLimit - routesUsed),
       expiresAt: usage.period_end,
       reason: routesUsed < routesLimit ? "ok" : "paid_quota_exhausted",
+    };
+  }
+
+  /*
+   * Un account che è già diventato pagante non deve recuperare
+   * un eventuale trial residuo dopo la fine dell'abbonamento.
+   */
+  if (access.hasHadPaidAccess) {
+    return {
+      allowed: false,
+      mode: "trial",
+      routesUsed: null,
+      routesLimit: null,
+      remainingRoutes: null,
+      expiresAt: null,
+      reason: "paid_access_ended",
     };
   }
 
@@ -533,3 +562,7 @@ export async function consumeRouteProRoute(userId: string): Promise<void> {
     );
   }
 }
+
+
+
+

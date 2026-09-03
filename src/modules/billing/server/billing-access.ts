@@ -1,4 +1,4 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+﻿import { createAdminClient } from "@/lib/supabase/admin";
 import type { BillingPlanCode } from "@/modules/billing/types/billing.types";
 
 type BillingProvider = "manual" | "whop";
@@ -14,7 +14,17 @@ type EntitlementRow = {
   plan_code: BillingPlanCode;
   provider: BillingProvider;
   is_active: boolean;
+  has_had_paid_access: boolean;
+  provider_event_at: string | null;
+  provider_event_id: string | null;
+  provider_event_type: string | null;
 };
+
+export type WhopModuleEventResult =
+  | "granted"
+  | "revoked"
+  | "manual-protected"
+  | "stale-event";
 
 async function findProfileIdByEmail(email: string): Promise<string> {
   const supabase = createAdminClient();
@@ -52,7 +62,9 @@ export async function getModuleEntitlement(params: {
 
   const { data, error } = await supabase
     .from("module_entitlements")
-    .select("user_id,module_key,plan_code,provider,is_active")
+    .select(
+      "user_id,module_key,plan_code,provider,is_active,has_had_paid_access,provider_event_at,provider_event_id,provider_event_type",
+    )
     .eq("user_id", params.userId)
     .eq("module_key", params.moduleKey)
     .maybeSingle();
@@ -111,6 +123,61 @@ export async function revokeModuleAccess(params: {
   }
 }
 
+/**
+ * Applica un evento Whop all'entitlement attraverso una funzione SQL atomica.
+ *
+ * La RPC protegge:
+ * - entitlement manuali attivi;
+ * - webhook Whop fuori ordine;
+ * - stato paid storico;
+ * - concorrenza sullo stesso entitlement.
+ */
+export async function applyWhopModuleEvent(params: {
+  userId: string;
+  moduleKey: string;
+  planCode: BillingPlanCode;
+  action: "grant" | "revoke";
+  eventId: string;
+  eventType: string;
+  eventAt: string;
+}): Promise<WhopModuleEventResult> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase.rpc("apply_whop_module_event", {
+    p_user_id: params.userId,
+    p_module_key: params.moduleKey,
+    p_plan_code: params.planCode,
+    p_event_action: params.action,
+    p_event_id: params.eventId,
+    p_event_type: params.eventType,
+    p_event_at: params.eventAt,
+  });
+
+  if (error) {
+    throw new Error(`Failed to apply Whop module event: ${error.message}`);
+  }
+
+  const result = String(data ?? "").trim() as WhopModuleEventResult;
+
+  const allowedResults: WhopModuleEventResult[] = [
+    "granted",
+    "revoked",
+    "manual-protected",
+    "stale-event",
+  ];
+
+  if (!allowedResults.includes(result)) {
+    throw new Error(`Unexpected Whop module event result: ${String(data)}`);
+  }
+
+  return result;
+}
+
+/**
+ * Legacy helper.
+ * Manteniamo questa funzione per eventuali riferimenti interni non ancora
+ * migrati, ma i webhook devono usare applyWhopModuleEvent().
+ */
 export async function grantWhopModuleAccess(params: {
   userId: string;
   moduleKey: string;
@@ -121,10 +188,6 @@ export async function grantWhopModuleAccess(params: {
     moduleKey: params.moduleKey,
   });
 
-  /*
-   * Un accesso manuale ATTIVO è un override amministrativo.
-   * Whop non deve trasformarlo in un entitlement Whop.
-   */
   if (existing?.provider === "manual" && existing.is_active) {
     return "manual-protected";
   }
@@ -139,6 +202,10 @@ export async function grantWhopModuleAccess(params: {
   return "granted";
 }
 
+/**
+ * Legacy helper.
+ * I webhook devono usare applyWhopModuleEvent().
+ */
 export async function revokeWhopModuleAccess(params: {
   userId: string;
   moduleKey: string;

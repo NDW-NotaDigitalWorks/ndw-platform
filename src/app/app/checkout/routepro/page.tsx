@@ -1,13 +1,19 @@
-import { redirect } from "next/navigation";
+﻿import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import RouteProCheckoutClient from "./RouteProCheckoutClient";
 import RouteProActivationStatus from "./RouteProActivationStatus";
+
+const ROUTEPRO_MODULE_KEY = "routepro";
 
 type RouteProCheckoutPageProps = {
   searchParams: Promise<{
     payment?: string;
   }>;
 };
+
+function isOwnerRole(role: string | null | undefined): boolean {
+  return role?.trim().toLowerCase() === "owner";
+}
 
 export default async function RouteProCheckoutPage({
   searchParams,
@@ -28,6 +34,52 @@ export default async function RouteProCheckoutPage({
 
   const params = await searchParams;
   const paymentComplete = params.payment === "complete";
+
+  /*
+   * Dopo un pagamento dobbiamo lasciare visibile la pagina
+   * di activation status: sarà lei ad aspettare il webhook.
+   *
+   * Prima del pagamento, invece, impediamo un nuovo checkout
+   * a owner e utenti già attivi.
+   */
+  if (!paymentComplete) {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role,is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      throw new Error(
+        `RoutePro checkout profile lookup failed: ${profileError.message}`,
+      );
+    }
+
+    if (!profile?.is_active) {
+      redirect("/account-disabled");
+    }
+
+    if (isOwnerRole(profile.role)) {
+      redirect("/app/routepro");
+    }
+
+    const { data: entitlement, error: entitlementError } = await supabase
+      .from("module_entitlements")
+      .select("provider,is_active")
+      .eq("user_id", user.id)
+      .eq("module_key", ROUTEPRO_MODULE_KEY)
+      .maybeSingle();
+
+    if (entitlementError) {
+      throw new Error(
+        `RoutePro checkout entitlement lookup failed: ${entitlementError.message}`,
+      );
+    }
+
+    if (entitlement?.is_active === true) {
+      redirect("/app/routepro");
+    }
+  }
 
   return (
     <main
@@ -76,7 +128,7 @@ export default async function RouteProCheckoutPage({
             }}
           >
             €19,99 al mese. Prezzo riservato ai primi 100
-            Founding Driver e mantenuto finché l'abbonamento
+            Founding Driver e mantenuto finché l&apos;abbonamento
             rimane attivo.
           </p>
         ) : null}

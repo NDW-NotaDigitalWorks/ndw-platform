@@ -1,9 +1,15 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   getWhopClient,
   getWhopEnvironment,
 } from "@/lib/whop/server";
+
+const ROUTEPRO_MODULE_KEY = "routepro";
+
+function isOwnerRole(role: string | null | undefined): boolean {
+  return role?.trim().toLowerCase() === "owner";
+}
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +31,74 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { ok: false, error: "verified-email-required" },
         { status: 403 },
+      );
+    }
+
+    /*
+     * Checkout guard.
+     *
+     * Owner e utenti con entitlement RoutePro attivo
+     * non devono poter creare una seconda sessione di acquisto.
+     *
+     * Un ex cliente Whop cancellato ha invece is_active=false
+     * e può acquistare nuovamente.
+     */
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role,is_active")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      throw new Error(
+        `RoutePro checkout profile lookup failed: ${profileError.message}`,
+      );
+    }
+
+    if (!profile?.is_active) {
+      return NextResponse.json(
+        { ok: false, error: "account-inactive" },
+        { status: 403 },
+      );
+    }
+
+    if (isOwnerRole(profile.role)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "routepro-already-active",
+          reason: "owner",
+        },
+        { status: 409 },
+      );
+    }
+
+    const { data: entitlement, error: entitlementError } = await supabase
+      .from("module_entitlements")
+      .select("provider,is_active")
+      .eq("user_id", user.id)
+      .eq("module_key", ROUTEPRO_MODULE_KEY)
+      .maybeSingle();
+
+    if (entitlementError) {
+      throw new Error(
+        `RoutePro checkout entitlement lookup failed: ${entitlementError.message}`,
+      );
+    }
+
+    if (entitlement?.is_active === true) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "routepro-already-active",
+          reason:
+            entitlement.provider === "manual"
+              ? "manual"
+              : entitlement.provider === "whop"
+                ? "whop"
+                : "active-entitlement",
+        },
+        { status: 409 },
       );
     }
 
@@ -57,7 +131,7 @@ export async function POST(request: Request) {
       metadata: {
         ndw_user_id: user.id,
         ndw_email: user.email,
-        ndw_module_key: "routepro",
+        ndw_module_key: ROUTEPRO_MODULE_KEY,
         ndw_plan_code: "pro",
         whop_product_id: productId,
         whop_plan_id: planId,

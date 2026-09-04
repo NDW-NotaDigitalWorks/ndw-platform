@@ -4,10 +4,17 @@ import {
   getWhopClient,
   getWhopEnvironment,
 } from "@/lib/whop/server";
+import { hasRouteProFounderAvailability } from "@/modules/routepro/server/routepro-founder";
 
 const ROUTEPRO_MODULE_KEY = "routepro";
 
-function isOwnerRole(role: string | null | undefined): boolean {
+type RouteProOffer =
+  | "founding_driver"
+  | "standard";
+
+function isOwnerRole(
+  role: string | null | undefined,
+): boolean {
   return role?.trim().toLowerCase() === "owner";
 }
 
@@ -22,28 +29,28 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { ok: false, error: "authentication-required" },
+        {
+          ok: false,
+          error: "authentication-required",
+        },
         { status: 401 },
       );
     }
 
     if (!user.email || !user.email_confirmed_at) {
       return NextResponse.json(
-        { ok: false, error: "verified-email-required" },
+        {
+          ok: false,
+          error: "verified-email-required",
+        },
         { status: 403 },
       );
     }
 
-    /*
-     * Checkout guard.
-     *
-     * Owner e utenti con entitlement RoutePro attivo
-     * non devono poter creare una seconda sessione di acquisto.
-     *
-     * Un ex cliente Whop cancellato ha invece is_active=false
-     * e può acquistare nuovamente.
-     */
-    const { data: profile, error: profileError } = await supabase
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabase
       .from("profiles")
       .select("role,is_active")
       .eq("id", user.id)
@@ -57,7 +64,10 @@ export async function POST(request: Request) {
 
     if (!profile?.is_active) {
       return NextResponse.json(
-        { ok: false, error: "account-inactive" },
+        {
+          ok: false,
+          error: "account-inactive",
+        },
         { status: 403 },
       );
     }
@@ -73,9 +83,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: entitlement, error: entitlementError } = await supabase
+    const {
+      data: entitlement,
+      error: entitlementError,
+    } = await supabase
       .from("module_entitlements")
-      .select("provider,is_active")
+      .select(
+        "provider,is_active,has_had_paid_access",
+      )
       .eq("user_id", user.id)
       .eq("module_key", ROUTEPRO_MODULE_KEY)
       .maybeSingle();
@@ -102,17 +117,59 @@ export async function POST(request: Request) {
       );
     }
 
-    const planId = process.env.WHOP_ROUTEPRO_PLAN_ID;
-    const productId = process.env.WHOP_ROUTEPRO_PRODUCT_ID;
+    /*
+     * Regola commerciale RoutePro:
+     *
+     * - chi è già stato pagante non può riottenere
+     *   il prezzo Founding Driver;
+     *
+     * - chi non è mai stato pagante può ottenere
+     *   Founder finché non sono stati assegnati 100 posti;
+     *
+     * - dopo i 100 Founder si passa allo Standard.
+     */
+    let offer: RouteProOffer = "standard";
 
-    if (!planId || !productId) {
-      console.error("Missing RoutePro Whop configuration");
+    if (!entitlement?.has_had_paid_access) {
+      const founderAvailable =
+        await hasRouteProFounderAvailability();
+
+      if (founderAvailable) {
+        offer = "founding_driver";
+      }
+    }
+
+    const founderPlanId =
+      process.env.WHOP_ROUTEPRO_PLAN_ID;
+
+    const standardPlanId =
+      process.env.WHOP_ROUTEPRO_STANDARD_PLAN_ID;
+
+    const productId =
+      process.env.WHOP_ROUTEPRO_PRODUCT_ID;
+
+    if (
+      !founderPlanId ||
+      !standardPlanId ||
+      !productId
+    ) {
+      console.error(
+        "Missing RoutePro Whop configuration",
+      );
 
       return NextResponse.json(
-        { ok: false, error: "checkout-configuration-missing" },
+        {
+          ok: false,
+          error: "checkout-configuration-missing",
+        },
         { status: 500 },
       );
     }
+
+    const selectedPlanId =
+      offer === "founding_driver"
+        ? founderPlanId
+        : standardPlanId;
 
     const origin = new URL(request.url).origin;
     const isHttps = origin.startsWith("https://");
@@ -124,31 +181,42 @@ export async function POST(request: Request) {
     const whop = getWhopClient();
     const environment = getWhopEnvironment();
 
-    const checkout = await whop.checkoutConfigurations.create({
-      plan_id: planId,
-      mode: "payment",
-      ...(returnUrl ? { redirect_url: returnUrl } : {}),
-      metadata: {
-        ndw_user_id: user.id,
-        ndw_email: user.email,
-        ndw_module_key: ROUTEPRO_MODULE_KEY,
-        ndw_plan_code: "pro",
-        whop_product_id: productId,
-        whop_plan_id: planId,
-      },
-    });
+    const checkout =
+      await whop.checkoutConfigurations.create({
+        plan_id: selectedPlanId,
+        mode: "payment",
+        ...(returnUrl
+          ? { redirect_url: returnUrl }
+          : {}),
+        metadata: {
+          ndw_user_id: user.id,
+          ndw_email: user.email,
+          ndw_module_key: ROUTEPRO_MODULE_KEY,
+          ndw_plan_code: "pro",
+          ndw_offer: offer,
+          whop_product_id: productId,
+          whop_plan_id: selectedPlanId,
+        },
+      });
 
     return NextResponse.json({
       ok: true,
       sessionId: checkout.id,
       returnUrl,
       environment,
+      offer,
     });
   } catch (error) {
-    console.error("RoutePro Whop checkout error", error);
+    console.error(
+      "RoutePro Whop checkout error",
+      error,
+    );
 
     return NextResponse.json(
-      { ok: false, error: "checkout-unavailable" },
+      {
+        ok: false,
+        error: "checkout-unavailable",
+      },
       { status: 500 },
     );
   }

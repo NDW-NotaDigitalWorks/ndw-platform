@@ -11,7 +11,9 @@ type RouteProCheckoutPageProps = {
   }>;
 };
 
-function isOwnerRole(role: string | null | undefined): boolean {
+function isOwnerRole(
+  role: string | null | undefined,
+): boolean {
   return role?.trim().toLowerCase() === "owner";
 }
 
@@ -33,17 +35,21 @@ export default async function RouteProCheckoutPage({
   }
 
   const params = await searchParams;
-  const paymentComplete = params.payment === "complete";
+  const paymentComplete =
+    params.payment === "complete";
 
   /*
-   * Dopo un pagamento dobbiamo lasciare visibile la pagina
-   * di activation status: sarà lei ad aspettare il webhook.
+   * Dopo il pagamento lasciamo visibile lo stato
+   * di attivazione mentre aspettiamo il webhook.
    *
-   * Prima del pagamento, invece, impediamo un nuovo checkout
-   * a owner e utenti già attivi.
+   * Prima del pagamento impediamo invece un nuovo
+   * checkout a owner e utenti già attivi.
    */
   if (!paymentComplete) {
-    const { data: profile, error: profileError } = await supabase
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabase
       .from("profiles")
       .select("role,is_active")
       .eq("id", user.id)
@@ -63,7 +69,10 @@ export default async function RouteProCheckoutPage({
       redirect("/app/routepro");
     }
 
-    const { data: entitlement, error: entitlementError } = await supabase
+    const {
+      data: entitlement,
+      error: entitlementError,
+    } = await supabase
       .from("module_entitlements")
       .select("provider,is_active")
       .eq("user_id", user.id)
@@ -107,62 +116,41 @@ export default async function RouteProCheckoutPage({
           RoutePro
         </p>
 
-        <h1
-          style={{
-            margin: "8px 0 0",
-            fontSize: 34,
-            lineHeight: 1.1,
-          }}
-        >
-          {paymentComplete
-            ? "Attivazione"
-            : "Founding Driver"}
-        </h1>
-
-        {!paymentComplete ? (
-          <p
-            style={{
-              marginTop: 12,
-              color: "#cbd5e1",
-              lineHeight: 1.6,
-            }}
-          >
-            €19,99 al mese. Prezzo riservato ai primi 100
-            Founding Driver e mantenuto finché l&apos;abbonamento
-            rimane attivo.
-          </p>
-        ) : null}
-
-        <div style={{ marginTop: 28 }}>
-          {paymentComplete ? (
-            <RouteProActivationStatus />
-          ) : (
-            <div
+        {paymentComplete ? (
+          <>
+            <h1
               style={{
-                padding: 20,
-                borderRadius: 20,
-                background: "#111827",
-                border:
-                  "1px solid rgba(148,163,184,0.18)",
+                margin: "8px 0 0",
+                fontSize: 34,
+                lineHeight: 1.1,
               }}
             >
-              <RouteProCheckoutClient email={user.email} />
-            </div>
-          )}
-        </div>
+              Attivazione
+            </h1>
 
-        <p
-          style={{
-            marginTop: 18,
-            textAlign: "center",
-            color: "#94a3b8",
-            fontSize: 13,
-          }}
-        >
-          {paymentComplete
-            ? "Puoi lasciare aperta questa pagina mentre completiamo l'attivazione."
-            : "Pagamento sicuro. Il tuo account RoutePro rimane collegato al tuo profilo NDW."}
-        </p>
+            <div style={{ marginTop: 28 }}>
+              <RouteProActivationStatus />
+            </div>
+
+            <p
+              style={{
+                marginTop: 18,
+                textAlign: "center",
+                color: "#94a3b8",
+                fontSize: 13,
+              }}
+            >
+              Puoi lasciare aperta questa pagina mentre
+              completiamo l&apos;attivazione.
+            </p>
+          </>
+        ) : (
+          <div style={{ marginTop: 28 }}>
+            <RouteProCheckoutClient
+              email={user.email}
+            />
+          </div>
+        )}
       </div>
     </main>
   );

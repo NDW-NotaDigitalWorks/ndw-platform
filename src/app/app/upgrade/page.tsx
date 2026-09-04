@@ -1,6 +1,11 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
-import { NdwActionBar, NdwButton, NdwCard, NdwStatusPill } from "@/components/ndw";
+import {
+  NdwActionBar,
+  NdwButton,
+  NdwCard,
+  NdwStatusPill,
+} from "@/components/ndw";
 import { getPrimaryBillingPlanForModule } from "@/modules/billing/server/billing-config";
 import { getModuleByKey } from "@/modules/registry/registry.queries";
 import { ndwModuleAccents } from "@/styles/ndw/ndw-module-accents";
@@ -19,7 +24,9 @@ function getModuleAccent(moduleKey: string) {
   );
 }
 
-export default async function UpgradePage({ searchParams }: UpgradePageProps) {
+export default async function UpgradePage({
+  searchParams,
+}: UpgradePageProps) {
   const params = await searchParams;
   const moduleKey = params.module ?? "agenda";
 
@@ -29,8 +36,21 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
     notFound();
   }
 
-  const billingPlan = getPrimaryBillingPlanForModule(moduleDefinition.key);
+  const billingPlan = getPrimaryBillingPlanForModule(
+    moduleDefinition.key,
+  );
+
   const accent = getModuleAccent(moduleDefinition.key);
+  const isRoutePro = moduleDefinition.key === "routepro";
+
+  const cardTitle = isRoutePro
+    ? "RoutePro Founding Driver"
+    : billingPlan?.label ??
+      `${moduleDefinition.name} Access`;
+
+  const cardSubtitle = isRoutePro
+    ? "Riattiva RoutePro e torna subito al tuo ambiente operativo."
+    : `Completa l'upgrade per abilitare ${moduleDefinition.name} nel tuo workspace NDW.`;
 
   return (
     <section
@@ -53,38 +73,38 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
       </p>
 
       <div
-  style={{
-    marginTop: 20,
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "10px 14px",
-    borderRadius: ndwTokens.radius.full,
-    border: `1px solid ${accent.accentBorder}`,
-    background: accent.accentSoft,
-  }}
->
-  <div
-    style={{
-      width: 10,
-      height: 10,
-      borderRadius: 999,
-      background: accent.accent,
-      boxShadow: `0 0 16px ${accent.accent}`,
-    }}
-  />
+        style={{
+          marginTop: 20,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "10px 14px",
+          borderRadius: ndwTokens.radius.full,
+          border: `1px solid ${accent.accentBorder}`,
+          background: accent.accentSoft,
+        }}
+      >
+        <div
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: 999,
+            background: accent.accent,
+            boxShadow: `0 0 16px ${accent.accent}`,
+          }}
+        />
 
-  <span
-    style={{
-      color: accent.accentText,
-      fontSize: ndwTokens.typography.sizes.small,
-      fontWeight: ndwTokens.typography.weights.black,
-      letterSpacing: 0.3,
-    }}
-  >
-    {moduleDefinition.name} Module
-  </span>
-</div>
+        <span
+          style={{
+            color: accent.accentText,
+            fontSize: ndwTokens.typography.sizes.small,
+            fontWeight: ndwTokens.typography.weights.black,
+            letterSpacing: 0.3,
+          }}
+        >
+          {moduleDefinition.name} Module
+        </span>
+      </div>
 
       <h1
         style={{
@@ -96,7 +116,9 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
           letterSpacing: "-0.03em",
         }}
       >
-        Sblocca {moduleDefinition.name}
+        {isRoutePro
+          ? "Riattiva RoutePro"
+          : `Sblocca ${moduleDefinition.name}`}
       </h1>
 
       <p
@@ -108,7 +130,9 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
           lineHeight: ndwTokens.typography.lineHeights.normal,
         }}
       >
-        {moduleDefinition.description}
+        {isRoutePro
+          ? "Continua a creare, ottimizzare ed eseguire le tue rotte direttamente dal tuo workspace NDW."
+          : moduleDefinition.description}
       </p>
 
       <div
@@ -118,8 +142,8 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
         }}
       >
         <NdwCard
-          title={billingPlan?.label ?? `${moduleDefinition.name} Access`}
-          subtitle="Completa l’upgrade per abilitare questo ambiente operativo nel tuo workspace NDW."
+          title={cardTitle}
+          subtitle={cardSubtitle}
         >
           <div
             style={{
@@ -127,102 +151,177 @@ export default async function UpgradePage({ searchParams }: UpgradePageProps) {
               gap: ndwTokens.spacing.lg,
             }}
           >
-
-          <div
-  style={{
-    padding: ndwTokens.spacing.lg,
-    borderRadius: ndwTokens.radius.xl,
-    border: `1px solid ${accent.accentBorder}`,
-    background: accent.accentSoft,
-  }}
->
-  <p
-    style={{
-      margin: 0,
-      color: accent.accentText,
-      fontSize: ndwTokens.typography.sizes.body,
-      fontWeight: ndwTokens.typography.weights.bold,
-      lineHeight: ndwTokens.typography.lineHeights.normal,
-    }}
-  >
-    Questo modulo fa parte dell’ecosistema operativo NDW e verrà
-    integrato direttamente nel tuo workspace personale.
-  </p>
-</div>
-
-            <div>
-              <NdwStatusPill label="Modulo bloccato" variant="warning" />
+            <div
+              style={{
+                padding: ndwTokens.spacing.lg,
+                borderRadius: ndwTokens.radius.xl,
+                border: `1px solid ${accent.accentBorder}`,
+                background: accent.accentSoft,
+              }}
+            >
+              <p
+                style={{
+                  margin: 0,
+                  color: accent.accentText,
+                  fontSize: ndwTokens.typography.sizes.body,
+                  fontWeight: ndwTokens.typography.weights.bold,
+                  lineHeight:
+                    ndwTokens.typography.lineHeights.normal,
+                }}
+              >
+                {isRoutePro
+                  ? "Founding Driver: €19,99 al mese. Prezzo riservato ai primi 100 utenti e mantenuto finché l'abbonamento rimane attivo."
+                  : `Questo modulo fa parte dell'ecosistema operativo NDW ed è integrato direttamente nel tuo workspace personale.`}
+              </p>
             </div>
 
-            <p
-              style={{
-                margin: 0,
-                color: ndwTokens.colors.textSecondary,
-                fontSize: ndwTokens.typography.sizes.body,
-                lineHeight: ndwTokens.typography.lineHeights.normal,
-              }}
-            >
-              Piano richiesto:{" "}
-              <strong style={{ color: ndwTokens.colors.textPrimary }}>
-                {moduleDefinition.requiredPlan}
-              </strong>
-            </p>
+            <div>
+              <NdwStatusPill
+                label={
+                  isRoutePro
+                    ? "Accesso non attivo"
+                    : "Modulo bloccato"
+                }
+                variant="warning"
+              />
+            </div>
 
-            <p
-              style={{
-                margin: 0,
-                color: ndwTokens.colors.textMuted,
-                fontSize: ndwTokens.typography.sizes.body,
-                lineHeight: ndwTokens.typography.lineHeights.normal,
-              }}
-            >
-              Dopo il pagamento, l’accesso verrà attivato manualmente in questa
-              fase di test. Successivamente collegheremo i webhook Whop per
-              automatizzare tutto.
-            </p>
-
-            {billingPlan?.checkoutUrl ? (
-              <NdwActionBar align="left">
-                <a
-                  href={billingPlan.checkoutUrl}
-                  target="_blank"
-                  rel="noreferrer"
+            {isRoutePro ? (
+              <>
+                <p
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minHeight: 42,
-                    padding: "0 16px",
-                    borderRadius: ndwTokens.radius.md,
-                    background: accent.accent,
-                    border: `1px solid ${accent.accent}`,
-                    color: ndwTokens.colors.textPrimary,
-                    textDecoration: "none",
+                    margin: 0,
+                    color: ndwTokens.colors.textSecondary,
                     fontSize: ndwTokens.typography.sizes.body,
-                    fontWeight: ndwTokens.typography.weights.black,
+                    lineHeight:
+                      ndwTokens.typography.lineHeights.normal,
                   }}
                 >
-                  Vai al checkout
-                </a>
+                  L&apos;attivazione è automatica dopo la
+                  conferma del pagamento.
+                </p>
 
-                <Link href="/app" style={{ textDecoration: "none" }}>
-                  <NdwButton variant="secondary">Torna alla dashboard</NdwButton>
-                </Link>
-              </NdwActionBar>
+                <p
+                  style={{
+                    margin: 0,
+                    color: ndwTokens.colors.textMuted,
+                    fontSize: ndwTokens.typography.sizes.body,
+                    lineHeight:
+                      ndwTokens.typography.lineHeights.normal,
+                  }}
+                >
+                  Il tuo abbonamento viene collegato
+                  direttamente al tuo account NDW.
+                </p>
+
+                <NdwActionBar align="left">
+                  <Link
+                    href="/app/checkout/routepro"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minHeight: 42,
+                      padding: "0 16px",
+                      borderRadius: ndwTokens.radius.md,
+                      background: accent.accent,
+                      border: `1px solid ${accent.accent}`,
+                      color: ndwTokens.colors.textPrimary,
+                      textDecoration: "none",
+                      fontSize: ndwTokens.typography.sizes.body,
+                      fontWeight:
+                        ndwTokens.typography.weights.black,
+                    }}
+                  >
+                    Riattiva RoutePro
+                  </Link>
+
+                  <Link
+                    href="/app"
+                    style={{ textDecoration: "none" }}
+                  >
+                    <NdwButton variant="secondary">
+                      Torna alla dashboard
+                    </NdwButton>
+                  </Link>
+                </NdwActionBar>
+              </>
+            ) : billingPlan?.checkoutUrl ? (
+              <>
+                <p
+                  style={{
+                    margin: 0,
+                    color: ndwTokens.colors.textSecondary,
+                    fontSize: ndwTokens.typography.sizes.body,
+                    lineHeight:
+                      ndwTokens.typography.lineHeights.normal,
+                  }}
+                >
+                  Piano richiesto:{" "}
+                  <strong
+                    style={{
+                      color: ndwTokens.colors.textPrimary,
+                    }}
+                  >
+                    {moduleDefinition.requiredPlan}
+                  </strong>
+                </p>
+
+                <NdwActionBar align="left">
+                  <a
+                    href={billingPlan.checkoutUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minHeight: 42,
+                      padding: "0 16px",
+                      borderRadius: ndwTokens.radius.md,
+                      background: accent.accent,
+                      border: `1px solid ${accent.accent}`,
+                      color: ndwTokens.colors.textPrimary,
+                      textDecoration: "none",
+                      fontSize: ndwTokens.typography.sizes.body,
+                      fontWeight:
+                        ndwTokens.typography.weights.black,
+                    }}
+                  >
+                    Vai al checkout
+                  </a>
+
+                  <Link
+                    href="/app"
+                    style={{ textDecoration: "none" }}
+                  >
+                    <NdwButton variant="secondary">
+                      Torna alla dashboard
+                    </NdwButton>
+                  </Link>
+                </NdwActionBar>
+              </>
             ) : (
               <NdwActionBar align="left">
                 <p
                   style={{
                     margin: 0,
                     color: ndwTokens.colors.danger,
-                    fontWeight: ndwTokens.typography.weights.bold,
+                    fontWeight:
+                      ndwTokens.typography.weights.bold,
                   }}
                 >
-                  Checkout non ancora configurato per questo modulo.
+                  Checkout non ancora configurato per questo
+                  modulo.
                 </p>
 
-                <Link href="/app" style={{ textDecoration: "none" }}>
-                  <NdwButton variant="secondary">Torna alla dashboard</NdwButton>
+                <Link
+                  href="/app"
+                  style={{ textDecoration: "none" }}
+                >
+                  <NdwButton variant="secondary">
+                    Torna alla dashboard
+                  </NdwButton>
                 </Link>
               </NdwActionBar>
             )}

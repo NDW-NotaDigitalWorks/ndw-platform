@@ -6,16 +6,28 @@ export type RouteProFounderAssignment = {
   founderNumber: number | null;
 };
 
+type RouteProEnvironment = "sandbox" | "production";
+
+function getRouteProEnvironment(): RouteProEnvironment {
+  return process.env.WHOP_ENVIRONMENT === "sandbox"
+    ? "sandbox"
+    : "production";
+}
+
 export async function getRouteProFounderCount(): Promise<number> {
   const supabase = createAdminClient();
+  const environment = getRouteProEnvironment();
 
   const { data, error } = await supabase.rpc(
     "get_routepro_founder_count",
+    {
+      p_environment: environment,
+    },
   );
 
   if (error) {
     throw new Error(
-      `Failed to read RoutePro founder count: ${error.message}`,
+      `Failed to read RoutePro founder count (${environment}): ${error.message}`,
     );
   }
 
@@ -23,7 +35,7 @@ export async function getRouteProFounderCount(): Promise<number> {
 
   if (!Number.isFinite(count) || count < 0) {
     throw new Error(
-      `Invalid RoutePro founder count: ${String(data)}`,
+      `Invalid RoutePro founder count (${environment}): ${String(data)}`,
     );
   }
 
@@ -42,10 +54,12 @@ export async function assignRouteProFounder(params: {
   whopEventId: string;
 }): Promise<RouteProFounderAssignment> {
   const supabase = createAdminClient();
+  const environment = getRouteProEnvironment();
 
   const { data, error } = await supabase.rpc(
     "assign_routepro_founder",
     {
+      p_environment: environment,
       p_user_id: params.userId,
       p_whop_plan_id: params.whopPlanId,
       p_whop_event_id: params.whopEventId,
@@ -54,7 +68,7 @@ export async function assignRouteProFounder(params: {
 
   if (error) {
     throw new Error(
-      `Failed to assign RoutePro founder: ${error.message}`,
+      `Failed to assign RoutePro founder (${environment}): ${error.message}`,
     );
   }
 
@@ -72,7 +86,7 @@ export async function assignRouteProFounder(params: {
     founderNumber > ROUTEPRO_FOUNDER_LIMIT
   ) {
     throw new Error(
-      `Invalid RoutePro founder number: ${String(data)}`,
+      `Invalid RoutePro founder number (${environment}): ${String(data)}`,
     );
   }
 

@@ -117,17 +117,6 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * Regola commerciale RoutePro:
-     *
-     * - chi è già stato pagante non può riottenere
-     *   il prezzo Founding Driver;
-     *
-     * - chi non è mai stato pagante può ottenere
-     *   Founder finché non sono stati assegnati 100 posti;
-     *
-     * - dopo i 100 Founder si passa allo Standard.
-     */
     let offer: RouteProOffer = "standard";
 
     if (!entitlement?.has_had_paid_access) {
@@ -181,6 +170,22 @@ export async function POST(request: Request) {
     const whop = getWhopClient();
     const environment = getWhopEnvironment();
 
+    console.log(
+      "ROUTEPRO CHECKOUT BEFORE CREATE",
+      JSON.stringify(
+        {
+          environment,
+          offer,
+          founderPlanId,
+          standardPlanId,
+          selectedPlanId,
+          productId,
+        },
+        null,
+        2,
+      ),
+    );
+
     const checkout =
       await whop.checkoutConfigurations.create({
         plan_id: selectedPlanId,
@@ -199,12 +204,32 @@ export async function POST(request: Request) {
         },
       });
 
+    console.log(
+      "ROUTEPRO CHECKOUT AFTER CREATE",
+      JSON.stringify(
+        {
+          environment,
+          offer,
+          selectedPlanId,
+          checkoutId: checkout.id,
+          checkout,
+        },
+        null,
+        2,
+      ),
+    );
+
     return NextResponse.json({
       ok: true,
       sessionId: checkout.id,
       returnUrl,
       environment,
       offer,
+      diagnostic: {
+        founderPlanId,
+        standardPlanId,
+        selectedPlanId,
+      },
     });
   } catch (error) {
     console.error(

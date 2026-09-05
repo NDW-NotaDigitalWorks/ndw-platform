@@ -170,22 +170,6 @@ export async function POST(request: Request) {
     const whop = getWhopClient();
     const environment = getWhopEnvironment();
 
-    console.log(
-      "ROUTEPRO CHECKOUT BEFORE CREATE",
-      JSON.stringify(
-        {
-          environment,
-          offer,
-          founderPlanId,
-          standardPlanId,
-          selectedPlanId,
-          productId,
-        },
-        null,
-        2,
-      ),
-    );
-
     const checkout =
       await whop.checkoutConfigurations.create({
         plan_id: selectedPlanId,
@@ -204,32 +188,12 @@ export async function POST(request: Request) {
         },
       });
 
-    console.log(
-      "ROUTEPRO CHECKOUT AFTER CREATE",
-      JSON.stringify(
-        {
-          environment,
-          offer,
-          selectedPlanId,
-          checkoutId: checkout.id,
-          checkout,
-        },
-        null,
-        2,
-      ),
-    );
-
     return NextResponse.json({
       ok: true,
       sessionId: checkout.id,
       returnUrl,
       environment,
       offer,
-      diagnostic: {
-        founderPlanId,
-        standardPlanId,
-        selectedPlanId,
-      },
     });
   } catch (error) {
     console.error(

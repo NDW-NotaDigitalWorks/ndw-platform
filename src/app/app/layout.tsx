@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getLoginUrl, getSafeNextPath } from "@/lib/auth/auth-url";
 import { getMyCoreAccessState } from "@/modules/core/server/core-access";
 import { getMyActiveModuleKeys } from "@/modules/core/server/module-entitlements";
 import { getEnabledModules } from "@/modules/registry/registry.queries";
@@ -12,10 +13,14 @@ function isOwnerRole(role: string | null | undefined): boolean {
 }
 
 function getCurrentPathname(headersList: Headers) {
-  return (
-    headersList.get("x-current-path") ??
-    headersList.get("next-url") ??
-    "/app"
+  return headersList.get("x-current-path") ?? "/app";
+}
+
+function getAuthNext(headersList: Headers) {
+  return getSafeNextPath(
+    headersList.get("x-auth-next") ??
+      headersList.get("x-current-path") ??
+      "/app",
   );
 }
 
@@ -24,10 +29,19 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const headersList = await headers();
+  const pathname = getCurrentPathname(headersList);
+  const authNext = getAuthNext(headersList);
+
   const access = await getMyCoreAccessState();
 
-  if (!access.isAuthenticated) redirect("/login");
-  if (!access.isActiveAccount) redirect("/account-disabled");
+  if (!access.isAuthenticated) {
+    redirect(getLoginUrl(authNext));
+  }
+
+  if (!access.isActiveAccount) {
+    redirect("/account-disabled");
+  }
 
   const enabledModules = getEnabledModules();
   const activeKeys = await getMyActiveModuleKeys();
@@ -38,8 +52,6 @@ export default async function AppLayout({
   );
 
   const isOwner = isOwnerRole(access.profile?.role);
-  const headersList = await headers();
-  const pathname = getCurrentPathname(headersList);
 
   return (
     <>
@@ -116,7 +128,13 @@ export default async function AppLayout({
             boxShadow: ndwTokens.shadows.sm,
           }}
         >
-          <Link href="/app" style={{ textDecoration: "none", color: "inherit" }}>
+          <Link
+            href="/app"
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
             <NdwBrand />
           </Link>
 
@@ -192,7 +210,11 @@ export default async function AppLayout({
               Gestisci account
             </Link>
 
-            <form action="/auth/logout" method="post" style={{ marginTop: 12 }}>
+            <form
+              action="/auth/logout"
+              method="post"
+              style={{ marginTop: 12 }}
+            >
               <button
                 type="submit"
                 style={{
@@ -229,7 +251,13 @@ export default async function AppLayout({
             zIndex: ndwTokens.zIndex.sticky,
           }}
         >
-          <Link href="/app" style={{ textDecoration: "none", color: "inherit" }}>
+          <Link
+            href="/app"
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+            }}
+          >
             <div>
               <strong
                 style={{

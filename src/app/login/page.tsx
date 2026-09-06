@@ -1,6 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { PasswordField } from "@/components/auth/PasswordField";
+import {
+  getLoginUrl,
+  getSafeNextPath,
+} from "@/lib/auth/auth-url";
 import { createClient } from "@/lib/supabase/server";
 import { ndwTokens } from "@/styles/ndw/ndw-tokens";
 
@@ -8,6 +12,7 @@ type LoginPageProps = {
   searchParams: Promise<{
     error?: string;
     mode?: string;
+    next?: string;
     "signup-email-sent"?: string;
     "reset-email"?: string;
     "password-updated"?: string;
@@ -25,9 +30,22 @@ export default async function LoginPage({
   } = await supabase.auth.getUser();
 
   const signupMode = params.mode === "signup";
-  const signupEmailSent = params["signup-email-sent"] === "1";
+  const signupEmailSent =
+    params["signup-email-sent"] === "1";
   const resetEmail = params["reset-email"] === "1";
-  const passwordUpdated = params["password-updated"] === "1";
+  const passwordUpdated =
+    params["password-updated"] === "1";
+
+  const next = getSafeNextPath(params.next);
+
+  const googleUrl =
+    next === "/app"
+      ? "/auth/google"
+      : `/auth/google?next=${encodeURIComponent(next)}`;
+
+  const switchModeUrl = signupMode
+    ? getLoginUrl(next)
+    : getLoginUrl(next, { signup: true });
 
   const errorMessage =
     params.error === "password-mismatch"
@@ -166,9 +184,11 @@ export default async function LoginPage({
               }}
             >
               <strong>Controlla la tua email.</strong>
+
               <div style={{ marginTop: 6 }}>
-                Ti abbiamo inviato il link per verificare il tuo account
-                NDW. Dopo la conferma potrai accedere a RoutePro.
+                Ti abbiamo inviato il link per verificare il
+                tuo account NDW. Dopo la conferma potrai
+                continuare nel workspace.
               </div>
             </div>
           ) : null}
@@ -205,14 +225,19 @@ export default async function LoginPage({
 
           {user ? (
             <div style={{ marginTop: 24 }}>
-              <p style={{ color: ndwTokens.colors.textSecondary }}>
+              <p
+                style={{
+                  color: ndwTokens.colors.textSecondary,
+                }}
+              >
                 Sei già loggato come:
               </p>
 
               <p
                 style={{
                   color: ndwTokens.colors.textPrimary,
-                  fontWeight: ndwTokens.typography.weights.black,
+                  fontWeight:
+                    ndwTokens.typography.weights.black,
                   wordBreak: "break-word",
                 }}
               >
@@ -227,7 +252,7 @@ export default async function LoginPage({
                 }}
               >
                 <Link
-                  href="/app"
+                  href={next}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
@@ -238,10 +263,11 @@ export default async function LoginPage({
                     background: ndwTokens.colors.primary,
                     color: "#ffffff",
                     textDecoration: "none",
-                    fontWeight: ndwTokens.typography.weights.black,
+                    fontWeight:
+                      ndwTokens.typography.weights.black,
                   }}
                 >
-                  Vai al workspace
+                  Continua
                 </Link>
 
                 <form action="/auth/logout" method="post">
@@ -252,9 +278,11 @@ export default async function LoginPage({
                       padding: "0 16px",
                       borderRadius: ndwTokens.radius.md,
                       border: `1px solid ${ndwTokens.colors.borderStrong}`,
-                      background: ndwTokens.colors.surfaceRaised,
+                      background:
+                        ndwTokens.colors.surfaceRaised,
                       color: ndwTokens.colors.textPrimary,
-                      fontWeight: ndwTokens.typography.weights.bold,
+                      fontWeight:
+                        ndwTokens.typography.weights.bold,
                       cursor: "pointer",
                     }}
                   >
@@ -266,7 +294,7 @@ export default async function LoginPage({
           ) : (
             <div style={{ marginTop: 24 }}>
               <Link
-                href="/auth/google"
+                href={googleUrl}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -277,7 +305,8 @@ export default async function LoginPage({
                   background: ndwTokens.colors.surfaceRaised,
                   color: ndwTokens.colors.textPrimary,
                   fontSize: ndwTokens.typography.sizes.body,
-                  fontWeight: ndwTokens.typography.weights.black,
+                  fontWeight:
+                    ndwTokens.typography.weights.black,
                   textDecoration: "none",
                 }}
               >
@@ -296,15 +325,27 @@ export default async function LoginPage({
               </div>
 
               <form
-                action={signupMode ? "/auth/signup" : "/auth/signin"}
+                action={
+                  signupMode
+                    ? "/auth/signup"
+                    : "/auth/signin"
+                }
                 method="post"
               >
+                <input
+                  type="hidden"
+                  name="next"
+                  value={next}
+                />
+
                 <label
                   style={{
                     display: "block",
                     color: ndwTokens.colors.textSecondary,
-                    fontSize: ndwTokens.typography.sizes.small,
-                    fontWeight: ndwTokens.typography.weights.bold,
+                    fontSize:
+                      ndwTokens.typography.sizes.small,
+                    fontWeight:
+                      ndwTokens.typography.weights.bold,
                   }}
                 >
                   Email
@@ -321,9 +362,11 @@ export default async function LoginPage({
                       padding: "0 14px",
                       borderRadius: ndwTokens.radius.md,
                       border: `1px solid ${ndwTokens.colors.borderStrong}`,
-                      background: ndwTokens.colors.surfaceRaised,
+                      background:
+                        ndwTokens.colors.surfaceRaised,
                       color: ndwTokens.colors.textPrimary,
-                      fontSize: ndwTokens.typography.sizes.body,
+                      fontSize:
+                        ndwTokens.typography.sizes.body,
                       boxSizing: "border-box",
                     }}
                   />
@@ -351,13 +394,17 @@ export default async function LoginPage({
                     borderRadius: ndwTokens.radius.md,
                     background: ndwTokens.colors.primary,
                     color: "#ffffff",
-                    fontSize: ndwTokens.typography.sizes.body,
-                    fontWeight: ndwTokens.typography.weights.black,
+                    fontSize:
+                      ndwTokens.typography.sizes.body,
+                    fontWeight:
+                      ndwTokens.typography.weights.black,
                     cursor: "pointer",
                     boxShadow: ndwTokens.shadows.accent,
                   }}
                 >
-                  {signupMode ? "Crea account" : "Accedi"}
+                  {signupMode
+                    ? "Crea account"
+                    : "Accedi"}
                 </button>
               </form>
 
@@ -369,15 +416,12 @@ export default async function LoginPage({
                 }}
               >
                 <Link
-                  href={
-                    signupMode
-                      ? "/login"
-                      : "/login?mode=signup"
-                  }
+                  href={switchModeUrl}
                   style={{
                     color: ndwTokens.colors.primary,
                     textDecoration: "none",
-                    fontWeight: ndwTokens.typography.weights.bold,
+                    fontWeight:
+                      ndwTokens.typography.weights.bold,
                   }}
                 >
                   {signupMode
@@ -390,8 +434,10 @@ export default async function LoginPage({
                     <summary
                       style={{
                         cursor: "pointer",
-                        color: ndwTokens.colors.textSecondary,
-                        fontWeight: ndwTokens.typography.weights.bold,
+                        color:
+                          ndwTokens.colors.textSecondary,
+                        fontWeight:
+                          ndwTokens.typography.weights.bold,
                       }}
                     >
                       Password dimenticata?
@@ -411,10 +457,15 @@ export default async function LoginPage({
                           width: "100%",
                           minHeight: 44,
                           padding: "0 14px",
-                          borderRadius: ndwTokens.radius.md,
+                          borderRadius:
+                            ndwTokens.radius.md,
                           border: `1px solid ${ndwTokens.colors.borderStrong}`,
-                          background: ndwTokens.colors.surfaceRaised,
-                          color: ndwTokens.colors.textPrimary,
+                          background:
+                            ndwTokens.colors
+                              .surfaceRaised,
+                          color:
+                            ndwTokens.colors
+                              .textPrimary,
                           boxSizing: "border-box",
                         }}
                       />
@@ -425,11 +476,16 @@ export default async function LoginPage({
                           marginTop: 10,
                           width: "100%",
                           minHeight: 44,
-                          borderRadius: ndwTokens.radius.md,
+                          borderRadius:
+                            ndwTokens.radius.md,
                           border: `1px solid ${ndwTokens.colors.borderStrong}`,
                           background: "transparent",
-                          color: ndwTokens.colors.textPrimary,
-                          fontWeight: ndwTokens.typography.weights.bold,
+                          color:
+                            ndwTokens.colors
+                              .textPrimary,
+                          fontWeight:
+                            ndwTokens.typography.weights
+                              .bold,
                           cursor: "pointer",
                         }}
                       >

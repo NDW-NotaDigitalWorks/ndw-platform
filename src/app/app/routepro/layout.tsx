@@ -1,10 +1,48 @@
-﻿import Link from "next/link";
+﻿import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { userHasModuleAccess } from "@/modules/core/server/module-entitlements";
 import { ndwModuleAccents } from "@/styles/ndw/ndw-module-accents";
 import { ndwTokens } from "@/styles/ndw/ndw-tokens";
+
+export const metadata: Metadata = {
+  title: "RoutePro",
+  description:
+    "Import your stops. Review your route. Drive smarter.",
+  applicationName: "RoutePro",
+  manifest: "/brand/routepro/manifest.webmanifest",
+
+  icons: {
+    icon: [
+      {
+        url: "/brand/routepro/routepro-icon-192.png",
+        type: "image/png",
+        sizes: "192x192",
+      },
+      {
+        url: "/brand/routepro/routepro-icon-512.png",
+        type: "image/png",
+        sizes: "512x512",
+      },
+    ],
+    shortcut: "/brand/routepro/routepro-icon-192.png",
+    apple: [
+      {
+        url: "/brand/routepro/routepro-apple-touch-icon.png",
+        type: "image/png",
+        sizes: "180x180",
+      },
+    ],
+  },
+
+  appleWebApp: {
+    capable: true,
+    title: "RoutePro",
+    statusBarStyle: "black-translucent",
+  },
+};
 
 function getRemainingDays(expiresAt: string): number {
   const expires = new Date(expiresAt).getTime();

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import { ndwModuleAccents } from "@/styles/ndw/ndw-module-accents";
 import { ndwTokens } from "@/styles/ndw/ndw-tokens";
 
@@ -24,23 +25,12 @@ const brandStyle: CSSProperties = {
 };
 
 const logoStyle: CSSProperties = {
-  width: 46,
-  height: 46,
-  borderRadius: ndwTokens.radius.lg,
-  background: `linear-gradient(
-    135deg,
-    ${accent.accent} 0%,
-    ${accent.accentHighlight} 100%
-  )`,
+  width: 48,
+  height: 48,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  color: ndwTokens.colors.textPrimary,
-  fontWeight: 950,
-  fontSize: 16,
-  letterSpacing: "-0.03em",
-  boxShadow: "0 14px 30px rgba(255,122,0,0.28)",
-  border: "1px solid rgba(255,255,255,0.18)",
+  flexShrink: 0,
 };
 
 const titleStyle: CSSProperties = {
@@ -66,7 +56,20 @@ export function RouteProHeader({
   return (
     <div style={headerStyle}>
       <div style={brandStyle}>
-        <div style={logoStyle}>RP</div>
+        <div style={logoStyle}>
+          <Image
+            src="/brand/routepro/routepro-symbol-master.png"
+            alt="RoutePro"
+            width={48}
+            height={48}
+            priority
+            style={{
+              width: "48px",
+              height: "48px",
+              objectFit: "contain",
+            }}
+          />
+        </div>
 
         <div>
           <strong style={titleStyle}>{title}</strong>

@@ -30,9 +30,9 @@ export const BILLING_MODULE_PLANS: BillingModulePlan[] = [
   {
     moduleKey: "routepro",
     planCode: "pro",
-    label: "RoutePro Pro",
+    label: "RoutePro",
     provider: "whop",
-    checkoutUrl: "https://whop.com/ndw-nota-digital-works/routepro-pro/",
+    checkoutUrl: "/app/checkout/routepro",
   },
   {
     moduleKey: "routepro",
@@ -48,6 +48,6 @@ export function getBillingPlansForModule(moduleKey: string) {
 
 export function getPrimaryBillingPlanForModule(moduleKey: string) {
   return BILLING_MODULE_PLANS.find(
-    (plan) => plan.moduleKey === moduleKey && plan.checkoutUrl
+    (plan) => plan.moduleKey === moduleKey && plan.checkoutUrl,
   );
 }

@@ -1,14 +1,28 @@
+import {
+  getLoginUrl,
+  getSafeNextPath,
+} from "@/lib/auth/auth-url";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
 export async function POST(request: Request) {
   const formData = await request.formData();
 
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+
   const password = String(formData.get("password") ?? "");
+  const next = getSafeNextPath(
+    String(formData.get("next") ?? ""),
+  );
 
   if (!email || !password) {
-    redirect("/login?error=invalid-login");
+    redirect(
+      getLoginUrl(next, {
+        error: "invalid-login",
+      }),
+    );
   }
 
   const supabase = await createClient();
@@ -20,8 +34,13 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("Signin error:", error.message);
-    redirect("/login?error=signin");
+
+    redirect(
+      getLoginUrl(next, {
+        error: "signin",
+      }),
+    );
   }
 
-  redirect("/app");
+  redirect(next);
 }

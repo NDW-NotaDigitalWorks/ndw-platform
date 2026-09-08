@@ -5,6 +5,9 @@ export const ROUTEPRO_AI_SCREENSHOTS_PER_BATCH = 5;
 export const ROUTEPRO_AI_BATCH_CONCURRENCY = 3;
 export const ROUTEPRO_AI_BATCH_MAX_RETRIES = 2;
 
+const ROUTEPRO_AI_SERVICE_ERROR_MESSAGE =
+  "Il servizio AI di RoutePro è temporaneamente non disponibile. Riprova tra qualche minuto.";
+
 export type RouteProAiBatchResult = {
   batchIndex: number;
   batchTotal: number;
@@ -46,11 +49,28 @@ function scoreStop(stop: RouteProAiExtractedStop): number {
     Number.isFinite(stop.interpretationConfidence)
   ) {
     score += Math.round(
-      Math.min(1, Math.max(0, stop.interpretationConfidence)) * 20,
+      Math.min(
+        1,
+        Math.max(0, stop.interpretationConfidence),
+      ) * 20,
     );
   }
 
   return score;
+}
+
+function isNonRetryableOpenAiError(message: string): boolean {
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes("insufficient_quota") ||
+    normalized.includes("organization_usage_limit_exceeded") ||
+    normalized.includes("organization_spend_limit_exceeded") ||
+    normalized.includes("project_spend_limit_exceeded") ||
+    normalized.includes("invalid_api_key") ||
+    normalized.includes("incorrect api key") ||
+    normalized.includes("invalid authentication")
+  );
 }
 
 async function analyzeBatchWithRetry(
@@ -60,14 +80,21 @@ async function analyzeBatchWithRetry(
 ): Promise<RouteProAiBatchResult> {
   let lastError: string | null = null;
 
-  for (let attempt = 1; attempt <= ROUTEPRO_AI_BATCH_MAX_RETRIES + 1; attempt += 1) {
+  for (
+    let attempt = 1;
+    attempt <= ROUTEPRO_AI_BATCH_MAX_RETRIES + 1;
+    attempt += 1
+  ) {
     try {
-      const stops = await extractRouteProStopsWithOpenAiVision(batchFiles);
+      const stops =
+        await extractRouteProStopsWithOpenAiVision(batchFiles);
 
       return {
         batchIndex,
         batchTotal,
-        fileNames: batchFiles.map((file) => file.name),
+        fileNames: batchFiles.map(
+          (file) => file.name,
+        ),
         stops,
         error: null,
       };
@@ -76,40 +103,93 @@ async function analyzeBatchWithRetry(
         error instanceof Error
           ? error.message
           : `Errore batch ${batchIndex}, tentativo ${attempt}`;
+
+      console.error("RoutePro AI batch error:", {
+        batchIndex,
+        batchTotal,
+        attempt,
+        fileNames: batchFiles.map(
+          (file) => file.name,
+        ),
+        error: lastError,
+      });
+
+      /*
+       * Errori di configurazione / credito / quota non migliorano
+       * effettuando altri tentativi immediati.
+       *
+       * Li fermiamo subito, evitando chiamate inutili.
+       */
+      if (isNonRetryableOpenAiError(lastError)) {
+        throw new Error(
+          ROUTEPRO_AI_SERVICE_ERROR_MESSAGE,
+        );
+      }
     }
   }
 
-  return {
-    batchIndex,
-    batchTotal,
-    fileNames: batchFiles.map((file) => file.name),
-    stops: [],
-    error: lastError,
-  };
+  /*
+   * GO LIVE SAFETY:
+   *
+   * Non permettiamo mai che un batch fallito venga trasformato
+   * silenziosamente in "0 stop".
+   *
+   * Una rotta parziale potrebbe far perdere consegne visibili
+   * negli screenshot. Se tutti i retry di un batch falliscono,
+   * fermiamo quindi l'intera analisi.
+   */
+  console.error(
+    "RoutePro AI batch failed after all retries:",
+    {
+      batchIndex,
+      batchTotal,
+      fileNames: batchFiles.map(
+        (file) => file.name,
+      ),
+      error: lastError,
+    },
+  );
+
+  throw new Error(
+    ROUTEPRO_AI_SERVICE_ERROR_MESSAGE,
+  );
 }
 
 export function mergeRouteProAiBatchStops(
   batchResults: RouteProAiBatchResult[],
 ): RouteProAiExtractedStop[] {
-  const merged = new Map<number, RouteProAiExtractedStop>();
+  const merged = new Map<
+    number,
+    RouteProAiExtractedStop
+  >();
 
   for (const batch of batchResults) {
     for (const stop of batch.stops) {
-      const existing = merged.get(stop.originalStopNumber);
+      const existing = merged.get(
+        stop.originalStopNumber,
+      );
 
       if (!existing) {
-        merged.set(stop.originalStopNumber, stop);
+        merged.set(
+          stop.originalStopNumber,
+          stop,
+        );
         continue;
       }
 
       if (scoreStop(stop) > scoreStop(existing)) {
-        merged.set(stop.originalStopNumber, stop);
+        merged.set(
+          stop.originalStopNumber,
+          stop,
+        );
       }
     }
   }
 
   return Array.from(merged.values()).sort(
-    (a, b) => a.originalStopNumber - b.originalStopNumber,
+    (a, b) =>
+      a.originalStopNumber -
+      b.originalStopNumber,
   );
 }
 
@@ -119,19 +199,31 @@ export async function extractRouteProStopsWithOpenAiVisionBatches(
   batchResults: RouteProAiBatchResult[];
   mergedStops: RouteProAiExtractedStop[];
 }> {
-  const batches = chunkFiles(files, ROUTEPRO_AI_SCREENSHOTS_PER_BATCH);
+  const batches = chunkFiles(
+    files,
+    ROUTEPRO_AI_SCREENSHOTS_PER_BATCH,
+  );
+
   const batchResults: RouteProAiBatchResult[] = [];
 
-  for (let index = 0; index < batches.length; index += ROUTEPRO_AI_BATCH_CONCURRENCY) {
-    const batchGroup = batches.slice(index, index + ROUTEPRO_AI_BATCH_CONCURRENCY);
+  for (
+    let index = 0;
+    index < batches.length;
+    index += ROUTEPRO_AI_BATCH_CONCURRENCY
+  ) {
+    const batchGroup = batches.slice(
+      index,
+      index + ROUTEPRO_AI_BATCH_CONCURRENCY,
+    );
 
     const groupResults = await Promise.all(
-      batchGroup.map((batchFiles, groupIndex) =>
-        analyzeBatchWithRetry(
-          batchFiles,
-          index + groupIndex + 1,
-          batches.length,
-        ),
+      batchGroup.map(
+        (batchFiles, groupIndex) =>
+          analyzeBatchWithRetry(
+            batchFiles,
+            index + groupIndex + 1,
+            batches.length,
+          ),
       ),
     );
 
@@ -144,6 +236,7 @@ export async function extractRouteProStopsWithOpenAiVisionBatches(
 
   return {
     batchResults: sortedResults,
-    mergedStops: mergeRouteProAiBatchStops(sortedResults),
+    mergedStops:
+      mergeRouteProAiBatchStops(sortedResults),
   };
 }

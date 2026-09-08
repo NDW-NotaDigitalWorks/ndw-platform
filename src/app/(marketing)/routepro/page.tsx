@@ -474,7 +474,7 @@ export default function RouteProLandingPage() {
                   }}
                 >
                   {" "}
-                  / mese + IVA
+                  / mese · IVA inclusa
                 </span>
               </div>
 
@@ -524,7 +524,7 @@ export default function RouteProLandingPage() {
                   }}
                 >
                   {" "}
-                  / mese + IVA
+                  / mese · IVA inclusa
                 </span>
               </div>
 

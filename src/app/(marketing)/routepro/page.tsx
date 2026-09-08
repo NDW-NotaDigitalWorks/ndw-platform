@@ -119,18 +119,44 @@ export default function RouteProLandingPage() {
             textAlign: "center",
           }}
         >
-          <Image
-            src="/brand/routepro/routepro-logo-horizontal.png"
-            alt="RoutePro"
-            width={420}
-            height={130}
-            priority
-            style={{
-              width: "min(320px, 78vw)",
-              height: "auto",
-              objectFit: "contain",
-            }}
-          />
+          <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "clamp(10px, 2.5vw, 18px)",
+  }}
+>
+  <Image
+    src="/brand/routepro/routepro-symbol-master.png"
+    alt=""
+    aria-hidden="true"
+    width={110}
+    height={110}
+    priority
+    style={{
+      width: "clamp(72px, 18vw, 110px)",
+      height: "auto",
+      objectFit: "contain",
+      flexShrink: 0,
+    }}
+  />
+
+  <div
+    aria-label="RoutePro"
+    style={{
+      display: "flex",
+      alignItems: "baseline",
+      fontSize: "clamp(42px, 11vw, 72px)",
+      lineHeight: 1,
+      letterSpacing: "-0.055em",
+      fontWeight: 950,
+    }}
+  >
+    <span style={{ color: "#FFFFFF" }}>Route</span>
+    <span style={{ color: routePro.accent }}>Pro</span>
+  </div>
+</div>
 
           <div
             style={{
@@ -156,7 +182,7 @@ export default function RouteProLandingPage() {
                 boxShadow: `0 0 16px ${routePro.accent}`,
               }}
             />
-            Delivery workflow per driver
+            Workflow di consegna per driver
           </div>
 
           <h1

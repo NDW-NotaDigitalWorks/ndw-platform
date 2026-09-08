@@ -28,6 +28,10 @@ export default async function AccountPage() {
 
   const activeModuleKeys = await getMyActiveModuleKeys();
 
+  const managePlanHref = activeModuleKeys.includes("routepro")
+  ? "/app/upgrade?module=routepro"
+  : "/app/upgrade";
+
   const provider =
     user?.app_metadata?.provider ??
     user?.identities?.[0]?.provider ??
@@ -248,7 +252,7 @@ export default async function AccountPage() {
           </div>
 
           <Link
-            href="/app/upgrade"
+  href={managePlanHref}
             style={{
               display: "inline-flex",
               alignItems: "center",

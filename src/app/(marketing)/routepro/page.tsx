@@ -257,7 +257,7 @@ export default function RouteProLandingPage() {
                 display: "grid",
                 gridTemplateColumns:
                   "repeat(6, minmax(0, 1fr))",
-                gap: 8,
+                gap: 4,
                 alignItems: "start",
               }}
             >
@@ -303,14 +303,14 @@ export default function RouteProLandingPage() {
                   <div
                     style={{
                       marginTop: 8,
-                      fontSize: "clamp(8px, 2.3vw, 12px)",
-                      fontWeight: 850,
-                      color:
-                        index === 0
-                          ? routePro.accentText
-                          : ndwTokens.colors.textSecondary,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
+                      fontSize: "clamp(7px, 2.1vw, 11px)",
+fontWeight: 850,
+color:
+  index === 0
+    ? routePro.accentText
+    : ndwTokens.colors.textSecondary,
+whiteSpace: "nowrap",
+overflow: "visible",
                     }}
                   >
                     {step}

@@ -486,15 +486,15 @@ const hero = getDriverHeroState(routeToResume);
       <div style={{ marginTop: ndwTokens.spacing["3xl"] }}>
         <NdwSectionHeader
           eyebrow="RoutePro"
-          title="Recent Routes"
-          subtitle="Continue a workflow or review your latest delivery sessions."
+          title="Rotte recenti"
+          subtitle="Continua una rotta oppure consulta le tue ultime sessioni di consegna."
         />
 
         {routes.length === 0 ? (
           <NdwEmptyState
             eyebrow="Nessuna rotta"
-            title="No delivery day prepared yet"
-            description="Create your first route, import stops, review addresses, optimize the sequence and start driving."
+            title="Nessuna giornata di consegna preparata"
+            description="Crea la tua prima rotta, importa gli stop, verifica gli indirizzi, ottimizza la sequenza e inizia le consegne."
             action={
               <Link href="/app/routepro/new" style={routeProUi.primaryButton}>
   Crea la prima rotta
@@ -555,10 +555,10 @@ const hero = getDriverHeroState(routeToResume);
                       }}
                     >
                       {route.status === "completed"
-                        ? "Delivery session completed"
+                        ? "Sessione di consegna completata"
                         : route.is_optimized
-                          ? "Route optimized and ready to drive"
-                          : "Route preparation in progress"}
+                          ? "Rotta ottimizzata e pronta per le consegne"
+                          : "Preparazione della rotta in corso"}
                     </p>
 
                     <div style={compactMetaRowStyle}>
@@ -585,8 +585,8 @@ const hero = getDriverHeroState(routeToResume);
                         style={routeProUi.primaryButton}
                       >
                         {route.status === "completed"
-                          ? "View Summary"
-                          : "Continue Workflow"}
+                          ? "Visualizza riepilogo"
+                          : "Continua workflow"}
                       </Link>
 
                       {route.status !== "completed" ? (

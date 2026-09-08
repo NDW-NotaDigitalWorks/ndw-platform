@@ -15,19 +15,18 @@ const wrapperStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   width: "100%",
-  marginTop: 22,
-  padding: "4px 2px 2px",
-  overflowX: "auto",
-  scrollbarWidth: "thin",
+  marginTop: 18,
+  padding: "4px 0 2px",
+  overflow: "hidden",
 };
 
 const stepWrapperStyle: CSSProperties = {
   position: "relative",
-  flex: "1 0 94px",
+  flex: "1 1 0",
+  minWidth: 0,
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
-  minWidth: 94,
 };
 
 const stepTopStyle: CSSProperties = {
@@ -36,30 +35,34 @@ const stepTopStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  width: 30,
-  height: 30,
+  width: 28,
+  height: 28,
   borderRadius: 999,
   border: "2px solid transparent",
-  fontSize: 12,
+  fontSize: 11,
   lineHeight: 1,
   fontWeight: 950,
   boxSizing: "border-box",
 };
 
 const labelStyle: CSSProperties = {
-  marginTop: 7,
-  fontSize: 11,
-  lineHeight: 1.25,
+  marginTop: 6,
+  padding: "0 2px",
+  maxWidth: "100%",
+  fontSize: "clamp(8px, 2.5vw, 11px)",
+  lineHeight: 1.15,
   fontWeight: 850,
   textAlign: "center",
   whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "clip",
 };
 
 const connectorBaseStyle: CSSProperties = {
   position: "absolute",
-  top: 14,
-  left: "calc(50% + 15px)",
-  width: "calc(100% - 30px)",
+  top: 13,
+  left: "calc(50% + 14px)",
+  width: "calc(100% - 28px)",
   height: 2,
   borderRadius: 999,
 };
@@ -78,13 +81,13 @@ function getCircleStyle(status: StepStatus): CSSProperties {
   if (status === "current") {
     return {
       ...stepTopStyle,
-      width: 34,
-      height: 34,
+      width: 32,
+      height: 32,
       marginTop: -2,
       background: "#f97316",
       color: "#ffffff",
       borderColor: "#fdba74",
-      boxShadow: "0 0 0 5px rgba(249,115,22,0.12)",
+      boxShadow: "0 0 0 4px rgba(249,115,22,0.12)",
     };
   }
 

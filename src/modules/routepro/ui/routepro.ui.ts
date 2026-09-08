@@ -11,7 +11,7 @@ export const routeProUi = {
   } satisfies CSSProperties,
 
   hero: {
-    padding: ndwTokens.spacing["3xl"],
+    padding: "clamp(18px, 5vw, 48px)",
     borderRadius: ndwTokens.radius["2xl"],
     background: `
       radial-gradient(circle at top right, ${accent.accentSoft} 0%, transparent 32%),
@@ -43,18 +43,18 @@ export const routeProUi = {
   } satisfies CSSProperties,
 
   heroTitle: {
-    margin: "20px 0 0",
-    fontSize: 44,
-    lineHeight: ndwTokens.typography.lineHeights.tight,
+    margin: "14px 0 0",
+    fontSize: "clamp(30px, 8vw, 44px)",
+    lineHeight: 1.02,
     letterSpacing: "-0.04em",
     color: ndwTokens.colors.textPrimary,
     fontWeight: ndwTokens.typography.weights.black,
   } satisfies CSSProperties,
 
   heroSubtitle: {
-    margin: "14px 0 0",
+    margin: "12px 0 0",
     maxWidth: 760,
-    fontSize: ndwTokens.typography.sizes.bodyLarge,
+    fontSize: "clamp(14px, 3.8vw, 18px)",
     lineHeight: ndwTokens.typography.lineHeights.normal,
     color: ndwTokens.colors.textSecondary,
   } satisfies CSSProperties,

@@ -168,50 +168,11 @@ export async function POST(request: Request) {
         files,
       );
 
-    console.info(
-      "RoutePro AI Batch Diagnostic:",
-      JSON.stringify(
-        batchResults.map((batch) => ({
-          batchIndex: batch.batchIndex,
-          batchTotal: batch.batchTotal,
-          fileNames: batch.fileNames,
-          extractedStops: batch.stops.length,
-        })),
-        null,
-        2,
-      ),
-    );
 
+      
     const stops = mergedStops;
 
-    console.info(
-      "RoutePro AI Address Intelligence Diagnostic:",
-      JSON.stringify(
-        stops.map((stop) => ({
-          originalStopNumber:
-            stop.originalStopNumber,
-          addressRaw: stop.addressRaw,
-          interpretedAddress:
-            stop.interpretedAddress ?? null,
-          street: stop.street ?? null,
-          houseNumber: stop.houseNumber ?? null,
-          locality: stop.locality ?? null,
-          municipality: stop.municipality ?? null,
-          province: stop.province ?? null,
-          postalCode: stop.postalCode ?? null,
-          countryCode: stop.countryCode ?? null,
-          interpretationConfidence:
-            stop.interpretationConfidence ?? null,
-          city: stop.city ?? null,
-          confidence: stop.confidence,
-          isPlaceholder: stop.isPlaceholder,
-          needsReviewReason:
-            stop.needsReviewReason ?? null,
-        })),
-        null,
-        2,
-      ),
-    );
+
 
     const batchSummaries = batchResults.map(
       (batch) => ({

@@ -364,68 +364,77 @@ export async function getRouteProUsageState(
     };
   }
 
-  const supabase = createAdminClient();
+    const supabase = createAdminClient();
 
-const { data: existingTrial, error: existingTrialError } = await supabase
-  .from("routepro_trials")
-  .select("id")
-  .eq("user_id", userId)
-  .maybeSingle();
+  const { data: existingTrial, error: existingTrialError } = await supabase
+    .from("routepro_trials")
+    .select("id,started_at,expires_at,routes_used,routes_limit,status")
+    .eq("user_id", userId)
+    .maybeSingle();
 
-if (existingTrialError) {
-  throw new Error(
-    `RoutePro existing trial lookup failed: ${existingTrialError.message}`,
-  );
-}
-
-if (!existingTrial) {
-  const trialEnabled = await isRouteProTrialEnabled();
-
-  if (!trialEnabled) {
-    return {
-      allowed: false,
-      mode: "trial",
-      routesUsed: null,
-      routesLimit: null,
-      remainingRoutes: null,
-      expiresAt: null,
-      reason: "trial_disabled",
-    };
-  }
-}
-
-  const normalizedDeviceId = deviceId?.trim();
-
-  if (!normalizedDeviceId) {
-    return {
-      allowed: false,
-      mode: "trial",
-      routesUsed: null,
-      routesLimit: null,
-      remainingRoutes: null,
-      expiresAt: null,
-      reason: "trial_device_required",
-    };
+  if (existingTrialError) {
+    throw new Error(
+      `RoutePro existing trial lookup failed: ${existingTrialError.message}`,
+    );
   }
 
-  const deviceClaim = await claimRouteProTrialDevice(
-    userId,
-    normalizedDeviceId,
-  );
+  let trial = existingTrial;
 
-  if (deviceClaim === "already_used") {
-    return {
-      allowed: false,
-      mode: "trial",
-      routesUsed: null,
-      routesLimit: null,
-      remainingRoutes: null,
-      expiresAt: null,
-      reason: "trial_device_already_used",
-    };
+  /*
+   * Il device ID serve solamente per AVVIARE un nuovo trial.
+   *
+   * Una volta che il trial esiste, le operazioni server-side successive
+   * (create-route, consume usage, ecc.) devono poter verificare lo stesso
+   * trial senza richiedere nuovamente il device ID.
+   */
+  if (!trial) {
+    const trialEnabled = await isRouteProTrialEnabled();
+
+    if (!trialEnabled) {
+      return {
+        allowed: false,
+        mode: "trial",
+        routesUsed: null,
+        routesLimit: null,
+        remainingRoutes: null,
+        expiresAt: null,
+        reason: "trial_disabled",
+      };
+    }
+
+    const normalizedDeviceId = deviceId?.trim();
+
+    if (!normalizedDeviceId) {
+      return {
+        allowed: false,
+        mode: "trial",
+        routesUsed: null,
+        routesLimit: null,
+        remainingRoutes: null,
+        expiresAt: null,
+        reason: "trial_device_required",
+      };
+    }
+
+    const deviceClaim = await claimRouteProTrialDevice(
+      userId,
+      normalizedDeviceId,
+    );
+
+    if (deviceClaim === "already_used") {
+      return {
+        allowed: false,
+        mode: "trial",
+        routesUsed: null,
+        routesLimit: null,
+        remainingRoutes: null,
+        expiresAt: null,
+        reason: "trial_device_already_used",
+      };
+    }
+
+    trial = await getOrCreateTrial(userId);
   }
-
-const trial = await getOrCreateTrial(userId);
 
   const routesUsed = Number(trial.routes_used ?? 0);
   const routesLimit = Number(trial.routes_limit ?? TRIAL_ROUTE_LIMIT);

@@ -155,6 +155,15 @@ export default async function RouteProLayout({
 
   const trialStarted = Boolean(trial);
 
+  const trialEnded =
+    Boolean(trial) &&
+    (
+      trial?.status === "expired" ||
+      trial?.status === "exhausted" ||
+      remainingRoutes <= 0 ||
+      remainingDays <= 0
+    );
+
   return (
     <>
       {showTrialBanner ? (
@@ -194,7 +203,9 @@ export default async function RouteProLayout({
                   fontWeight: 950,
                 }}
               >
-                Prova gratuita RoutePro
+                {trialEnded
+                  ? "Prova gratuita terminata"
+                  : "Prova gratuita RoutePro"}
               </strong>
 
               <span
@@ -204,17 +215,19 @@ export default async function RouteProLayout({
                   fontWeight: 800,
                 }}
               >
-                {trialStarted
-                  ? `${remainingRoutes} ${
-                      remainingRoutes === 1
-                        ? "rotta rimasta"
-                        : "rotte rimaste"
-                    } · ${remainingDays} ${
-                      remainingDays === 1
-                        ? "giorno rimasto"
-                        : "giorni rimasti"
-                    }`
-                  : "7 giorni o 5 rotte"}
+                {trialEnded
+                  ? "Prova terminata"
+                  : trialStarted
+                    ? `${remainingRoutes} ${
+                        remainingRoutes === 1
+                          ? "rotta rimasta"
+                          : "rotte rimaste"
+                      } · ${remainingDays} ${
+                        remainingDays === 1
+                          ? "giorno rimasto"
+                          : "giorni rimasti"
+                      }`
+                    : "7 giorni o 5 rotte"}
               </span>
             </div>
 
@@ -226,8 +239,9 @@ export default async function RouteProLayout({
                 lineHeight: 1.4,
               }}
             >
-              Puoi attivare RoutePro in qualsiasi momento
-              senza aspettare la fine della prova.
+              {trialEnded
+                ? "La tua prova gratuita è terminata. Attiva RoutePro per creare nuove rotte."
+                : "Puoi attivare RoutePro in qualsiasi momento senza aspettare la fine della prova."}
             </p>
           </div>
 
@@ -250,7 +264,7 @@ export default async function RouteProLayout({
               boxShadow: "0 10px 24px rgba(255,122,0,0.18)",
             }}
           >
-            Attiva RoutePro ora
+            {trialEnded ? "Continua con RoutePro" : "Attiva RoutePro ora"}
           </Link>
         </div>
       ) : null}
